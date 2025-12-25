@@ -1,0 +1,248 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  name          String?
+  passwordHash  String
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  businessName  String?
+  timezone      String    @default("America/New_York")
+  widgetId      String    @unique @default(cuid())
+
+  // Relations
+  appointments      Appointment[]
+  forms             Form[]
+  formSubmissions   FormSubmission[]
+  calendars         CalendarConnection[]
+  chatbotConfig     ChatbotConfig?
+  subscription      Subscription?
+  appointmentTypes  AppointmentType[]
+  availability      Availability[]
+  dateOverrides     DateOverride[]
+  widgetConfig      WidgetConfig?
+  knowledgeBase     KnowledgeBase[]
+  conversations     Conversation[]
+}
+
+model Subscription {
+  id                String   @id @default(cuid())
+  userId            String   @unique
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan              String   // "starter", "professional", "enterprise"
+  hasAiAddon        Boolean  @default(false)
+  stripeCustomerId  String?
+  status            String   // "active", "cancelled", "past_due"
+  currentPeriodEnd  DateTime
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+model CalendarConnection {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  provider     String   // "google" or "outlook"
+  email        String
+  accessToken  String   @db.Text
+  refreshToken String   @db.Text
+  expiresAt    DateTime
+  isPrimary    Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model AppointmentType {
+  id           String        @id @default(cuid())
+  userId       String
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name         String        // "30-min Consultation"
+  description  String?
+  duration     Int           // minutes
+  color        String        @default("#3b82f6")
+  bufferBefore Int           @default(0) // minutes
+  bufferAfter  Int           @default(0) // minutes
+  active       Boolean       @default(true)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  appointments Appointment[]
+}
+
+model Availability {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  dayOfWeek    Int      // 0-6 (Sunday-Saturday)
+  startTime    String   // "09:00"
+  endTime      String   // "17:00"
+  isAvailable  Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model DateOverride {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date        DateTime
+  isAvailable Boolean
+  startTime   String?
+  endTime     String?
+  reason      String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Appointment {
+  id                String          @id @default(cuid())
+  userId            String
+  user              User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  appointmentTypeId String
+  appointmentType   AppointmentType @relation(fields: [appointmentTypeId], references: [id])
+
+  startTime         DateTime
+  endTime           DateTime
+  timezone          String
+
+  visitorName       String
+  visitorEmail      String
+  visitorPhone      String?
+  notes             String?
+
+  status            String   // "confirmed", "cancelled", "completed"
+  calendarEventId   String?  // ID from Google/Outlook
+  cancellationToken String   @unique @default(cuid())
+
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+model Form {
+  id          String           @id @default(cuid())
+  userId      String
+  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name        String
+  description String?
+  fields      Json             // Array of field definitions
+  settings    Json             // Email recipients, success message, etc.
+  active      Boolean          @default(true)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  submissions FormSubmission[]
+}
+
+model FormSubmission {
+  id        String   @id @default(cuid())
+  formId    String
+  form      Form     @relation(fields: [formId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  data      Json     // Submitted form data
+  ipAddress String?
+  userAgent String?
+  status    String   @default("new") // "new", "read", "archived"
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model WidgetConfig {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Appearance
+  primaryColor    String   @default("#3b82f6")
+  backgroundColor String   @default("#ffffff")
+  textColor       String   @default("#1f2937")
+  borderRadius    String   @default("medium") // "sharp", "medium", "rounded"
+  fontFamily      String   @default("system")
+
+  // Position
+  position        String   @default("bottom-right")
+  offsetX         Int      @default(20)
+  offsetY         Int      @default(20)
+
+  // Behavior
+  showOnMobile    Boolean  @default(true)
+  delaySeconds    Int      @default(0)
+
+  // Branding
+  logoUrl         String?
+  businessName    String?
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model ChatbotConfig {
+  id                  String         @id @default(cuid())
+  userId              String         @unique
+  user                User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  enabled             Boolean        @default(false)
+  botName             String         @default("Assistant")
+  greetingMessage     String         @default("Hi! How can I help you today?")
+  tone                String         @default("professional") // "professional", "friendly", "casual"
+  customInstructions  String?
+
+  // Capabilities
+  enableFaq           Boolean        @default(true)
+  enableLeadQual      Boolean        @default(true)
+  enableScheduling    Boolean        @default(true)
+
+  // API Config
+  anthropicApiKey     String?        @db.Text
+  model               String         @default("claude-haiku-4-5-20251001")
+  maxTokens           Int            @default(1024)
+  temperature         Float          @default(0.7)
+
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+
+  conversations       Conversation[]
+}
+
+model KnowledgeBase {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type       String   // "webpage", "file", "faq"
+  title      String
+  content    String   @db.Text
+  url        String?
+  metadata   Json?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([userId])
+}
+
+model Conversation {
+  id              String        @id @default(cuid())
+  userId          String
+  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  chatbotConfigId String
+  chatbotConfig   ChatbotConfig @relation(fields: [chatbotConfigId], references: [id])
+  visitorId       String        // Anonymous or identified
+  messages        Json          // Array of messages
+  leadQualified   Boolean       @default(false)
+  leadData        Json?         // Captured lead info
+  outcome         String?       // "scheduled", "qualified", "abandoned"
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@index([userId, createdAt])
+}
