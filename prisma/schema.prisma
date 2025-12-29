@@ -33,6 +33,7 @@ model User {
   widgetConfig      WidgetConfig?
   knowledgeBase     KnowledgeBase[]
   conversations     Conversation[]
+  bookingFormFields BookingFormField[]
 }
 
 model Subscription {
@@ -119,6 +120,7 @@ model Appointment {
   visitorEmail      String
   visitorPhone      String?
   notes             String?
+  formResponses     Json?            // Custom form field responses
 
   status            String   // "confirmed", "cancelled", "completed"
   calendarEventId   String?  // ID from Google/Outlook
@@ -126,6 +128,25 @@ model Appointment {
 
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
+}
+
+model BookingFormField {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  label       String   // "Company Name"
+  fieldType   String   // "text", "email", "phone", "select", "textarea", "checkbox"
+  placeholder String?
+  required    Boolean  @default(false)
+  options     Json?    // For select/radio fields: ["Option 1", "Option 2"]
+  order       Int      @default(0)
+  active      Boolean  @default(true)
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([userId, order])
 }
 
 model Form {
@@ -181,6 +202,12 @@ model WidgetConfig {
   // Branding
   logoUrl         String?
   businessName    String?
+  welcomeMessage  String   @default("Book an appointment with us")
+
+  // Booking Settings
+  timeFormat      String   @default("12h") // "12h" or "24h"
+  requirePhone    Boolean  @default(false)
+  showNotes       Boolean  @default(true)
 
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt

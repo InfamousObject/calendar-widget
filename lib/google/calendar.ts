@@ -85,6 +85,12 @@ export async function createCalendarEvent(params: CreateEventParams) {
     connection.refreshToken
   );
 
+  // Get user email for notification
+  const user = await prisma.user.findUnique({
+    where: { id: params.userId },
+    select: { email: true, name: true },
+  });
+
   const event: calendar_v3.Schema$Event = {
     summary: params.summary,
     description: params.description,
@@ -96,21 +102,46 @@ export async function createCalendarEvent(params: CreateEventParams) {
       dateTime: params.endTime.toISOString(),
       timeZone: 'UTC',
     },
+    // Add email reminder for the business owner
+    reminders: {
+      useDefault: false,
+      overrides: [
+        { method: 'email', minutes: 0 }, // Immediate email notification
+        { method: 'popup', minutes: 30 }, // 30 min before popup
+      ],
+    },
   };
 
+  // Add both the visitor and the business owner as attendees
+  const attendees = [];
+
+  // Add business owner (will receive notification about new booking)
+  if (user?.email) {
+    attendees.push({
+      email: user.email,
+      displayName: user.name || undefined,
+      organizer: true, // Mark as organizer
+      responseStatus: 'accepted', // Auto-accept for the owner
+    });
+  }
+
+  // Add visitor (customer booking the appointment)
   if (params.attendeeEmail) {
-    event.attendees = [
-      {
-        email: params.attendeeEmail,
-        displayName: params.attendeeName,
-      },
-    ];
+    attendees.push({
+      email: params.attendeeEmail,
+      displayName: params.attendeeName,
+      responseStatus: 'accepted', // Auto-accept for the visitor
+    });
+  }
+
+  if (attendees.length > 0) {
+    event.attendees = attendees;
   }
 
   const response = await calendar.events.insert({
     calendarId: 'primary',
     requestBody: event,
-    sendUpdates: 'all', // Send email notifications
+    sendUpdates: 'all', // Send email notifications to all attendees
   });
 
   return response.data.id;
@@ -241,4 +272,38 @@ export async function getCalendarEvents(
     console.error('Error fetching calendar events:', error);
     return [];
   }
+}
+
+/**
+ * Batch check if time slots conflict with calendar events
+ * Much faster than checking each slot individually
+ */
+export function checkSlotsAgainstEvents(
+  slots: { start: Date; end: Date }[],
+  calendarEvents: any[]
+): boolean[] {
+  // Filter out cancelled events and events without times
+  const activeEvents = calendarEvents.filter(
+    (event) =>
+      event.status !== 'cancelled' &&
+      event.start?.dateTime &&
+      event.end?.dateTime
+  );
+
+  // Check each slot against all events
+  return slots.map((slot) => {
+    const hasConflict = activeEvents.some((event) => {
+      const eventStart = new Date(event.start.dateTime);
+      const eventEnd = new Date(event.end.dateTime);
+
+      // Check for overlap
+      return (
+        (slot.start >= eventStart && slot.start < eventEnd) ||
+        (slot.end > eventStart && slot.end <= eventEnd) ||
+        (slot.start <= eventStart && slot.end >= eventEnd)
+      );
+    });
+
+    return hasConflict;
+  });
 }

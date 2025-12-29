@@ -1,56 +1,106 @@
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
-import { prisma } from '@/lib/prisma';
+'use client';
+
+import { useEffect, useState } from 'react';
+import { useSession } from 'next-auth/react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Calendar, FileText, MessageSquare, Users } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Calendar, FileText, MessageSquare, Users, Copy, ExternalLink } from 'lucide-react';
 
-export default async function DashboardPage() {
-  const session = await getServerSession(authOptions);
+export default function DashboardPage() {
+  const { data: session } = useSession();
+  const [stats, setStats] = useState({
+    appointments: 0,
+    forms: 0,
+    submissions: 0,
+    conversations: 0,
+  });
+  const [widgetId, setWidgetId] = useState<string>('');
+  const [loading, setLoading] = useState(true);
+  const [recentBookings, setRecentBookings] = useState<any[]>([]);
 
-  if (!session?.user?.id) {
+  useEffect(() => {
+    if (session?.user?.email) {
+      fetchDashboardData();
+      fetchRecentBookings();
+
+      // Poll for new bookings every 30 seconds
+      const interval = setInterval(fetchRecentBookings, 30000);
+      return () => clearInterval(interval);
+    }
+  }, [session]);
+
+  const fetchDashboardData = async () => {
+    try {
+      const response = await fetch('/api/dashboard/stats');
+      if (response.ok) {
+        const data = await response.json();
+        setStats({
+          appointments: data.appointmentsCount,
+          forms: data.formsCount,
+          submissions: data.submissionsCount,
+          conversations: 0,
+        });
+        setWidgetId(data.widgetId);
+      }
+    } catch (error) {
+      console.error('Error fetching dashboard data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchRecentBookings = async () => {
+    try {
+      const response = await fetch('/api/appointments/notifications');
+      if (response.ok) {
+        const data = await response.json();
+        setRecentBookings(data.notifications);
+      }
+    } catch (error) {
+      console.error('Error fetching recent bookings:', error);
+    }
+  };
+
+  const copyBookingUrl = () => {
+    const url = `${window.location.origin}/book/${widgetId}`;
+    navigator.clipboard.writeText(url);
+    alert('Copied to clipboard!');
+  };
+
+  const openBookingPage = () => {
+    window.open(`/book/${widgetId}`, '_blank');
+  };
+
+  if (!session) {
     return null;
   }
 
-  // Fetch dashboard stats
-  const [appointmentsCount, formsCount, submissionsCount, user] =
-    await Promise.all([
-      prisma.appointment.count({
-        where: { userId: session.user.id },
-      }),
-      prisma.form.count({
-        where: { userId: session.user.id },
-      }),
-      prisma.formSubmission.count({
-        where: { userId: session.user.id },
-      }),
-      prisma.user.findUnique({
-        where: { id: session.user.id },
-        select: { widgetId: true, businessName: true },
-      }),
-    ]);
+  if (loading) {
+    return <div>Loading...</div>;
+  }
 
-  const stats = [
+  const statCards = [
     {
       title: 'Total Appointments',
-      value: appointmentsCount,
+      value: stats.appointments,
       icon: Calendar,
       color: 'text-blue-500',
     },
     {
       title: 'Contact Forms',
-      value: formsCount,
+      value: stats.forms,
       icon: FileText,
       color: 'text-green-500',
     },
     {
       title: 'Form Submissions',
-      value: submissionsCount,
+      value: stats.submissions,
       icon: Users,
       color: 'text-purple-500',
     },
     {
       title: 'Conversations',
-      value: 0,
+      value: stats.conversations,
       icon: MessageSquare,
       color: 'text-orange-500',
     },
@@ -70,7 +120,7 @@ export default async function DashboardPage() {
 
       {/* Stats Grid */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        {stats.map((stat) => (
+        {statCards.map((stat) => (
           <Card key={stat.title}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">
@@ -85,19 +135,80 @@ export default async function DashboardPage() {
         ))}
       </div>
 
-      {/* Widget ID Card */}
-      {user?.widgetId && (
-        <Card>
+      {/* Recent Bookings Notifications */}
+      {recentBookings.filter((b) => b.isNew).length > 0 && (
+        <Card className="border-blue-500 bg-blue-50 dark:bg-blue-950">
           <CardHeader>
-            <CardTitle>Your Widget ID</CardTitle>
+            <CardTitle className="flex items-center gap-2">
+              <Calendar className="h-5 w-5 text-blue-500" />
+              New Bookings! 🎉
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-sm text-muted-foreground mb-2">
-              Use this ID to embed your widget on your website:
-            </p>
-            <code className="block rounded-md bg-muted p-4 text-sm">
-              {user.widgetId}
-            </code>
+            <div className="space-y-3">
+              {recentBookings
+                .filter((b) => b.isNew)
+                .map((booking) => (
+                  <div
+                    key={booking.id}
+                    className="flex items-start justify-between rounded-lg border bg-white dark:bg-gray-900 p-4"
+                  >
+                    <div>
+                      <p className="font-medium">{booking.visitorName}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {booking.appointmentType}
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        {new Date(booking.startTime).toLocaleString()}
+                      </p>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() =>
+                        (window.location.href = '/dashboard/bookings')
+                      }
+                    >
+                      View
+                    </Button>
+                  </div>
+                ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Booking Link Card */}
+      {widgetId && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Your Booking Page</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div>
+              <p className="text-sm text-muted-foreground mb-2">
+                Share this link for customers to book appointments:
+              </p>
+              <div className="flex gap-2">
+                <code className="flex-1 rounded-md bg-muted p-3 text-sm overflow-x-auto">
+                  {`${window.location.origin}/book/${widgetId}`}
+                </code>
+                <Button variant="outline" size="sm" onClick={copyBookingUrl}>
+                  <Copy className="h-4 w-4" />
+                </Button>
+                <Button variant="outline" size="sm" onClick={openBookingPage}>
+                  <ExternalLink className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground mb-2">
+                Widget ID for embedding:
+              </p>
+              <code className="block rounded-md bg-muted p-3 text-sm">
+                {widgetId}
+              </code>
+            </div>
           </CardContent>
         </Card>
       )}

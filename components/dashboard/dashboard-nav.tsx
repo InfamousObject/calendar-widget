@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils';
 import {
   Calendar,
   CalendarCheck,
+  CalendarDays,
   FileText,
   MessageSquare,
   Settings,
@@ -14,6 +15,7 @@ import {
   CreditCard,
   Clock,
   BookOpen,
+  ClipboardList,
 } from 'lucide-react';
 
 const navItems = [
@@ -23,7 +25,12 @@ const navItems = [
     icon: LayoutDashboard,
   },
   {
-    title: 'Appointments',
+    title: 'Bookings',
+    href: '/dashboard/bookings',
+    icon: CalendarDays,
+  },
+  {
+    title: 'Appointment Types',
     href: '/dashboard/appointments',
     icon: Calendar,
   },
@@ -31,6 +38,11 @@ const navItems = [
     title: 'Availability',
     href: '/dashboard/availability',
     icon: Clock,
+  },
+  {
+    title: 'Booking Form',
+    href: '/dashboard/booking-form',
+    icon: ClipboardList,
   },
   {
     title: 'Calendar Integration',
