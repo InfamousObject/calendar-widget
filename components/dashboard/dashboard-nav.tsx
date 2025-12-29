@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import {
   Calendar,
+  CalendarCheck,
   FileText,
   MessageSquare,
   Settings,
@@ -30,6 +31,11 @@ const navItems = [
     title: 'Availability',
     href: '/dashboard/availability',
     icon: Clock,
+  },
+  {
+    title: 'Calendar Integration',
+    href: '/dashboard/calendar',
+    icon: CalendarCheck,
   },
   {
     title: 'Contact Forms',

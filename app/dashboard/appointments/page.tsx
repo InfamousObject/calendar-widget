@@ -185,7 +185,7 @@ export default function AppointmentsPage() {
                     type="number"
                     value={formData.duration}
                     onChange={(e) =>
-                      setFormData({ ...formData, duration: parseInt(e.target.value) })
+                      setFormData({ ...formData, duration: parseInt(e.target.value) || 0 })
                     }
                     required
                     min={5}
@@ -226,7 +226,7 @@ export default function AppointmentsPage() {
                     onChange={(e) =>
                       setFormData({
                         ...formData,
-                        bufferBefore: parseInt(e.target.value),
+                        bufferBefore: parseInt(e.target.value) || 0,
                       })
                     }
                     min={0}
@@ -241,7 +241,7 @@ export default function AppointmentsPage() {
                     onChange={(e) =>
                       setFormData({
                         ...formData,
-                        bufferAfter: parseInt(e.target.value),
+                        bufferAfter: parseInt(e.target.value) || 0,
                       })
                     }
                     min={0}
