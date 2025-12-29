@@ -4,7 +4,7 @@ SmartWidget is a comprehensive SaaS platform that provides appointment schedulin
 
 ## Features
 
-### ✅ Implemented (Phase 1A, 1B & 1C Complete)
+### ✅ Implemented (Phase 1A, 1B, 1C & Embed Complete)
 
 **Authentication & Dashboard:**
 - Email/password registration and login with NextAuth.js
@@ -58,12 +58,33 @@ SmartWidget is a comprehensive SaaS platform that provides appointment schedulin
 - Time format preferences (12h/24h)
 - Required phone number toggle
 - Show/hide notes field option
-- Widget position and offset settings (for future embed)
+- Widget position and offset settings
 
-### 🚧 In Progress
+**Contact Form Builder:**
+- Full CRUD operations for custom forms
+- Visual form builder with drag-and-drop ordering
+- 8 field types: text, email, phone, number, url, textarea, dropdown, checkbox
+- Required/optional field validation
+- Custom placeholder text and field options
+- Form settings (success message, email notifications)
+- Active/inactive form toggle
+- Submission viewer with status tracking
+- IP address and user agent metadata
+- Public form submission API
 
-- Contact form builder (standalone)
-- Embeddable widget script
+**Embeddable Widget System:**
+- **Booking Widget**: Inline iframe embed for appointment booking
+  - All appointment types or specific type
+  - Full booking flow embedded on any webpage
+  - Responsive design
+- **Contact Forms**: Inline iframe embed for each form
+  - Individual form embeds
+  - Direct page integration
+- **Embed Code Generator**: Dashboard page with copy-to-clipboard
+  - Separate codes for booking and forms
+  - Live preview links
+  - Platform-specific instructions (WordPress, Shopify, Wix, Squarespace)
+- **Reserved**: Floating button design for future AI chatbot
 
 ## Roadmap
 
@@ -87,7 +108,12 @@ SmartWidget is a comprehensive SaaS platform that provides appointment schedulin
 - [x] Widget customization (branding, colors, settings)
 - [x] Dynamic form rendering in booking flow
 - [x] Form responses saved with appointments
-- [ ] Embeddable widget script (deferred to Phase 2)
+- [x] Contact form builder (standalone forms)
+- [x] Form submission tracking and management
+- [x] Embeddable widget system (iframe-based)
+- [x] Inline booking widget embed
+- [x] Inline contact form embed
+- [x] Embed code generator with preview
 
 ### Phase 1D - AI & Billing (Planned)
 - [ ] Knowledge base manager

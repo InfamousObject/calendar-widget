@@ -48,10 +48,16 @@ export async function GET(request: NextRequest) {
           userId: user.id,
         },
       });
-      return NextResponse.json({ settings: widgetConfig });
+      return NextResponse.json({
+        settings: widgetConfig,
+        widgetId: user.widgetId
+      });
     }
 
-    return NextResponse.json({ settings: user.widgetConfig });
+    return NextResponse.json({
+      settings: user.widgetConfig,
+      widgetId: user.widgetId
+    });
   } catch (error) {
     console.error('Error fetching widget settings:', error);
     return NextResponse.json(

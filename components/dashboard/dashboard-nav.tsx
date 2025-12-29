@@ -16,6 +16,7 @@ import {
   Clock,
   BookOpen,
   ClipboardList,
+  Code2,
 } from 'lucide-react';
 
 const navItems = [
@@ -68,6 +69,11 @@ const navItems = [
     title: 'Widget Settings',
     href: '/dashboard/widget',
     icon: Palette,
+  },
+  {
+    title: 'Embed Code',
+    href: '/dashboard/embed',
+    icon: Code2,
   },
   {
     title: 'Billing',
