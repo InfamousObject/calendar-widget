@@ -7,6 +7,8 @@ import { availabilityCache } from '@/lib/cache/availability-cache';
 interface TimeSlot {
   start: string; // ISO string
   end: string; // ISO string
+  startLocal: string; // Human-readable local time (e.g., "10:30 AM")
+  endLocal: string; // Human-readable local time (e.g., "11:00 AM")
   available: boolean;
 }
 
@@ -146,7 +148,8 @@ export async function GET(request: NextRequest) {
             override.endTime,
             appointmentType,
             user,
-            existingAppointments
+            existingAppointments,
+            user.timezone
           );
         }
         // If override is not available, daySlots stays empty
@@ -160,7 +163,8 @@ export async function GET(request: NextRequest) {
             dayAvailability.endTime,
             appointmentType,
             user,
-            existingAppointments
+            existingAppointments,
+            user.timezone
           );
         }
       }
@@ -207,7 +211,8 @@ async function generateSlotsForDay(
   endTime: string,
   appointmentType: any,
   user: any,
-  existingAppointments: any[]
+  existingAppointments: any[],
+  timezone: string
 ): Promise<TimeSlot[]> {
   const dateStr = format(date, 'yyyy-MM-dd');
 
@@ -298,9 +303,22 @@ async function generateSlotsForDay(
     const hasCalendarConflict = calendarConflicts[index];
     const isAvailable = !hasAppointmentConflict && !hasCalendarConflict;
 
+    // Format times in local timezone for easy display using Intl
+    const timeFormatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: timezone,
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+    });
+
+    const startLocal = timeFormatter.format(slot.start);
+    const endLocal = timeFormatter.format(slot.end);
+
     return {
       start: slot.start.toISOString(),
       end: slot.end.toISOString(),
+      startLocal, // e.g., "10:30 AM"
+      endLocal, // e.g., "11:00 AM"
       available: isAvailable,
     };
   });

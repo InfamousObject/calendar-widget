@@ -10,7 +10,7 @@ const bookAppointmentSchema = z.object({
   startTime: z.string().datetime(),
   visitorName: z.string().min(1, 'Name is required'),
   visitorEmail: z.string().email('Valid email is required'),
-  visitorPhone: z.string().optional(),
+  visitorPhone: z.string().min(1, 'Phone number is required'),
   notes: z.string().optional(),
   timezone: z.string(),
   formResponses: z.record(z.string(), z.unknown()).optional(),

@@ -19,6 +19,7 @@ export async function GET(request: NextRequest) {
       where: { widgetId },
       include: {
         widgetConfig: true,
+        chatbotConfig: true,
         appointmentTypes: {
           where: { active: true },
           select: {
@@ -84,6 +85,13 @@ export async function GET(request: NextRequest) {
         requirePhone: user.widgetConfig?.requirePhone || false,
         showNotes: user.widgetConfig?.showNotes ?? true,
       },
+
+      // Chatbot config (only if enabled)
+      chatbot: user.chatbotConfig?.enabled ? {
+        enabled: true,
+        botName: user.chatbotConfig.botName,
+        greetingMessage: user.chatbotConfig.greetingMessage,
+      } : undefined,
 
       // Available features
       features: {

@@ -42,7 +42,7 @@ export default function AppointmentsPage() {
       const response = await fetch('/api/appointment-types');
       if (response.ok) {
         const data = await response.json();
-        setAppointmentTypes(data);
+        setAppointmentTypes(data.appointmentTypes || data);
       }
     } catch (error) {
       console.error('Error fetching appointment types:', error);

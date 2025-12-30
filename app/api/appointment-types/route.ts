@@ -19,26 +19,49 @@ const appointmentTypeSchema = z.object({
 
 /**
  * GET /api/appointment-types
- * Get all appointment types for the authenticated user
+ * Get all appointment types for the authenticated user or by widgetId (public)
  */
 export async function GET(req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
+    const { searchParams } = new URL(req.url);
+    const widgetId = searchParams.get('widgetId');
 
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    let userId: string | undefined;
+
+    if (widgetId) {
+      // Public access via widgetId
+      const user = await prisma.user.findUnique({
+        where: { widgetId },
+        select: { id: true },
+      });
+
+      if (!user) {
+        return NextResponse.json({ error: 'Widget not found' }, { status: 404 });
+      }
+
+      userId = user.id;
+    } else {
+      // Authenticated access
+      const session = await getServerSession(authOptions);
+
+      if (!session?.user?.id) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      }
+
+      userId = session.user.id;
     }
 
     const appointmentTypes = await prisma.appointmentType.findMany({
       where: {
-        userId: session.user.id,
+        userId,
+        active: true, // Only return active appointment types for public access
       },
       orderBy: {
         createdAt: 'desc',
       },
     });
 
-    return NextResponse.json(appointmentTypes);
+    return NextResponse.json({ appointmentTypes });
   } catch (error) {
     console.error('Error fetching appointment types:', error);
     return NextResponse.json(

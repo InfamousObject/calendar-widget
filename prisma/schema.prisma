@@ -21,19 +21,21 @@ model User {
   widgetId      String    @unique @default(cuid())
 
   // Relations
-  appointments      Appointment[]
-  forms             Form[]
-  formSubmissions   FormSubmission[]
-  calendars         CalendarConnection[]
-  chatbotConfig     ChatbotConfig?
-  subscription      Subscription?
-  appointmentTypes  AppointmentType[]
-  availability      Availability[]
-  dateOverrides     DateOverride[]
-  widgetConfig      WidgetConfig?
-  knowledgeBase     KnowledgeBase[]
-  conversations     Conversation[]
-  bookingFormFields BookingFormField[]
+  appointments             Appointment[]
+  forms                    Form[]
+  formSubmissions          FormSubmission[]
+  calendars                CalendarConnection[]
+  chatbotConfig            ChatbotConfig?
+  chatbotUsage             ChatbotUsage[]
+  subscription             Subscription?
+  appointmentTypes         AppointmentType[]
+  availability             Availability[]
+  dateOverrides            DateOverride[]
+  widgetConfig             WidgetConfig?
+  knowledgeBase            KnowledgeBase[]
+  knowledgeBaseCategories  KnowledgeBaseCategory[]
+  conversations            Conversation[]
+  bookingFormFields        BookingFormField[]
 }
 
 model Subscription {
@@ -229,31 +231,94 @@ model ChatbotConfig {
   enableLeadQual      Boolean        @default(true)
   enableScheduling    Boolean        @default(true)
 
-  // API Config
-  anthropicApiKey     String?        @db.Text
+  // API Config (shared key in env)
   model               String         @default("claude-haiku-4-5-20251001")
   maxTokens           Int            @default(1024)
   temperature         Float          @default(0.7)
+
+  // Usage Limits (messages per month)
+  messageLimit        Int            @default(100)
 
   createdAt           DateTime       @default(now())
   updatedAt           DateTime       @updatedAt
 
   conversations       Conversation[]
+  usage               ChatbotUsage[]
+}
+
+model ChatbotUsage {
+  id              String        @id @default(cuid())
+  userId          String
+  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  chatbotConfigId String
+  chatbotConfig   ChatbotConfig @relation(fields: [chatbotConfigId], references: [id], onDelete: Cascade)
+
+  // Usage metrics
+  messagesCount   Int           @default(0)
+  inputTokens     Int           @default(0)
+  outputTokens    Int           @default(0)
+
+  // Cost tracking (in cents)
+  estimatedCost   Int           @default(0)
+
+  // Period tracking
+  month           Int           // 1-12
+  year            Int           // 2025, 2026, etc.
+
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@unique([userId, year, month])
+  @@index([userId, year, month])
+}
+
+model KnowledgeBaseCategory {
+  id          String          @id @default(cuid())
+  userId      String
+  user        User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name        String
+  slug        String
+  description String?
+  color       String          @default("#3b82f6")
+  order       Int             @default(0)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  articles    KnowledgeBase[]
+
+  @@unique([userId, slug])
+  @@index([userId])
 }
 
 model KnowledgeBase {
-  id         String   @id @default(cuid())
-  userId     String
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  type       String   // "webpage", "file", "faq"
-  title      String
-  content    String   @db.Text
-  url        String?
-  metadata   Json?
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  id          String                  @id @default(cuid())
+  userId      String
+  user        User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  categoryId  String?
+  category    KnowledgeBaseCategory?  @relation(fields: [categoryId], references: [id], onDelete: SetNull)
 
+  title       String
+  slug        String
+  content     String                  @db.Text
+  excerpt     String?
+
+  type        String                  @default("article") // "article", "faq", "webpage"
+  status      String                  @default("draft") // "draft", "published"
+  isPinned    Boolean                 @default(false)
+
+  tags        Json?                   // Array of tag strings
+  metadata    Json?                   // Additional metadata
+  url         String?                 // For external sources
+
+  viewCount   Int                     @default(0)
+
+  createdAt   DateTime                @default(now())
+  updatedAt   DateTime                @updatedAt
+
+  @@unique([userId, slug])
   @@index([userId])
+  @@index([userId, status])
+  @@index([userId, categoryId])
 }
 
 model Conversation {

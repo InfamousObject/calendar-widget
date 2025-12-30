@@ -52,8 +52,9 @@ export default function EmbedPage() {
       const typesResponse = await fetch('/api/appointment-types');
       if (typesResponse.ok) {
         const typesData = await typesResponse.json();
-        // API returns array directly, not wrapped in object
-        setAppointmentTypes(Array.isArray(typesData) ? typesData.filter((t: any) => t.active) : []);
+        // Handle both old and new API response format
+        const types = typesData.appointmentTypes || typesData;
+        setAppointmentTypes(Array.isArray(types) ? types.filter((t: any) => t.active) : []);
       }
     } catch (error) {
       console.error('Error fetching data:', error);
@@ -88,8 +89,19 @@ export default function EmbedPage() {
 ></iframe>`;
   };
 
+  const getChatbotIframeCode = () => {
+    return `<!-- SmartWidget AI Chatbot Embed -->
+<iframe
+  src="${origin}/widget/${widgetId}?view=chat"
+  width="100%"
+  height="600"
+  frameborder="0"
+  style="border: none; max-width: 500px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);"
+></iframe>`;
+  };
+
   const getFloatingWidgetCode = () => {
-    return `<!-- SmartWidget Floating Button (for future AI Chatbot) -->
+    return `<!-- SmartWidget Floating Chat Button (Coming Soon) -->
 <script
   src="${origin}/widget.js"
   data-widget-id="${widgetId}"
@@ -121,11 +133,20 @@ export default function EmbedPage() {
     <div className="p-8">
       <div className="max-w-5xl mx-auto space-y-6">
         {/* Header */}
-        <div>
-          <h1 className="text-3xl font-bold">Embed Your Widget</h1>
-          <p className="text-muted-foreground mt-1">
-            Choose how you want to embed booking and forms on your website
-          </p>
+        <div className="flex justify-between items-start">
+          <div>
+            <h1 className="text-3xl font-bold">Embed Your Widget</h1>
+            <p className="text-muted-foreground mt-1">
+              Choose how you want to embed booking, forms, and AI chatbot on your website
+            </p>
+          </div>
+          <Button
+            onClick={() => openTestPage(`${origin}/demo/${widgetId}`)}
+            variant="default"
+          >
+            <ExternalLink className="h-4 w-4 mr-2" />
+            View Demo
+          </Button>
         </div>
 
         {/* Widget ID */}
@@ -352,71 +373,129 @@ export default function EmbedPage() {
           <TabsContent value="chatbot" className="space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle>AI Chatbot (Coming Soon)</CardTitle>
+                <CardTitle>AI Chatbot</CardTitle>
                 <CardDescription>
-                  A floating button that opens an AI-powered chatbot. This feature is not yet available.
+                  Embed an inline AI chatbot on your website. The chatbot can answer questions, qualify leads, and help book appointments.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="bg-muted p-6 rounded-lg text-center">
-                  <MessageSquare className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                  <p className="text-muted-foreground mb-2">
-                    The AI Chatbot feature will be available in Phase 1D
-                  </p>
+                <div className="space-y-3">
+                  <h4 className="font-medium">Inline Chat Widget</h4>
                   <p className="text-sm text-muted-foreground">
-                    This will include a floating button with Claude AI integration for answering questions,
-                    qualifying leads, and helping with bookings.
+                    Embed the chatbot directly on any page. Visitors can chat without leaving your site.
                   </p>
+                  <div className="relative">
+                    <pre className="bg-muted p-4 rounded-lg overflow-x-auto text-sm">
+                      <code>{getChatbotIframeCode()}</code>
+                    </pre>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="absolute top-2 right-2"
+                      onClick={() => copyToClipboard(getChatbotIframeCode(), 'chatbot-inline')}
+                    >
+                      {copiedCode === 'chatbot-inline' ? (
+                        <>
+                          <Check className="h-4 w-4 mr-2" />
+                          Copied!
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="h-4 w-4 mr-2" />
+                          Copy
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                  <Button
+                    onClick={() => openTestPage(`${origin}/widget/${widgetId}?view=chat`)}
+                    variant="outline"
+                    size="sm"
+                  >
+                    <ExternalLink className="h-4 w-4 mr-2" />
+                    Preview
+                  </Button>
                 </div>
 
-                {/* Preview of what it will look like */}
-                <div className="space-y-3 opacity-50">
-                  <h4 className="font-medium">Preview Code (Not Active)</h4>
-                  <div className="relative">
+                <div className="space-y-3 pt-4 border-t">
+                  <h4 className="font-medium">Floating Chat Button (Coming Soon)</h4>
+                  <p className="text-sm text-muted-foreground">
+                    A floating button that appears on all pages, opening a chat popup when clicked.
+                  </p>
+                  <div className="relative opacity-50">
                     <pre className="bg-muted p-4 rounded-lg overflow-x-auto text-sm">
                       <code>{getFloatingWidgetCode()}</code>
                     </pre>
                   </div>
+                  <p className="text-xs text-muted-foreground italic">
+                    This option will be available in a future update
+                  </p>
                 </div>
               </CardContent>
             </Card>
           </TabsContent>
         </Tabs>
 
-        {/* Installation Instructions */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Installation Instructions</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ol className="list-decimal list-inside space-y-3 text-sm">
-              <li>
-                <strong>Copy the embed code</strong>
-                <p className="text-muted-foreground ml-5 mt-1">
-                  Choose the embedding option above and click "Copy"
+        {/* Demo & Installation */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Preview All Features</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                See all three features in action on our interactive demo page
+              </p>
+              <Button
+                onClick={() => openTestPage(`${origin}/demo/${widgetId}`)}
+                variant="outline"
+                className="w-full"
+              >
+                <ExternalLink className="h-4 w-4 mr-2" />
+                Open Interactive Demo
+              </Button>
+              <div className="bg-muted p-4 rounded-lg">
+                <p className="text-xs font-mono break-all">
+                  {origin}/demo/{widgetId}
                 </p>
-              </li>
-              <li>
-                <strong>Paste into your website</strong>
-                <p className="text-muted-foreground ml-5 mt-1">
-                  Add the iframe code where you want the widget to appear on your page
-                </p>
-              </li>
-              <li>
-                <strong>Adjust dimensions if needed</strong>
-                <p className="text-muted-foreground ml-5 mt-1">
-                  Modify the width and height attributes in the iframe to fit your layout
-                </p>
-              </li>
-              <li>
-                <strong>Save and publish</strong>
-                <p className="text-muted-foreground ml-5 mt-1">
-                  Save your changes and the widget will appear on your live site
-                </p>
-              </li>
-            </ol>
-          </CardContent>
-        </Card>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Installation Instructions</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ol className="list-decimal list-inside space-y-3 text-sm">
+                <li>
+                  <strong>Copy the embed code</strong>
+                  <p className="text-muted-foreground ml-5 mt-1">
+                    Choose the feature above and click "Copy"
+                  </p>
+                </li>
+                <li>
+                  <strong>Paste into your website</strong>
+                  <p className="text-muted-foreground ml-5 mt-1">
+                    Add the iframe code to your HTML
+                  </p>
+                </li>
+                <li>
+                  <strong>Adjust dimensions if needed</strong>
+                  <p className="text-muted-foreground ml-5 mt-1">
+                    Modify width/height to fit your layout
+                  </p>
+                </li>
+                <li>
+                  <strong>Save and publish</strong>
+                  <p className="text-muted-foreground ml-5 mt-1">
+                    Widget appears on your live site
+                  </p>
+                </li>
+              </ol>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </div>
   );
