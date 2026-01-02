@@ -4,13 +4,14 @@ SmartWidget is a comprehensive SaaS platform that provides appointment schedulin
 
 ## Features
 
-### ✅ Implemented (Phase 1A, 1B, 1C & Embed Complete)
+### ✅ Implemented (Phase 1A, 1B, 1C, 1D, 1E Complete)
 
 **Authentication & Dashboard:**
-- Email/password registration and login with NextAuth.js
+- Email/password registration and login with Clerk
 - Protected dashboard routes with middleware
-- Session management with JWT
+- Session management with Clerk Auth
 - Responsive dashboard layout with sidebar navigation
+- Enterprise-grade security with Clerk's built-in protections
 
 **Appointment Types Manager:**
 - Full CRUD operations for appointment types
@@ -86,12 +87,43 @@ SmartWidget is a comprehensive SaaS platform that provides appointment schedulin
   - Platform-specific instructions (WordPress, Shopify, Wix, Squarespace)
 - **Reserved**: Floating button design for future AI chatbot
 
+**Knowledge Base Manager:**
+- Full CRUD operations for articles
+- Rich text editor with markdown support
+- Category organization
+- Published/draft status control
+- Article search and filtering
+- Used by AI chatbot for FAQ responses
+
+**AI Chatbot with Claude:**
+- Conversational appointment scheduling using Claude Opus
+- Tool calling integration for real-time availability checking
+- Knowledge base integration for answering FAQs
+- Lead qualification capabilities
+- Customizable bot personality (name, greeting, tone, instructions)
+- Advanced AI settings (max tokens, temperature, message limits)
+- Usage tracking (messages, tokens, estimated costs)
+- Auto-scroll chat interface
+- Proactive date suggestions and timezone-aware scheduling
+- Model locked to Claude Opus for optimal reasoning
+- Embedded in widget with floating chat button
+
+**Stripe Billing & Subscriptions:**
+- Multi-tier subscription system (Free, Booking, Chatbot, Bundle)
+- Usage-based metered billing for AI chatbot messages
+- Stripe payment processing with automatic invoicing
+- Subscription upgrade/downgrade with automatic proration
+- Billing dashboard with usage tracking
+- Customer portal for payment method management
+- Subscription cancellation with period-end access retention
+- Webhook integration for real-time subscription status updates
+
 ## Roadmap
 
 ### Phase 1A - Foundation ✅ (100% Complete)
 - [x] Next.js setup with TypeScript and Tailwind v4
 - [x] Prisma ORM v7 with PostgreSQL
-- [x] NextAuth.js authentication
+- [x] Clerk authentication (migrated from NextAuth.js)
 - [x] Dashboard layout
 - [x] Appointment Types manager
 
@@ -115,11 +147,162 @@ SmartWidget is a comprehensive SaaS platform that provides appointment schedulin
 - [x] Inline contact form embed
 - [x] Embed code generator with preview
 
-### Phase 1D - AI & Billing (Planned)
-- [ ] Knowledge base manager
-- [ ] AI chatbot with Claude
-- [ ] Stripe billing
+### Phase 1E - Knowledge Base & AI Chatbot ✅ (100% Complete)
+- [x] Knowledge base manager (articles, categories, rich text editor)
+- [x] AI chatbot with Claude Opus
+- [x] Conversational appointment scheduling with tool calling
+- [x] Knowledge base integration for FAQ
+- [x] Chatbot configuration and usage tracking
+- [x] Embedded chat widget
+
+### Phase 1D - Billing ✅ (100% Complete)
+- [x] Stripe billing integration
+- [x] Subscription plans and pricing (Free, Booking $29/mo, Chatbot $89/mo, Bundle $119/mo)
+- [x] Usage-based metered billing for chatbot messages
+- [x] Subscription upgrade/downgrade with proration
+- [x] Billing dashboard with usage tracking
+- [x] Customer portal integration
+- [x] Webhook handling for subscription events
+
+### Phase 2 - Advanced Features & Differentiation (Planned)
+
+**Phase 2A - Payment & Booking Enhancements**
+- [ ] Stripe payment processing for appointments
+- [ ] Deposit system (partial payment at booking)
+- [ ] Package booking (multiple sessions with bulk discounts)
+- [ ] Dynamic pricing based on time slots or demand
+- [ ] Coupon codes and promotional discounts
+
+**Phase 2B - AI-Powered Lead Management**
+- [ ] Smart lead scoring based on chat conversations
+- [ ] Conversation analytics dashboard
+- [ ] Automated lead nurturing via email
+- [ ] AI-suggested follow-up messages
+- [ ] No-show prediction and prevention
+
+**Phase 2C - Multi-Channel Communication**
+- [ ] SMS reminders and two-way messaging
+- [ ] WhatsApp integration for booking
+- [ ] Email workflow sequences (reminders, follow-ups, campaigns)
+- [ ] In-chat rescheduling capability
+
+**Phase 2D - Team & Enterprise Features**
+- [ ] Round Robin scheduling (distribute across team members)
+- [ ] Team workload balancing with AI
+- [ ] Multi-calendar support (Outlook, Office 365, iCloud)
+- [ ] Resource booking (rooms, equipment)
+- [ ] Pooled team availability
+
+**Phase 2E - Client Relationship Management**
+- [ ] Built-in client database with history
+- [ ] Client portal for viewing appointments
+- [ ] Smart rebooking suggestions
+- [ ] Client preferences and notes
+- [ ] Birthday/anniversary automated outreach
+
+**Phase 2F - Analytics & Business Intelligence**
+- [ ] Booking conversion analytics
+- [ ] Revenue tracking and forecasting
+- [ ] Customer insights and demographics
+- [ ] A/B testing for booking flows
+- [ ] Performance dashboards
+
+**Phase 2G - Industry-Specific Templates**
+- [ ] Healthcare templates (HIPAA compliance, intake forms)
+- [ ] Beauty/Salon templates (service combos, photo galleries)
+- [ ] Legal templates (consultation types, document collection)
+- [ ] Fitness/Coaching templates (package programs, progress tracking)
+- [ ] Real Estate templates (property showings, virtual tours)
 
 ---
 
-**Built with Next.js, Prisma, Google Calendar API, and Claude AI**
+**Competitive Advantage:** SmartWidget is the only all-in-one scheduling platform with an AI-powered chatbot that qualifies leads, answers questions, and books appointments conversationally - while also providing contact forms and payment processing in a single embeddable widget.
+
+---
+
+## Security
+
+SmartWidget implements enterprise-grade security measures to protect user data and prevent abuse.
+
+### ✅ Implemented Security Features
+
+**Authentication & Authorization:**
+- ✅ **Clerk authentication** with enterprise-grade security (MIGRATED Dec 2025)
+  - Multi-factor authentication (MFA) support
+  - Password breach detection
+  - Bot/brute-force protection
+  - Email verification
+  - Account lockout policies
+  - OAuth social login support
+- ✅ Row Level Security (RLS) enabled on all 18 database tables
+- ✅ API route protection with Clerk session validation
+- ✅ Resource ownership verification on all protected endpoints
+- ✅ User ID extraction from Clerk sessions (`getCurrentUserId()`)
+
+**Rate Limiting:**
+- ✅ Upstash Redis-based rate limiting on all public endpoints
+- ✅ Booking API: 10 requests/hour per IP
+- ✅ Form submissions: 100 requests/hour per IP
+- ✅ AI Chatbot: 30 messages/hour per IP (prevents API abuse)
+- ✅ Availability checks: 300 requests/hour per IP
+- ✅ Cancellations: 5 requests/hour per IP (prevents token brute-forcing)
+
+**Data Protection:**
+- ✅ Cryptographically secure cancellation tokens (64-byte random)
+- ✅ Environment variables properly secured (`.env.local` never committed)
+- ✅ Secrets management with `.env.example` template
+
+**Input Validation:**
+- ✅ Zod schema validation on all API routes
+- ✅ Frontend validation with clear error messages
+- ✅ Email format validation
+- ✅ Required field checking
+
+### 🔄 Next Priority (HIGH Priority)
+
+**Data Encryption:**
+- [ ] **RECOMMENDED NEXT:** AES-256 encryption for sensitive form submissions
+- [ ] Encrypted Google Calendar access tokens at rest
+- [ ] PII redaction in application logs and error messages
+
+**Subscription & Feature Gating:**
+- ✅ Subscription tier enforcement on all chatbot/knowledge base routes
+- ✅ Usage limit checks (free: 25 bookings/month, 1 appointment type)
+- ✅ Frontend conditional rendering based on subscription tier
+- ✅ Upgrade prompts for paid features
+
+### 📋 Planned (MEDIUM/LOW Priority)
+
+**Network Security:**
+- [ ] Security headers (CSP, HSTS, X-Frame-Options)
+- [ ] SameSite=Strict cookies
+- [ ] CORS configuration
+
+**Abuse Prevention:**
+- [ ] hCaptcha on public forms
+- [ ] Email verification for new accounts
+- [ ] Webhook idempotency
+
+**Monitoring:**
+- [ ] Sentry error tracking
+- [ ] Structured logging with PII redaction
+- [ ] Audit logging for state changes
+
+### 📄 Security Documentation
+
+For detailed security information:
+- **Full Security Audit**: See [SECURITY_AUDIT.md](./SECURITY_AUDIT.md)
+- **RLS Migration**: See [migrations/enable_rls.sql](./migrations/enable_rls.sql)
+- **Environment Setup**: See [.env.example](./.env.example)
+
+### 🚨 Reporting Security Issues
+
+If you discover a security vulnerability, please email: **[Your Security Contact Email]**
+
+**Please do NOT create a public GitHub issue.**
+
+We will acknowledge receipt within 48 hours and provide a detailed response within 7 days.
+
+---
+
+**Built with Next.js, Prisma, Clerk, Google Calendar API, Stripe, and Claude AI**
