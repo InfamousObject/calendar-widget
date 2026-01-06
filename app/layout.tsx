@@ -29,8 +29,12 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // Provide fallback for build time (when env vars aren't available)
+  // At runtime, the actual key must be set for Clerk to work
+  const clerkPubKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY || 'pk_test_dummy_key_for_build';
+
   return (
-    <ClerkProvider>
+    <ClerkProvider publishableKey={clerkPubKey}>
       <html lang="en">
         <body
           className={`${sansFont.variable} ${displayFont.variable} antialiased`}
