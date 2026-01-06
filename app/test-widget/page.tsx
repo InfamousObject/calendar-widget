@@ -1,5 +1,8 @@
 'use client';
 
+// Force dynamic rendering to avoid useSearchParams() prerender errors
+export const dynamic = 'force-dynamic';
+
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 

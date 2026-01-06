@@ -1,5 +1,6 @@
 'use client';
 
+import { Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -13,7 +14,8 @@ import {
 } from '@/components/ui/card';
 import { AlertCircle, ArrowLeft } from 'lucide-react';
 
-export default function AuthErrorPage() {
+// Component that uses useSearchParams must be wrapped in Suspense
+function ErrorContent() {
   const searchParams = useSearchParams();
   const error = searchParams.get('error');
 
@@ -78,5 +80,13 @@ export default function AuthErrorPage() {
         </p>
       </div>
     </div>
+  );
+}
+
+export default function AuthErrorPage() {
+  return (
+    <Suspense fallback={<div className="flex min-h-screen items-center justify-center">Loading...</div>}>
+      <ErrorContent />
+    </Suspense>
   );
 }
