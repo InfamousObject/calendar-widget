@@ -1,12 +1,12 @@
 import Stripe from 'stripe';
 import { log } from '@/lib/logger';
 
-if (!process.env.STRIPE_SECRET_KEY) {
-  throw new Error('STRIPE_SECRET_KEY is not set in environment variables');
-}
+// Provide fallback for build time (when env vars aren't available)
+// At runtime, the actual key must be set for Stripe to work
+const stripeKey = process.env.STRIPE_SECRET_KEY || 'sk_test_dummy_key_for_build';
 
 // Initialize Stripe client
-export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
+export const stripe = new Stripe(stripeKey, {
   apiVersion: '2025-12-15.clover',
   typescript: true,
 });
