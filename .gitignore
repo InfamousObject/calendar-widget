@@ -42,3 +42,4 @@ next-env.d.ts
 
 # planning and internal documentation
 /docs/planning
+build.log
