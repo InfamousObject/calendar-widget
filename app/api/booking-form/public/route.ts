@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { log } from '@/lib/logger';
 
 // GET - Get booking form fields for a specific widget (public endpoint)
 export async function GET(request: NextRequest) {
@@ -43,7 +44,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ fields });
   } catch (error) {
-    console.error('Error fetching booking form fields:', error);
+    log.error('[Forms] Failed to fetch public booking form fields', error);
     return NextResponse.json(
       { error: 'Failed to fetch form fields' },
       { status: 500 }

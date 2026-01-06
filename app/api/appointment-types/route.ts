@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import { getCurrentUserId } from '@/lib/clerk-auth';
 import { prisma } from '@/lib/prisma';
+import { checkUsageLimit } from '@/lib/subscription';
 import { z } from 'zod';
+import { log } from '@/lib/logger';
 
 /**
  * Appointment type schema validation
@@ -42,13 +43,13 @@ export async function GET(req: NextRequest) {
       userId = user.id;
     } else {
       // Authenticated access
-      const session = await getServerSession(authOptions);
+      const authUserId = await getCurrentUserId();
 
-      if (!session?.user?.id) {
+      if (!authUserId) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
       }
 
-      userId = session.user.id;
+      userId = authUserId;
     }
 
     const appointmentTypes = await prisma.appointmentType.findMany({
@@ -63,7 +64,9 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ appointmentTypes });
   } catch (error) {
-    console.error('Error fetching appointment types:', error);
+    log.error('[AppointmentType] Error fetching appointment types', {
+      error: error instanceof Error ? error.message : String(error)
+    });
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
@@ -77,10 +80,23 @@ export async function GET(req: NextRequest) {
  */
 export async function POST(req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
+    const userId = await getCurrentUserId();
 
-    if (!session?.user?.id) {
+    if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // Check appointment type limit for user's subscription tier
+    const usageCheck = await checkUsageLimit(userId, 'appointmentTypes');
+    if (!usageCheck.allowed) {
+      return NextResponse.json(
+        {
+          error: `Appointment type limit reached (${usageCheck.limit} appointment type${usageCheck.limit > 1 ? 's' : ''} on your plan). Upgrade to Booking or Bundle for unlimited appointment types.`,
+          limit: usageCheck.limit,
+          current: usageCheck.current
+        },
+        { status: 403 }
+      );
     }
 
     const body = await req.json();
@@ -89,7 +105,7 @@ export async function POST(req: NextRequest) {
     const appointmentType = await prisma.appointmentType.create({
       data: {
         ...validatedData,
-        userId: session.user.id,
+        userId,
       },
     });
 
@@ -97,12 +113,14 @@ export async function POST(req: NextRequest) {
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { error: 'Validation error', details: error.errors },
+        { error: 'Validation error', details: error.issues },
         { status: 400 }
       );
     }
 
-    console.error('Error creating appointment type:', error);
+    log.error('[AppointmentType] Error creating appointment type', {
+      error: error instanceof Error ? error.message : String(error)
+    });
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

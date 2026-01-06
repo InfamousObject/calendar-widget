@@ -15,7 +15,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Plus, Trash2, GripVertical, Eye, ArrowLeft, Save } from 'lucide-react';
+import { Plus, Trash2, GripVertical, Eye, ArrowLeft, Save, FileEdit, Settings } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -224,7 +224,16 @@ export default function EditFormPage() {
   if (loading) {
     return (
       <div className="p-8">
-        <p>Loading...</p>
+        <div className="max-w-5xl mx-auto space-y-6 animate-pulse">
+          <div className="h-24 rounded-xl bg-muted" />
+          <div className="grid gap-6 lg:grid-cols-3">
+            <div className="lg:col-span-2 h-96 rounded-xl bg-muted" />
+            <div className="space-y-4">
+              <div className="h-32 rounded-xl bg-muted" />
+              <div className="h-48 rounded-xl bg-muted" />
+            </div>
+          </div>
+        </div>
       </div>
     );
   }
@@ -235,46 +244,67 @@ export default function EditFormPage() {
 
   return (
     <div className="p-8">
-      <div className="max-w-5xl mx-auto">
-        {/* Header */}
-        <div className="flex items-center gap-4 mb-6">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => router.push('/dashboard/forms')}
-          >
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back
-          </Button>
-          <div className="flex-1">
-            <h1 className="text-3xl font-bold">{form.name}</h1>
-            {form.description && (
-              <p className="text-muted-foreground mt-1">{form.description}</p>
-            )}
-          </div>
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={() => setShowPreview(true)}>
-              <Eye className="h-4 w-4 mr-2" />
-              Preview
+      <div className="max-w-5xl mx-auto space-y-8">
+        {/* Header Section with Gradient */}
+        <div className="relative overflow-hidden rounded-2xl border border-border bg-gradient-to-br from-primary/5 via-background to-accent/5 p-8">
+          <div className="gradient-mesh absolute inset-0 -z-10" />
+
+          <div className="relative z-10">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => router.push('/dashboard/forms')}
+              className="mb-4"
+            >
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back to Forms
             </Button>
-            <Button onClick={handleSave} disabled={saving}>
-              <Save className="h-4 w-4 mr-2" />
-              {saving ? 'Saving...' : 'Save Form'}
-            </Button>
+            <div className="flex items-start justify-between">
+              <div>
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="p-3 rounded-xl bg-gradient-to-br from-primary to-accent shadow-lg shadow-primary/30">
+                    <FileEdit className="h-6 w-6 text-white" />
+                  </div>
+                  <h1 className="font-display text-4xl font-semibold tracking-tight">{form.name}</h1>
+                </div>
+                {form.description && (
+                  <p className="text-lg text-foreground-secondary font-light">{form.description}</p>
+                )}
+              </div>
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={() => setShowPreview(true)}>
+                  <Eye className="h-4 w-4 mr-2" />
+                  Preview
+                </Button>
+                <Button
+                  onClick={handleSave}
+                  disabled={saving}
+                  className="bg-gradient-to-r from-primary to-accent hover:shadow-lg hover:shadow-primary/30 transition-all duration-300"
+                >
+                  <Save className="h-4 w-4 mr-2" />
+                  {saving ? 'Saving...' : 'Save Form'}
+                </Button>
+              </div>
+            </div>
           </div>
         </div>
 
         <div className="grid gap-6 lg:grid-cols-3">
           {/* Form Builder */}
           <div className="lg:col-span-2 space-y-6">
-            <Card>
+            <Card className="border-border shadow-md">
               <CardHeader>
                 <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle>Form Fields</CardTitle>
-                    <CardDescription>
-                      Add and configure fields for your contact form
-                    </CardDescription>
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-lg bg-primary/10">
+                      <FileEdit className="h-5 w-5 text-primary" />
+                    </div>
+                    <div>
+                      <CardTitle className="font-display text-xl">Form Fields</CardTitle>
+                      <CardDescription className="text-base">
+                        Add and configure fields for your contact form
+                      </CardDescription>
+                    </div>
                   </div>
                   <Button onClick={() => setShowAddDialog(true)}>
                     <Plus className="h-4 w-4 mr-2" />
@@ -333,9 +363,14 @@ export default function EditFormPage() {
 
           {/* Settings */}
           <div className="space-y-6">
-            <Card>
+            <Card className="border-border shadow-md">
               <CardHeader>
-                <CardTitle>Form Status</CardTitle>
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-success/10">
+                    <Eye className="h-5 w-5 text-success" />
+                  </div>
+                  <CardTitle className="font-display text-xl">Form Status</CardTitle>
+                </div>
               </CardHeader>
               <CardContent>
                 <div className="flex items-center space-x-2">
@@ -356,9 +391,14 @@ export default function EditFormPage() {
               </CardContent>
             </Card>
 
-            <Card>
+            <Card className="border-border shadow-md">
               <CardHeader>
-                <CardTitle>Settings</CardTitle>
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-accent/10">
+                    <Settings className="h-5 w-5 text-accent" />
+                  </div>
+                  <CardTitle className="font-display text-xl">Settings</CardTitle>
+                </div>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">

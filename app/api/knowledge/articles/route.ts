@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import { getCurrentUserId } from '@/lib/clerk-auth';
 import { prisma } from '@/lib/prisma';
+import { hasFeatureAccess } from '@/lib/subscription';
 import { z } from 'zod';
+import { log } from '@/lib/logger';
 
 const articleSchema = z.object({
   title: z.string().min(1, 'Title is required'),
@@ -15,24 +16,33 @@ const articleSchema = z.object({
   isPinned: z.boolean().default(false),
   tags: z.array(z.string()).optional(),
   url: z.union([z.string().url(), z.literal(''), z.null()]).optional(),
-  metadata: z.record(z.any()).optional().nullable(),
+  metadata: z.record(z.string(), z.any()).optional().nullable(),
 });
 
 // GET - List articles with filtering
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
+    const userId = await getCurrentUserId();
 
-    if (!session?.user?.email) {
+    if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const user = await prisma.user.findUnique({
-      where: { email: session.user.email },
+      where: { id: userId },
     });
 
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    }
+
+    // Check if user's subscription plan includes knowledge base access
+    const hasKnowledgeAccess = await hasFeatureAccess(user.id, 'hasChatbot');
+    if (!hasKnowledgeAccess) {
+      return NextResponse.json(
+        { error: 'Knowledge Base is only available on Chatbot and Bundle plans. Please upgrade to access this feature.' },
+        { status: 403 }
+      );
     }
 
     const { searchParams } = new URL(request.url);
@@ -83,7 +93,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ articles });
   } catch (error) {
-    console.error('Error fetching articles:', error);
+    log.error('[Knowledge] Error fetching articles:', error);
     return NextResponse.json(
       { error: 'Failed to fetch articles' },
       { status: 500 }
@@ -94,18 +104,27 @@ export async function GET(request: NextRequest) {
 // POST - Create a new article
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
+    const userId = await getCurrentUserId();
 
-    if (!session?.user?.email) {
+    if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const user = await prisma.user.findUnique({
-      where: { email: session.user.email },
+      where: { id: userId },
     });
 
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    }
+
+    // Check if user's subscription plan includes knowledge base access
+    const hasKnowledgeAccess = await hasFeatureAccess(user.id, 'hasChatbot');
+    if (!hasKnowledgeAccess) {
+      return NextResponse.json(
+        { error: 'Knowledge Base is only available on Chatbot and Bundle plans. Please upgrade to access this feature.' },
+        { status: 403 }
+      );
     }
 
     const body = await request.json();
@@ -128,11 +147,20 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Prepare data for create, handling null values properly
+    const createData: any = {
+      userId: user.id,
+      ...validatedData,
+    };
+    if (createData.categoryId === null) {
+      createData.categoryId = undefined;
+    }
+    if (createData.metadata === null) {
+      createData.metadata = undefined;
+    }
+
     const article = await prisma.knowledgeBase.create({
-      data: {
-        userId: user.id,
-        ...validatedData,
-      },
+      data: createData,
       include: {
         category: {
           select: {
@@ -149,12 +177,12 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { error: 'Validation failed', details: error.errors },
+        { error: 'Validation failed', details: error.issues },
         { status: 400 }
       );
     }
 
-    console.error('Error creating article:', error);
+    log.error('[Knowledge] Error creating article:', error);
     return NextResponse.json(
       { error: 'Failed to create article' },
       { status: 500 }

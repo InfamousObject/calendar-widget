@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import { getCurrentUserId } from '@/lib/clerk-auth';
 import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
+import { log } from '@/lib/logger';
 
 const updateAvailabilitySchema = z.object({
   dayOfWeek: z.number().min(0).max(6).optional(),
@@ -14,24 +14,24 @@ const updateAvailabilitySchema = z.object({
 // PATCH - Update availability setting
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await getServerSession(authOptions);
+    const userId = await getCurrentUserId();
 
-    if (!session?.user?.email) {
+    if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const user = await prisma.user.findUnique({
-      where: { email: session.user.email },
+      where: { id: userId },
     });
 
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    const { id } = params;
+    const { id } = await context.params;
     const body = await request.json();
     const validatedData = updateAvailabilitySchema.parse(body);
 
@@ -67,12 +67,12 @@ export async function PATCH(
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { error: 'Invalid data', details: error.errors },
+        { error: 'Invalid data', details: error.issues },
         { status: 400 }
       );
     }
 
-    console.error('Error updating availability:', error);
+    log.error('Error updating availability', { error });
     return NextResponse.json(
       { error: 'Failed to update availability' },
       { status: 500 }
@@ -83,24 +83,24 @@ export async function PATCH(
 // DELETE - Delete availability setting
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await getServerSession(authOptions);
+    const userId = await getCurrentUserId();
 
-    if (!session?.user?.email) {
+    if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const user = await prisma.user.findUnique({
-      where: { email: session.user.email },
+      where: { id: userId },
     });
 
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    const { id } = params;
+    const { id } = await context.params;
 
     // Check if availability belongs to user
     const existing = await prisma.availability.findUnique({
@@ -120,7 +120,7 @@ export async function DELETE(
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('Error deleting availability:', error);
+    log.error('Error deleting availability', { error });
     return NextResponse.json(
       { error: 'Failed to delete availability' },
       { status: 500 }

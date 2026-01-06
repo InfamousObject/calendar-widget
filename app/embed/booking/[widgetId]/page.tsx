@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox';
 import { Calendar, ArrowLeft, Check } from 'lucide-react';
 import { format, addDays, startOfDay, parseISO } from 'date-fns';
+import HCaptcha from '@hcaptcha/react-hcaptcha';
 
 interface AppointmentType {
   id: string;
@@ -65,6 +66,10 @@ export default function EmbedBookingPage() {
   });
   const [customFormResponses, setCustomFormResponses] = useState<Record<string, any>>({});
   const [submitting, setSubmitting] = useState(false);
+
+  // CAPTCHA state
+  const [captchaToken, setCaptchaToken] = useState('');
+  const captchaRef = useRef<HCaptcha>(null);
 
   useEffect(() => {
     fetchConfig();
@@ -122,12 +127,42 @@ export default function EmbedBookingPage() {
   const handleSubmit = async () => {
     if (!selectedDate || !selectedTime || !selectedType || !config) return;
 
+    // Validate required fields
+    if (!formData.name.trim()) {
+      alert('Please enter your name');
+      return;
+    }
+
+    if (!formData.email.trim()) {
+      alert('Please enter your email address');
+      return;
+    }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.email)) {
+      alert('Please enter a valid email address');
+      return;
+    }
+
+    // Validate phone if required
+    if (config.bookingSettings.requirePhone && !formData.phone.trim()) {
+      alert('Please enter your phone number');
+      return;
+    }
+
     // Validate required custom fields
     const missingFields = config.customFields.filter(
       (field) => field.required && !customFormResponses[field.id]
     );
     if (missingFields.length > 0) {
       alert(`Please fill in required fields: ${missingFields.map((f) => f.label).join(', ')}`);
+      return;
+    }
+
+    // Validate CAPTCHA if configured
+    if (process.env.NEXT_PUBLIC_HCAPTCHA_SITE_KEY && !captchaToken) {
+      alert('Please complete the CAPTCHA verification');
       return;
     }
 
@@ -148,6 +183,7 @@ export default function EmbedBookingPage() {
           notes: formData.notes,
           timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
           formResponses: Object.keys(customFormResponses).length > 0 ? customFormResponses : undefined,
+          captchaToken: captchaToken || undefined,
         }),
       });
 
@@ -156,10 +192,20 @@ export default function EmbedBookingPage() {
       } else {
         const errorData = await response.json();
         alert(errorData.error || 'Failed to book appointment');
+        // Reset CAPTCHA on error
+        if (captchaRef.current) {
+          captchaRef.current.resetCaptcha();
+          setCaptchaToken('');
+        }
       }
     } catch (error) {
       console.error('Error booking appointment:', error);
       alert('Failed to book appointment');
+      // Reset CAPTCHA on error
+      if (captchaRef.current) {
+        captchaRef.current.resetCaptcha();
+        setCaptchaToken('');
+      }
     } finally {
       setSubmitting(false);
     }
@@ -392,6 +438,7 @@ export default function EmbedBookingPage() {
                 <div className="space-y-2">
                   <Label>Name *</Label>
                   <Input
+                    required
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                     placeholder="Your name"
@@ -400,6 +447,7 @@ export default function EmbedBookingPage() {
                 <div className="space-y-2">
                   <Label>Email *</Label>
                   <Input
+                    required
                     type="email"
                     value={formData.email}
                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
@@ -410,6 +458,7 @@ export default function EmbedBookingPage() {
                   <div className="space-y-2">
                     <Label>Phone *</Label>
                     <Input
+                      required
                       type="tel"
                       value={formData.phone}
                       onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
@@ -429,10 +478,29 @@ export default function EmbedBookingPage() {
                   </div>
                 )}
               </div>
+
+              {/* hCaptcha verification */}
+              {process.env.NEXT_PUBLIC_HCAPTCHA_SITE_KEY && (
+                <div className="flex justify-center">
+                  <HCaptcha
+                    ref={captchaRef}
+                    sitekey={process.env.NEXT_PUBLIC_HCAPTCHA_SITE_KEY}
+                    onVerify={(token) => setCaptchaToken(token)}
+                    onExpire={() => setCaptchaToken('')}
+                    onError={() => setCaptchaToken('')}
+                  />
+                </div>
+              )}
+
               <Button
                 className="w-full"
                 onClick={handleSubmit}
-                disabled={!formData.name || !formData.email || submitting}
+                disabled={
+                  !formData.name ||
+                  !formData.email ||
+                  submitting ||
+                  (!!process.env.NEXT_PUBLIC_HCAPTCHA_SITE_KEY && !captchaToken)
+                }
               >
                 {submitting ? 'Booking...' : 'Confirm Booking'}
               </Button>

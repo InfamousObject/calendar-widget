@@ -1,19 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import { getCurrentUserId } from '@/lib/clerk-auth';
 import { prisma } from '@/lib/prisma';
+import { log } from '@/lib/logger';
 
 // GET - Test endpoint to get your widgetId
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
+    const userId = await getCurrentUserId();
 
-    if (!session?.user?.email) {
+    if (!userId) {
       return NextResponse.json({ error: 'Not logged in' }, { status: 401 });
     }
 
     const user = await prisma.user.findUnique({
-      where: { email: session.user.email },
+      where: { id: userId },
       select: {
         id: true,
         email: true,
@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
       bookingUrl: `${request.nextUrl.origin}/book/${user?.widgetId}`,
     });
   } catch (error) {
-    console.error('Error:', error);
+    log.error('Error fetching test widget data', error);
     return NextResponse.json(
       { error: 'Failed to fetch user data' },
       { status: 500 }

@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import { getCurrentUserId } from '@/lib/clerk-auth';
 import { prisma } from '@/lib/prisma';
 import { deleteCalendarEvent, updateCalendarEvent } from '@/lib/google/calendar';
 import { availabilityCache } from '@/lib/cache/availability-cache';
 import { z } from 'zod';
+import { log } from '@/lib/logger';
 
 const updateAppointmentSchema = z.object({
   status: z.enum(['confirmed', 'cancelled', 'completed']).optional(),
@@ -17,14 +17,14 @@ export async function PATCH(
   context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await getServerSession(authOptions);
+    const userId = await getCurrentUserId();
 
-    if (!session?.user?.email) {
+    if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const user = await prisma.user.findUnique({
-      where: { email: session.user.email },
+      where: { id: userId },
     });
 
     if (!user) {
@@ -64,7 +64,11 @@ export async function PATCH(
       try {
         await deleteCalendarEvent(user.id, appointment.calendarEventId);
       } catch (error) {
-        console.error('Error deleting calendar event:', error);
+        log.error('[Appointment] Error deleting calendar event', {
+          userId: user.id,
+          eventId: appointment.calendarEventId,
+          error: error instanceof Error ? error.message : String(error)
+        });
         // Don't fail the update if calendar deletion fails
       }
     }
@@ -72,19 +76,21 @@ export async function PATCH(
     // Invalidate cache when appointment is cancelled (frees up time slot)
     if (validatedData.status === 'cancelled') {
       availabilityCache.invalidateUser(user.id);
-      console.log(`[Appointment] Cache invalidated for user ${user.id} after cancellation`);
+      log.info('[Appointment] Cache invalidated after cancellation', { userId: user.id });
     }
 
     return NextResponse.json(updatedAppointment);
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { error: 'Invalid request data', details: error.errors },
+        { error: 'Invalid request data', details: error.issues },
         { status: 400 }
       );
     }
 
-    console.error('Error updating appointment:', error);
+    log.error('[Appointment] Error updating appointment', {
+      error: error instanceof Error ? error.message : String(error)
+    });
     return NextResponse.json(
       { error: 'Failed to update appointment' },
       { status: 500 }
@@ -98,14 +104,14 @@ export async function DELETE(
   context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await getServerSession(authOptions);
+    const userId = await getCurrentUserId();
 
-    if (!session?.user?.email) {
+    if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const user = await prisma.user.findUnique({
-      where: { email: session.user.email },
+      where: { id: userId },
     });
 
     if (!user) {
@@ -131,7 +137,11 @@ export async function DELETE(
       try {
         await deleteCalendarEvent(user.id, appointment.calendarEventId);
       } catch (error) {
-        console.error('Error deleting calendar event:', error);
+        log.error('[Appointment] Error deleting calendar event', {
+          userId: user.id,
+          eventId: appointment.calendarEventId,
+          error: error instanceof Error ? error.message : String(error)
+        });
         // Don't fail the delete if calendar deletion fails
       }
     }
@@ -143,11 +153,13 @@ export async function DELETE(
 
     // Invalidate cache (frees up time slot)
     availabilityCache.invalidateUser(user.id);
-    console.log(`[Appointment] Cache invalidated for user ${user.id} after deletion`);
+    log.info('[Appointment] Cache invalidated after deletion', { userId: user.id });
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('Error deleting appointment:', error);
+    log.error('[Appointment] Error deleting appointment', {
+      error: error instanceof Error ? error.message : String(error)
+    });
     return NextResponse.json(
       { error: 'Failed to delete appointment' },
       { status: 500 }

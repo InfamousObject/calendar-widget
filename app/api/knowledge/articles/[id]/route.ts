@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import { getCurrentUserId } from '@/lib/clerk-auth';
+import { hasFeatureAccess } from '@/lib/subscription';
 import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
+import { log } from '@/lib/logger';
 
 const articleSchema = z.object({
   title: z.string().min(1, 'Title is required'),
@@ -15,7 +16,7 @@ const articleSchema = z.object({
   isPinned: z.boolean().default(false),
   tags: z.array(z.string()).optional(),
   url: z.union([z.string().url(), z.literal(''), z.null()]).optional(),
-  metadata: z.record(z.any()).optional().nullable(),
+  metadata: z.record(z.string(), z.any()).optional().nullable(),
 });
 
 // GET - Get a single article
@@ -24,18 +25,27 @@ export async function GET(
   context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await getServerSession(authOptions);
+    const userId = await getCurrentUserId();
 
-    if (!session?.user?.email) {
+    if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const user = await prisma.user.findUnique({
-      where: { email: session.user.email },
+      where: { id: userId },
     });
 
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    }
+
+    // Check if user's subscription plan includes knowledge base access
+    const hasKnowledgeAccess = await hasFeatureAccess(user.id, 'hasChatbot');
+    if (!hasKnowledgeAccess) {
+      return NextResponse.json(
+        { error: 'Knowledge Base is only available on Chatbot and Bundle plans. Please upgrade to access this feature.' },
+        { status: 403 }
+      );
     }
 
     const { id } = await context.params;
@@ -63,7 +73,7 @@ export async function GET(
 
     return NextResponse.json({ article });
   } catch (error) {
-    console.error('Error fetching article:', error);
+    log.error('[Knowledge] Error fetching article:', error);
     return NextResponse.json(
       { error: 'Failed to fetch article' },
       { status: 500 }
@@ -77,18 +87,27 @@ export async function PATCH(
   context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await getServerSession(authOptions);
+    const userId = await getCurrentUserId();
 
-    if (!session?.user?.email) {
+    if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const user = await prisma.user.findUnique({
-      where: { email: session.user.email },
+      where: { id: userId },
     });
 
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    }
+
+    // Check if user's subscription plan includes knowledge base access
+    const hasKnowledgeAccess = await hasFeatureAccess(user.id, 'hasChatbot');
+    if (!hasKnowledgeAccess) {
+      return NextResponse.json(
+        { error: 'Knowledge Base is only available on Chatbot and Bundle plans. Please upgrade to access this feature.' },
+        { status: 403 }
+      );
     }
 
     const { id } = await context.params;
@@ -113,12 +132,18 @@ export async function PATCH(
       }
     }
 
+    // Prepare data for update, handling null categoryId properly
+    const updateData: any = { ...validatedData };
+    if (updateData.categoryId === null) {
+      updateData.categoryId = undefined;
+    }
+
     const article = await prisma.knowledgeBase.updateMany({
       where: {
         id,
         userId: user.id,
       },
-      data: validatedData,
+      data: updateData,
     });
 
     if (article.count === 0) {
@@ -143,12 +168,12 @@ export async function PATCH(
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { error: 'Validation failed', details: error.errors },
+        { error: 'Validation failed', details: error.issues },
         { status: 400 }
       );
     }
 
-    console.error('Error updating article:', error);
+    log.error('[Knowledge] Error updating article:', error);
     return NextResponse.json(
       { error: 'Failed to update article' },
       { status: 500 }
@@ -162,18 +187,27 @@ export async function DELETE(
   context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await getServerSession(authOptions);
+    const userId = await getCurrentUserId();
 
-    if (!session?.user?.email) {
+    if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const user = await prisma.user.findUnique({
-      where: { email: session.user.email },
+      where: { id: userId },
     });
 
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    }
+
+    // Check if user's subscription plan includes knowledge base access
+    const hasKnowledgeAccess = await hasFeatureAccess(user.id, 'hasChatbot');
+    if (!hasKnowledgeAccess) {
+      return NextResponse.json(
+        { error: 'Knowledge Base is only available on Chatbot and Bundle plans. Please upgrade to access this feature.' },
+        { status: 403 }
+      );
     }
 
     const { id } = await context.params;
@@ -191,7 +225,7 @@ export async function DELETE(
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('Error deleting article:', error);
+    log.error('[Knowledge] Error deleting article:', error);
     return NextResponse.json(
       { error: 'Failed to delete article' },
       { status: 500 }

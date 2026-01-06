@@ -26,6 +26,7 @@ export default function EmbedPage() {
   const [loading, setLoading] = useState(true);
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
   const [origin, setOrigin] = useState('');
+  const [hasChatbotAccess, setHasChatbotAccess] = useState(false);
 
   useEffect(() => {
     setOrigin(window.location.origin);
@@ -34,6 +35,15 @@ export default function EmbedPage() {
 
   const fetchData = async () => {
     try {
+      // Fetch user subscription info
+      const userResponse = await fetch('/api/user');
+      if (userResponse.ok) {
+        const userData = await userResponse.json();
+        const tier = userData.subscriptionTier || 'free';
+        // Chatbot is available on 'chatbot' and 'bundle' tiers
+        setHasChatbotAccess(tier === 'chatbot' || tier === 'bundle');
+      }
+
       // Fetch widget ID and settings
       const settingsResponse = await fetch('/api/widget/settings');
       if (settingsResponse.ok) {
@@ -124,38 +134,59 @@ export default function EmbedPage() {
   if (loading) {
     return (
       <div className="p-8">
-        <p>Loading...</p>
+        <div className="max-w-5xl mx-auto space-y-6 animate-pulse">
+          <div className="h-24 rounded-xl bg-muted" />
+          <div className="h-32 rounded-xl bg-muted" />
+          <div className="h-96 rounded-xl bg-muted" />
+        </div>
       </div>
     );
   }
 
   return (
     <div className="p-8">
-      <div className="max-w-5xl mx-auto space-y-6">
-        {/* Header */}
-        <div className="flex justify-between items-start">
-          <div>
-            <h1 className="text-3xl font-bold">Embed Your Widget</h1>
-            <p className="text-muted-foreground mt-1">
-              Choose how you want to embed booking, forms, and AI chatbot on your website
-            </p>
+      <div className="max-w-5xl mx-auto space-y-8">
+        {/* Header Section with Gradient */}
+        <div className="relative overflow-hidden rounded-2xl border border-border bg-gradient-to-br from-primary/5 via-background to-accent/5 p-8">
+          <div className="gradient-mesh absolute inset-0 -z-10" />
+
+          <div className="relative z-10 flex items-start justify-between">
+            <div>
+              <div className="flex items-center gap-3 mb-3">
+                <div className="p-3 rounded-xl bg-gradient-to-br from-primary to-accent shadow-lg shadow-primary/30">
+                  <Code className="h-6 w-6 text-white" />
+                </div>
+                <h1 className="font-display text-4xl font-semibold tracking-tight">Embed Your Widget</h1>
+              </div>
+              <p className="text-lg text-foreground-secondary font-light">
+                Choose how you want to embed booking, forms, and AI chatbot on your website
+              </p>
+            </div>
+            <Button
+              onClick={() => openTestPage(`${origin}/demo/${widgetId}`)}
+              className="bg-gradient-to-r from-primary to-accent hover:shadow-lg hover:shadow-primary/30 transition-all duration-300"
+              size="lg"
+            >
+              <ExternalLink className="h-4 w-4 mr-2" />
+              View Demo
+            </Button>
           </div>
-          <Button
-            onClick={() => openTestPage(`${origin}/demo/${widgetId}`)}
-            variant="default"
-          >
-            <ExternalLink className="h-4 w-4 mr-2" />
-            View Demo
-          </Button>
         </div>
 
         {/* Widget ID */}
-        <Card>
+        <Card className="border-border shadow-md">
           <CardHeader>
-            <CardTitle>Your Widget ID</CardTitle>
-            <CardDescription>
-              This unique ID identifies your widget configuration
-            </CardDescription>
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-primary/10">
+                <Code className="h-5 w-5 text-primary" />
+              </div>
+              <div>
+                <CardTitle className="font-display text-xl">Your Widget ID</CardTitle>
+                <CardDescription className="text-base">
+                  This unique ID identifies your widget configuration
+                </CardDescription>
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
             <div className="flex gap-2">
@@ -175,7 +206,7 @@ export default function EmbedPage() {
 
         {/* Embed Options */}
         <Tabs defaultValue="booking" className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className={`grid w-full ${hasChatbotAccess ? 'grid-cols-3' : 'grid-cols-2'}`}>
             <TabsTrigger value="booking">
               <Calendar className="h-4 w-4 mr-2" />
               Booking
@@ -184,20 +215,29 @@ export default function EmbedPage() {
               <FileText className="h-4 w-4 mr-2" />
               Contact Forms
             </TabsTrigger>
-            <TabsTrigger value="chatbot">
-              <MessageSquare className="h-4 w-4 mr-2" />
-              AI Chatbot
-            </TabsTrigger>
+            {hasChatbotAccess && (
+              <TabsTrigger value="chatbot">
+                <MessageSquare className="h-4 w-4 mr-2" />
+                AI Chatbot
+              </TabsTrigger>
+            )}
           </TabsList>
 
           {/* Booking Embed */}
           <TabsContent value="booking" className="space-y-4">
-            <Card>
+            <Card className="border-border shadow-md">
               <CardHeader>
-                <CardTitle>Booking Widget</CardTitle>
-                <CardDescription>
-                  Embed an inline booking widget on your website. Visitors can book appointments directly on your page.
-                </CardDescription>
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-blue-500/10">
+                    <Calendar className="h-5 w-5 text-blue-500" />
+                  </div>
+                  <div>
+                    <CardTitle className="font-display text-xl">Booking Widget</CardTitle>
+                    <CardDescription className="text-base">
+                      Embed an inline booking widget on your website. Visitors can book appointments directly on your page.
+                    </CardDescription>
+                  </div>
+                </div>
               </CardHeader>
               <CardContent className="space-y-4">
                 {appointmentTypes.length === 0 ? (
@@ -256,9 +296,9 @@ export default function EmbedPage() {
                         Link directly to a specific appointment type
                       </p>
                       {appointmentTypes.map((type) => (
-                        <Card key={type.id}>
+                        <Card key={type.id} className="border-border hover:border-primary/30 transition-all duration-200">
                           <CardHeader>
-                            <CardTitle className="text-base">{type.name}</CardTitle>
+                            <CardTitle className="text-base font-display">{type.name}</CardTitle>
                           </CardHeader>
                           <CardContent className="space-y-3">
                             <div className="relative">
@@ -304,12 +344,19 @@ export default function EmbedPage() {
 
           {/* Contact Forms Embed */}
           <TabsContent value="forms" className="space-y-4">
-            <Card>
+            <Card className="border-border shadow-md">
               <CardHeader>
-                <CardTitle>Contact Forms</CardTitle>
-                <CardDescription>
-                  Embed contact forms inline on your website. Each form can be embedded separately.
-                </CardDescription>
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-purple-500/10">
+                    <FileText className="h-5 w-5 text-purple-500" />
+                  </div>
+                  <div>
+                    <CardTitle className="font-display text-xl">Contact Forms</CardTitle>
+                    <CardDescription className="text-base">
+                      Embed contact forms inline on your website. Each form can be embedded separately.
+                    </CardDescription>
+                  </div>
+                </div>
               </CardHeader>
               <CardContent className="space-y-4">
                 {forms.length === 0 ? (
@@ -325,9 +372,9 @@ export default function EmbedPage() {
                   </div>
                 ) : (
                   forms.map((form) => (
-                    <Card key={form.id}>
+                    <Card key={form.id} className="border-border hover:border-primary/30 transition-all duration-200">
                       <CardHeader>
-                        <CardTitle className="text-base">{form.name}</CardTitle>
+                        <CardTitle className="text-base font-display">{form.name}</CardTitle>
                       </CardHeader>
                       <CardContent className="space-y-3">
                         <div className="relative">
@@ -370,13 +417,21 @@ export default function EmbedPage() {
           </TabsContent>
 
           {/* AI Chatbot Embed */}
-          <TabsContent value="chatbot" className="space-y-4">
-            <Card>
+          {hasChatbotAccess && (
+            <TabsContent value="chatbot" className="space-y-4">
+            <Card className="border-border shadow-md">
               <CardHeader>
-                <CardTitle>AI Chatbot</CardTitle>
-                <CardDescription>
-                  Embed an inline AI chatbot on your website. The chatbot can answer questions, qualify leads, and help book appointments.
-                </CardDescription>
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-green-500/10">
+                    <MessageSquare className="h-5 w-5 text-green-500" />
+                  </div>
+                  <div>
+                    <CardTitle className="font-display text-xl">AI Chatbot</CardTitle>
+                    <CardDescription className="text-base">
+                      Embed an inline AI chatbot on your website. The chatbot can answer questions, qualify leads, and help book appointments.
+                    </CardDescription>
+                  </div>
+                </div>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-3">
@@ -434,13 +489,19 @@ export default function EmbedPage() {
               </CardContent>
             </Card>
           </TabsContent>
+          )}
         </Tabs>
 
         {/* Demo & Installation */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <Card>
+          <Card className="border-border shadow-md hover:shadow-lg hover:border-primary/30 transition-all duration-300">
             <CardHeader>
-              <CardTitle>Preview All Features</CardTitle>
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-accent/10">
+                  <ExternalLink className="h-5 w-5 text-accent" />
+                </div>
+                <CardTitle className="font-display text-xl">Preview All Features</CardTitle>
+              </div>
             </CardHeader>
             <CardContent className="space-y-4">
               <p className="text-sm text-muted-foreground">
@@ -462,9 +523,14 @@ export default function EmbedPage() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="border-border shadow-md hover:shadow-lg hover:border-primary/30 transition-all duration-300">
             <CardHeader>
-              <CardTitle>Installation Instructions</CardTitle>
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-primary/10">
+                  <Code className="h-5 w-5 text-primary" />
+                </div>
+                <CardTitle className="font-display text-xl">Installation Instructions</CardTitle>
+              </div>
             </CardHeader>
             <CardContent>
               <ol className="list-decimal list-inside space-y-3 text-sm">

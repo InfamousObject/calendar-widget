@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import { getCurrentUserId } from '@/lib/clerk-auth';
 import { prisma } from '@/lib/prisma';
+import { decryptJSON } from '@/lib/encryption';
+import { log } from '@/lib/logger';
 
 // GET - Get all submissions for a form
 export async function GET(
@@ -9,14 +10,14 @@ export async function GET(
   context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await getServerSession(authOptions);
+    const userId = await getCurrentUserId();
 
-    if (!session?.user?.email) {
+    if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const user = await prisma.user.findUnique({
-      where: { email: session.user.email },
+      where: { id: userId },
     });
 
     if (!user) {
@@ -42,9 +43,48 @@ export async function GET(
       orderBy: { createdAt: 'desc' },
     });
 
-    return NextResponse.json({ submissions });
+    // Decrypt submissions before returning
+    const decryptedSubmissions = submissions.map((submission) => {
+      try {
+        const decryptedData = decryptJSON<Record<string, any>>(
+          submission.data,
+          submission.dataIv,
+          submission.dataAuth
+        );
+
+        return {
+          id: submission.id,
+          formId: submission.formId,
+          userId: submission.userId,
+          data: decryptedData, // Decrypted form data
+          ipAddress: submission.ipAddress,
+          userAgent: submission.userAgent,
+          status: submission.status,
+          createdAt: submission.createdAt,
+          updatedAt: submission.updatedAt,
+        };
+      } catch (error) {
+        log.error('[Forms] Failed to decrypt submission', {
+          error,
+          submissionId: submission.id,
+        });
+        return {
+          id: submission.id,
+          formId: submission.formId,
+          userId: submission.userId,
+          data: { error: 'Failed to decrypt submission data' },
+          ipAddress: submission.ipAddress,
+          userAgent: submission.userAgent,
+          status: submission.status,
+          createdAt: submission.createdAt,
+          updatedAt: submission.updatedAt,
+        };
+      }
+    });
+
+    return NextResponse.json({ submissions: decryptedSubmissions });
   } catch (error) {
-    console.error('Error fetching submissions:', error);
+    log.error('[Forms] Failed to fetch submissions', error);
     return NextResponse.json(
       { error: 'Failed to fetch submissions' },
       { status: 500 }

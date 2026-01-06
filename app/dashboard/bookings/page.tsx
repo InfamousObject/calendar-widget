@@ -3,10 +3,11 @@
 import { useEffect, useState, useMemo } from 'react';
 import { Calendar as BigCalendar, dateFnsLocalizer, View } from 'react-big-calendar';
 import { format, parse, startOfWeek, getDay, addMonths, startOfMonth, endOfMonth } from 'date-fns';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Calendar, Clock, Mail, Phone, User, X } from 'lucide-react';
+import { Calendar, Clock, Mail, Phone, User, X, CalendarDays, TrendingUp } from 'lucide-react';
+import { toast } from 'sonner';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 
 const locales = {
@@ -124,7 +125,8 @@ export default function BookingsPage() {
   };
 
   const handleCancelAppointment = async (appointmentId: string) => {
-    if (!confirm('Are you sure you want to cancel this appointment?')) {
+    const confirmCancel = window.confirm('Are you sure you want to cancel this appointment?');
+    if (!confirmCancel) {
       return;
     }
 
@@ -136,11 +138,15 @@ export default function BookingsPage() {
       });
 
       if (response.ok) {
+        toast.success('Appointment cancelled successfully');
         await fetchAppointments();
         setSelectedEvent(null);
+      } else {
+        toast.error('Failed to cancel appointment');
       }
     } catch (error) {
       console.error('Error cancelling appointment:', error);
+      toast.error('Failed to cancel appointment');
     }
   };
 
@@ -153,22 +159,43 @@ export default function BookingsPage() {
     .slice(0, 5);
 
   if (loading) {
-    return <div>Loading...</div>;
+    return (
+      <div className="space-y-6 animate-pulse">
+        <div className="h-24 rounded-xl bg-muted" />
+        <div className="grid gap-6 lg:grid-cols-3">
+          <div className="lg:col-span-2 h-[600px] rounded-xl bg-muted" />
+          <div className="space-y-6">
+            <div className="h-64 rounded-xl bg-muted" />
+            <div className="h-48 rounded-xl bg-muted" />
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-3xl font-bold tracking-tight">Appointments</h2>
-        <p className="text-muted-foreground">
-          View and manage your scheduled appointments
-        </p>
+    <div className="space-y-8">
+      {/* Header Section with Gradient */}
+      <div className="relative overflow-hidden rounded-2xl border border-border bg-gradient-to-br from-primary/5 via-background to-accent/5 p-8">
+        <div className="gradient-mesh absolute inset-0 -z-10" />
+
+        <div className="relative z-10">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="p-3 rounded-xl bg-gradient-to-br from-primary to-accent shadow-lg shadow-primary/30">
+              <CalendarDays className="h-6 w-6 text-white" />
+            </div>
+            <h2 className="font-display text-4xl font-semibold tracking-tight">Appointments</h2>
+          </div>
+          <p className="text-lg text-foreground-secondary font-light">
+            View and manage your scheduled appointments
+          </p>
+        </div>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Calendar */}
         <div className="lg:col-span-2">
-          <Card>
+          <Card className="shadow-lg border-border">
             <CardContent className="p-6">
               <div style={{ height: '600px' }}>
                 <BigCalendar
@@ -194,14 +221,15 @@ export default function BookingsPage() {
         <div className="space-y-6">
           {/* Selected Event Details */}
           {selectedEvent && (
-            <Card>
+            <Card className="border-primary/20 shadow-lg shadow-primary/5 animate-fadeInUp">
               <CardHeader>
                 <div className="flex items-center justify-between">
-                  <CardTitle>Appointment Details</CardTitle>
+                  <CardTitle className="font-display text-xl">Appointment Details</CardTitle>
                   <Button
                     variant="ghost"
                     size="sm"
                     onClick={() => setSelectedEvent(null)}
+                    className="hover:bg-destructive/10 hover:text-destructive"
                   >
                     <X className="h-4 w-4" />
                   </Button>
@@ -278,9 +306,10 @@ export default function BookingsPage() {
                 {selectedEvent.resource.status !== 'cancelled' && (
                   <Button
                     variant="destructive"
-                    className="w-full"
+                    className="w-full hover:shadow-lg hover:shadow-destructive/20 transition-all duration-300"
                     onClick={() => handleCancelAppointment(selectedEvent.id)}
                   >
+                    <X className="h-4 w-4 mr-2" />
                     Cancel Appointment
                   </Button>
                 )}
@@ -289,36 +318,47 @@ export default function BookingsPage() {
           )}
 
           {/* Upcoming Appointments */}
-          <Card>
+          <Card className="border-border shadow-md">
             <CardHeader>
-              <CardTitle>Upcoming Appointments</CardTitle>
+              <CardTitle className="font-display text-xl flex items-center gap-2">
+                <Clock className="h-5 w-5 text-primary" />
+                Upcoming Appointments
+              </CardTitle>
+              <CardDescription>Your next scheduled meetings</CardDescription>
             </CardHeader>
             <CardContent>
               {upcomingAppointments.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  No upcoming appointments
-                </p>
+                <div className="text-center py-8">
+                  <div className="p-3 rounded-xl bg-muted/50 inline-flex mb-3">
+                    <Calendar className="h-8 w-8 text-muted-foreground" />
+                  </div>
+                  <p className="text-sm text-foreground-secondary">
+                    No upcoming appointments
+                  </p>
+                </div>
               ) : (
                 <div className="space-y-3">
-                  {upcomingAppointments.map((apt) => (
+                  {upcomingAppointments.map((apt, index) => (
                     <div
                       key={apt.id}
-                      className="flex items-start gap-3 rounded-lg border p-3 cursor-pointer hover:bg-accent"
+                      className="group flex items-start gap-3 rounded-xl border border-border p-4 cursor-pointer hover:border-primary/30 hover:shadow-md hover:shadow-primary/5 transition-all duration-300 animate-fadeInUp"
+                      style={{ animationDelay: `${index * 50}ms` }}
                       onClick={() => {
                         const event = events.find((e) => e.id === apt.id);
                         if (event) handleSelectEvent(event);
                       }}
                     >
                       <div
-                        className="h-10 w-1 rounded-full"
+                        className="h-12 w-1.5 rounded-full transition-transform duration-200 group-hover:scale-110"
                         style={{ backgroundColor: apt.appointmentType.color }}
                       />
-                      <div className="flex-1 space-y-1">
-                        <p className="font-medium text-sm">{apt.visitorName}</p>
-                        <p className="text-xs text-muted-foreground">
+                      <div className="flex-1 space-y-1.5">
+                        <p className="font-semibold text-sm">{apt.visitorName}</p>
+                        <p className="text-xs text-foreground-secondary">
                           {apt.appointmentType.name}
                         </p>
-                        <p className="text-xs text-muted-foreground">
+                        <p className="text-xs text-foreground-tertiary flex items-center gap-1">
+                          <Clock className="h-3 w-3" />
                           {format(new Date(apt.startTime), 'MMM d, h:mm a')}
                         </p>
                       </div>
@@ -330,29 +370,29 @@ export default function BookingsPage() {
           </Card>
 
           {/* Stats */}
-          <Card>
-            <CardContent className="pt-6">
-              <div className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Total</span>
-                  <span className="font-medium">{appointments.length}</span>
+          <Card className="border-border shadow-md">
+            <CardHeader>
+              <CardTitle className="font-display text-xl flex items-center gap-2">
+                <TrendingUp className="h-5 w-5 text-primary" />
+                Statistics
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="flex justify-between items-center p-3 rounded-lg bg-muted/30">
+                  <span className="text-sm font-medium text-foreground-secondary">Total</span>
+                  <span className="font-display text-2xl font-bold">{appointments.length}</span>
                 </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Confirmed</span>
-                  <span className="font-medium">
-                    {
-                      appointments.filter((apt) => apt.status === 'confirmed')
-                        .length
-                    }
+                <div className="flex justify-between items-center p-3 rounded-lg bg-success/5">
+                  <span className="text-sm font-medium text-foreground-secondary">Confirmed</span>
+                  <span className="font-display text-2xl font-bold text-success">
+                    {appointments.filter((apt) => apt.status === 'confirmed').length}
                   </span>
                 </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Cancelled</span>
-                  <span className="font-medium">
-                    {
-                      appointments.filter((apt) => apt.status === 'cancelled')
-                        .length
-                    }
+                <div className="flex justify-between items-center p-3 rounded-lg bg-muted/20">
+                  <span className="text-sm font-medium text-foreground-secondary">Cancelled</span>
+                  <span className="font-display text-2xl font-bold text-foreground-tertiary">
+                    {appointments.filter((apt) => apt.status === 'cancelled').length}
                   </span>
                 </div>
               </div>

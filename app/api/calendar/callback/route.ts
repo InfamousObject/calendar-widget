@@ -1,29 +1,70 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getTokensFromCode, getCalendarClient } from '@/lib/google/oauth';
+import { encrypt } from '@/lib/encryption';
+import { log } from '@/lib/logger';
+import { Redis } from '@upstash/redis';
+
+// Initialize Redis client for OAuth state validation
+let redis: Redis | null = null;
+
+try {
+  if (process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN) {
+    redis = Redis.fromEnv();
+  }
+} catch (error) {
+  log.error('[Calendar Callback] Error initializing Redis', error);
+}
 
 // GET - Handle Google OAuth callback
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
     const code = searchParams.get('code');
-    const state = searchParams.get('state'); // userId
+    const state = searchParams.get('state'); // State token (not userId)
     const error = searchParams.get('error');
 
     if (error) {
-      console.error('OAuth error:', error);
+      log.error('[Calendar] OAuth error', { error });
       return NextResponse.redirect(
         `${process.env.NEXTAUTH_URL}/dashboard/calendar?error=access_denied`
       );
     }
 
     if (!code || !state) {
+      log.warn('[Calendar] Missing code or state parameter');
       return NextResponse.redirect(
         `${process.env.NEXTAUTH_URL}/dashboard/calendar?error=missing_params`
       );
     }
 
-    const userId = state;
+    // Validate state token and retrieve userId from Redis
+    if (!redis) {
+      log.error('[Calendar] Redis unavailable - cannot validate OAuth state');
+      return NextResponse.redirect(
+        `${process.env.NEXTAUTH_URL}/dashboard/calendar?error=server_error`
+      );
+    }
+
+    const userId = await redis.get<string>(`oauth:state:${state}`);
+
+    if (!userId) {
+      log.warn('[Calendar] Invalid or expired OAuth state token', {
+        stateLength: state.length
+      });
+      return NextResponse.redirect(
+        `${process.env.NEXTAUTH_URL}/dashboard/calendar?error=invalid_state`
+      );
+    }
+
+    // Delete state token to enforce one-time use
+    try {
+      await redis.del(`oauth:state:${state}`);
+      log.debug('[Calendar] State token validated and deleted');
+    } catch (error) {
+      log.error('[Calendar] Failed to delete state token', error);
+      // Continue anyway - token will expire in 10 minutes
+    }
 
     // Verify user exists
     const user = await prisma.user.findUnique({
@@ -59,12 +100,12 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Check if connection already exists
+    // Check if connection already exists (can't search by encrypted email)
     const existingConnection = await prisma.calendarConnection.findFirst({
       where: {
         userId: user.id,
         provider: 'google',
-        email: primaryCalendar.id,
+        isPrimary: true,
       },
     });
 
@@ -72,25 +113,57 @@ export async function GET(request: NextRequest) {
       ? new Date(tokens.expiry_date)
       : new Date(Date.now() + 3600 * 1000); // Default 1 hour
 
+    // Encrypt tokens and email before saving (protect calendar access and PII)
+    const {
+      encrypted: encryptedEmail,
+      iv: emailIv,
+      authTag: emailAuth,
+    } = encrypt(primaryCalendar.id);
+
+    const {
+      encrypted: encryptedAccessToken,
+      iv: accessTokenIv,
+      authTag: accessTokenAuth,
+    } = encrypt(tokens.access_token);
+
+    const {
+      encrypted: encryptedRefreshToken,
+      iv: refreshTokenIv,
+      authTag: refreshTokenAuth,
+    } = encrypt(tokens.refresh_token);
+
     if (existingConnection) {
-      // Update existing connection
+      // Update existing connection with encrypted tokens and email
       await prisma.calendarConnection.update({
         where: { id: existingConnection.id },
         data: {
-          accessToken: tokens.access_token,
-          refreshToken: tokens.refresh_token,
+          email: encryptedEmail,
+          emailIv,
+          emailAuth,
+          accessToken: encryptedAccessToken,
+          accessTokenIv,
+          accessTokenAuth,
+          refreshToken: encryptedRefreshToken,
+          refreshTokenIv,
+          refreshTokenAuth,
           expiresAt,
         },
       });
     } else {
-      // Create new connection
+      // Create new connection with encrypted tokens and email
       await prisma.calendarConnection.create({
         data: {
           userId: user.id,
           provider: 'google',
-          email: primaryCalendar.id,
-          accessToken: tokens.access_token,
-          refreshToken: tokens.refresh_token,
+          email: encryptedEmail,
+          emailIv,
+          emailAuth,
+          accessToken: encryptedAccessToken,
+          accessTokenIv,
+          accessTokenAuth,
+          refreshToken: encryptedRefreshToken,
+          refreshTokenIv,
+          refreshTokenAuth,
           expiresAt,
           isPrimary: true,
         },
@@ -101,7 +174,7 @@ export async function GET(request: NextRequest) {
       `${process.env.NEXTAUTH_URL}/dashboard/calendar?success=true`
     );
   } catch (error) {
-    console.error('Error handling OAuth callback:', error);
+    log.error('[Calendar] Error handling OAuth callback', error);
     return NextResponse.redirect(
       `${process.env.NEXTAUTH_URL}/dashboard/calendar?error=callback_failed`
     );

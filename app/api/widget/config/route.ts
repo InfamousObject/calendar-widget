@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { log } from '@/lib/logger';
 
 // GET - Get widget configuration (public endpoint)
 export async function GET(request: NextRequest) {
@@ -102,7 +103,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(config);
   } catch (error) {
-    console.error('Error fetching widget config:', error);
+    log.error('Error fetching widget config', error);
     return NextResponse.json(
       { error: 'Failed to load widget configuration' },
       { status: 500 }

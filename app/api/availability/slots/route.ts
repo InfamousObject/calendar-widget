@@ -3,6 +3,8 @@ import { prisma } from '@/lib/prisma';
 import { getCalendarEvents, checkSlotsAgainstEvents } from '@/lib/google/calendar';
 import { addDays, format, parse, startOfDay, endOfDay, addMinutes, isBefore, isAfter, parseISO } from 'date-fns';
 import { availabilityCache } from '@/lib/cache/availability-cache';
+import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
+import { log } from '@/lib/logger';
 
 interface TimeSlot {
   start: string; // ISO string
@@ -15,6 +17,22 @@ interface TimeSlot {
 // GET - Calculate available time slots
 export async function GET(request: NextRequest) {
   try {
+    // Check rate limit
+    const clientIp = getClientIp(request);
+    const { success, remaining } = await checkRateLimit('availability', clientIp);
+
+    if (!success) {
+      return NextResponse.json(
+        { error: 'Too many availability requests. Please try again later.' },
+        {
+          status: 429,
+          headers: {
+            'X-RateLimit-Remaining': remaining.toString(),
+          },
+        }
+      );
+    }
+
     const { searchParams } = new URL(request.url);
     const userId = searchParams.get('userId');
     const widgetId = searchParams.get('widgetId');
@@ -194,7 +212,7 @@ export async function GET(request: NextRequest) {
       cached: false,
     });
   } catch (error) {
-    console.error('Error calculating available slots:', error);
+    log.error('Error calculating available slots', { error });
     return NextResponse.json(
       { error: 'Failed to calculate available slots' },
       { status: 500 }
@@ -263,13 +281,16 @@ async function generateSlotsForDay(
       calendarEvents = await getCalendarEvents(user.id, dayStart, dayEnd);
       // Cache for 15 minutes
       availabilityCache.setCalendarEvents(user.id, dateStr, calendarEvents);
-      console.log(`[Slots] Fetched ${calendarEvents.length} calendar events for ${dateStr}`);
+      log.info('Fetched calendar events for slots', {
+        eventCount: calendarEvents.length,
+        date: dateStr
+      });
     } catch (error) {
-      console.error('Error fetching calendar events:', error);
+      log.error('Error fetching calendar events', { error, date: dateStr });
       calendarEvents = [];
     }
   } else {
-    console.log(`[Slots] Using cached calendar events for ${dateStr}`);
+    log.debug('Using cached calendar events for slots', { date: dateStr });
   }
 
   // Batch check all slots against calendar events

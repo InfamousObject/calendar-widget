@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import { getCurrentUserId } from '@/lib/clerk-auth';
 import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
+import { log } from '@/lib/logger';
 
 const updateUserSchema = z.object({
   timezone: z.string().optional(),
@@ -13,14 +13,14 @@ const updateUserSchema = z.object({
 // GET - Get current user data
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
+    const userId = await getCurrentUserId();
 
-    if (!session?.user?.email) {
+    if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const user = await prisma.user.findUnique({
-      where: { email: session.user.email },
+      where: { id: userId },
       select: {
         id: true,
         email: true,
@@ -29,6 +29,8 @@ export async function GET(request: NextRequest) {
         timezone: true,
         widgetId: true,
         createdAt: true,
+        subscriptionTier: true,
+        subscriptionStatus: true,
       },
     });
 
@@ -38,7 +40,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(user);
   } catch (error) {
-    console.error('Error fetching user:', error);
+    log.error('Error fetching user', error);
     return NextResponse.json(
       { error: 'Failed to fetch user' },
       { status: 500 }
@@ -49,14 +51,14 @@ export async function GET(request: NextRequest) {
 // PATCH - Update user settings
 export async function PATCH(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
+    const userId = await getCurrentUserId();
 
-    if (!session?.user?.email) {
+    if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const user = await prisma.user.findUnique({
-      where: { email: session.user.email },
+      where: { id: userId },
     });
 
     if (!user) {
@@ -83,12 +85,12 @@ export async function PATCH(request: NextRequest) {
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { error: 'Invalid data', details: error.errors },
+        { error: 'Invalid data', details: error.issues },
         { status: 400 }
       );
     }
 
-    console.error('Error updating user:', error);
+    log.error('Error updating user', error);
     return NextResponse.json(
       { error: 'Failed to update user' },
       { status: 500 }

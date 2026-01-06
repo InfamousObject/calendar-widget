@@ -1,9 +1,26 @@
 import { google } from 'googleapis';
+import crypto from 'crypto';
+import { Redis } from '@upstash/redis';
+import { log } from '@/lib/logger';
 
 const SCOPES = [
   'https://www.googleapis.com/auth/calendar.readonly',
   'https://www.googleapis.com/auth/calendar.events',
 ];
+
+// Initialize Redis client for OAuth state storage
+let redis: Redis | null = null;
+
+try {
+  if (process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN) {
+    redis = Redis.fromEnv();
+    log.debug('[OAuth] Redis client initialized for state storage');
+  } else {
+    log.warn('[OAuth] Redis not configured - OAuth state storage disabled');
+  }
+} catch (error) {
+  log.error('[OAuth] Error initializing Redis', error);
+}
 
 export function getOAuth2Client() {
   return new google.auth.OAuth2(
@@ -13,13 +30,33 @@ export function getOAuth2Client() {
   );
 }
 
-export function getAuthUrl(userId: string) {
+export async function getAuthUrl(userId: string) {
   const oauth2Client = getOAuth2Client();
+
+  // Generate cryptographically secure state token to prevent CSRF
+  const stateToken = crypto.randomBytes(32).toString('hex');
+
+  // Store state → userId mapping in Redis with 10-minute expiry
+  if (redis) {
+    try {
+      await redis.set(`oauth:state:${stateToken}`, userId, { ex: 600 }); // 10 minutes
+      log.debug('[OAuth] State token generated and stored', {
+        tokenLength: stateToken.length,
+        expiresIn: 600
+      });
+    } catch (error) {
+      log.error('[OAuth] Failed to store state token in Redis', error);
+      throw new Error('Failed to initialize OAuth flow. Please try again.');
+    }
+  } else {
+    log.error('[OAuth] Cannot generate auth URL - Redis not available');
+    throw new Error('OAuth state storage unavailable. Please contact support.');
+  }
 
   return oauth2Client.generateAuthUrl({
     access_type: 'offline',
     scope: SCOPES,
-    state: userId, // Pass userId to identify user in callback
+    state: stateToken, // Use secure random token instead of userId
     prompt: 'consent', // Force consent to get refresh token
   });
 }

@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { addDays, format, startOfDay, endOfDay } from 'date-fns';
 import { availabilityCache } from '@/lib/cache/availability-cache';
 import { getCalendarEvents } from '@/lib/google/calendar';
+import { log } from '@/lib/logger';
 
 // POST - Pre-warm cache for next N days (background process)
 export async function POST(request: NextRequest) {
@@ -23,7 +24,7 @@ export async function POST(request: NextRequest) {
 
     // Start pre-warming in the background (don't await)
     prewarmAvailability(user.id, appointmentTypeId, daysToPrewarm).catch(error => {
-      console.error('[Prewarm] Error:', error);
+      log.error('Prewarm background task error', { error });
     });
 
     return NextResponse.json({
@@ -31,7 +32,7 @@ export async function POST(request: NextRequest) {
       message: `Pre-warming ${daysToPrewarm} days in background`,
     });
   } catch (error) {
-    console.error('[Prewarm] Error:', error);
+    log.error('Failed to start pre-warming', { error });
     return NextResponse.json(
       { error: 'Failed to start pre-warming' },
       { status: 500 }
@@ -47,7 +48,7 @@ async function prewarmAvailability(
   appointmentTypeId: string,
   daysToPrewarm: number
 ): Promise<void> {
-  console.log(`[Prewarm] Starting for user ${userId}, ${daysToPrewarm} days`);
+  log.info('Starting availability prewarm', { daysToPrewarm });
   const startTime = Date.now();
 
   try {
@@ -94,7 +95,10 @@ async function prewarmAvailability(
       currentDate = addDays(currentDate, 1);
     }
 
-    console.log(`[Prewarm] Pre-warming ${datesToPrewarm.length} dates: ${datesToPrewarm.join(', ')}`);
+    log.info('Pre-warming dates', {
+      dateCount: datesToPrewarm.length,
+      dates: datesToPrewarm
+    });
 
     // Fetch calendar events for all dates in parallel
     const prewarmPromises = datesToPrewarm.map(async (dateStr) => {
@@ -102,7 +106,7 @@ async function prewarmAvailability(
         // Check if already cached
         const cached = availabilityCache.getCalendarEvents(userId, dateStr);
         if (cached) {
-          console.log(`[Prewarm] ${dateStr} already cached, skipping`);
+          log.debug('Date already cached, skipping prewarm', { date: dateStr });
           return;
         }
 
@@ -112,17 +116,17 @@ async function prewarmAvailability(
 
         const events = await getCalendarEvents(userId, dayStart, dayEnd);
         availabilityCache.setCalendarEvents(userId, dateStr, events);
-        console.log(`[Prewarm] ✓ Cached ${events.length} events for ${dateStr}`);
+        log.info('Cached events for date', { eventCount: events.length, date: dateStr });
       } catch (error) {
-        console.error(`[Prewarm] Failed to cache ${dateStr}:`, error);
+        log.error('Failed to cache date during prewarm', { error, date: dateStr });
       }
     });
 
     await Promise.all(prewarmPromises);
 
     const duration = Date.now() - startTime;
-    console.log(`[Prewarm] ✅ Completed in ${duration}ms`);
+    log.info('Prewarm completed', { durationMs: duration });
   } catch (error) {
-    console.error('[Prewarm] Fatal error:', error);
+    log.error('Fatal error during prewarm', { error });
   }
 }

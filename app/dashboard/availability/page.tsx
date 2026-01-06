@@ -5,7 +5,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Plus, Trash2, Save } from 'lucide-react';
+import { Plus, Trash2, Save, AlertCircle, Clock, Calendar as CalendarIcon, Globe, Check, X } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { toast } from 'sonner';
 
 interface Availability {
   id: string;
@@ -164,10 +166,10 @@ export default function AvailabilityPage() {
 
       await Promise.all(promises);
       await fetchData();
-      alert('Schedule saved successfully!');
+      toast.success('Schedule saved successfully!');
     } catch (error) {
       console.error('Error saving schedule:', error);
-      alert('Failed to save schedule');
+      toast.error('Failed to save schedule');
     } finally {
       setSaving(false);
     }
@@ -189,6 +191,7 @@ export default function AvailabilityPage() {
       });
 
       if (response.ok) {
+        toast.success('Date override added successfully');
         await fetchData();
         setShowOverrideForm(false);
         setOverrideForm({
@@ -198,55 +201,108 @@ export default function AvailabilityPage() {
           endTime: '',
           reason: '',
         });
+      } else {
+        toast.error('Failed to add date override');
       }
     } catch (error) {
       console.error('Error adding override:', error);
+      toast.error('Failed to add date override');
     }
   };
 
   const handleDeleteOverride = async (id: string) => {
-    if (!confirm('Delete this date override?')) return;
+    const confirmDelete = window.confirm('Delete this date override?');
+    if (!confirmDelete) return;
 
     try {
       await fetch(`/api/date-overrides/${id}`, { method: 'DELETE' });
+      toast.success('Date override deleted successfully');
       await fetchData();
     } catch (error) {
       console.error('Error deleting override:', error);
+      toast.error('Failed to delete date override');
     }
   };
 
   if (loading) {
-    return <div>Loading...</div>;
+    return (
+      <div className="space-y-6 animate-pulse">
+        <div className="h-24 rounded-xl bg-muted" />
+        <div className="h-48 rounded-xl bg-muted" />
+        <div className="h-96 rounded-xl bg-muted" />
+        <div className="h-64 rounded-xl bg-muted" />
+      </div>
+    );
   }
 
+  const hasAnyAvailability = availability.length > 0;
+
   return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-3xl font-bold tracking-tight">Availability Settings</h2>
-        <p className="text-muted-foreground">
-          Set your weekly schedule and date-specific overrides
-        </p>
+    <div className="space-y-8">
+      {/* Header Section with Gradient */}
+      <div className="relative overflow-hidden rounded-2xl border border-border bg-gradient-to-br from-primary/5 via-background to-accent/5 p-8">
+        <div className="gradient-mesh absolute inset-0 -z-10" />
+
+        <div className="relative z-10">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="p-3 rounded-xl bg-gradient-to-br from-primary to-accent shadow-lg shadow-primary/30">
+              <Clock className="h-6 w-6 text-white" />
+            </div>
+            <h2 className="font-display text-4xl font-semibold tracking-tight">Availability Settings</h2>
+          </div>
+          <p className="text-lg text-foreground-secondary font-light">
+            Set your weekly schedule and date-specific overrides
+          </p>
+        </div>
       </div>
 
+      {!hasAnyAvailability && (
+        <Card className="border-warning/30 bg-warning/5 animate-fadeInUp">
+          <CardContent className="p-6">
+            <div className="flex items-start gap-4">
+              <div className="p-2 rounded-xl bg-warning/20">
+                <AlertCircle className="h-6 w-6 text-warning" />
+              </div>
+              <div className="flex-1">
+                <h3 className="font-display text-xl font-semibold text-foreground mb-2">
+                  No availability configured
+                </h3>
+                <p className="text-foreground-secondary">
+                  Your booking page won't show any available dates until you save your weekly schedule below.
+                  Enable at least one day and click "Save Schedule" to start accepting bookings.
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Timezone Selector */}
-      <Card>
+      <Card className="border-border shadow-md">
         <CardHeader>
-          <CardTitle>Timezone</CardTitle>
-          <CardDescription>
-            Select your local timezone for appointments
-          </CardDescription>
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-accent/10">
+              <Globe className="h-5 w-5 text-accent" />
+            </div>
+            <div>
+              <CardTitle className="font-display text-xl">Timezone</CardTitle>
+              <CardDescription className="text-base">
+                Select your local timezone for appointments
+              </CardDescription>
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           <div className="max-w-md">
-            <Label htmlFor="timezone">Timezone</Label>
+            <Label htmlFor="timezone" className="text-sm font-medium">Timezone</Label>
             <select
               id="timezone"
               value={timezone}
               onChange={(e) => handleTimezoneChange(e.target.value)}
-              className="mt-2 flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              className="mt-2 flex h-10 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground shadow-sm transition-colors hover:border-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
             >
               {TIMEZONES.map((tz) => (
-                <option key={tz} value={tz}>
+                <option key={tz} value={tz} className="text-black dark:text-white bg-white dark:bg-gray-800">
                   {tz}
                 </option>
               ))}
@@ -256,27 +312,36 @@ export default function AvailabilityPage() {
       </Card>
 
       {/* Weekly Schedule */}
-      <Card>
+      <Card className="border-border shadow-md">
         <CardHeader>
           <div className="flex items-center justify-between">
-            <div>
-              <CardTitle>Weekly Schedule</CardTitle>
-              <CardDescription>
-                Set your regular weekly availability
-              </CardDescription>
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-primary/10">
+                <CalendarIcon className="h-5 w-5 text-primary" />
+              </div>
+              <div>
+                <CardTitle className="font-display text-xl">Weekly Schedule</CardTitle>
+                <CardDescription className="text-base">
+                  Set your regular weekly availability
+                </CardDescription>
+              </div>
             </div>
-            <Button onClick={handleSaveSchedule} disabled={saving}>
+            <Button
+              onClick={handleSaveSchedule}
+              disabled={saving}
+              className="bg-gradient-to-r from-primary to-accent hover:shadow-lg hover:shadow-primary/30 transition-all duration-300"
+            >
               <Save className="mr-2 h-4 w-4" />
               {saving ? 'Saving...' : 'Save Schedule'}
             </Button>
           </div>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
+          <div className="space-y-3">
             {DAYS_OF_WEEK.map((dayName, dayOfWeek) => (
               <div
                 key={dayOfWeek}
-                className="flex items-center gap-4 rounded-lg border p-4"
+                className="flex items-center gap-4 rounded-xl border border-border p-4 hover:border-primary/30 transition-all duration-200"
               >
                 <div className="flex items-center space-x-2">
                   <input
@@ -351,16 +416,24 @@ export default function AvailabilityPage() {
       </Card>
 
       {/* Date Overrides */}
-      <Card>
+      <Card className="border-border shadow-md">
         <CardHeader>
           <div className="flex items-center justify-between">
-            <div>
-              <CardTitle>Date Overrides</CardTitle>
-              <CardDescription>
-                Set specific dates with different availability (vacations, special hours)
-              </CardDescription>
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-accent/10">
+                <CalendarIcon className="h-5 w-5 text-accent" />
+              </div>
+              <div>
+                <CardTitle className="font-display text-xl">Date Overrides</CardTitle>
+                <CardDescription className="text-base">
+                  Set specific dates with different availability (vacations, special hours)
+                </CardDescription>
+              </div>
             </div>
-            <Button onClick={() => setShowOverrideForm(!showOverrideForm)}>
+            <Button
+              onClick={() => setShowOverrideForm(!showOverrideForm)}
+              className="bg-gradient-to-r from-accent to-accent/90 hover:shadow-lg hover:shadow-accent/30 transition-all duration-300"
+            >
               <Plus className="mr-2 h-4 w-4" />
               Add Override
             </Button>
@@ -368,7 +441,7 @@ export default function AvailabilityPage() {
         </CardHeader>
         <CardContent>
           {showOverrideForm && (
-            <form onSubmit={handleAddOverride} className="mb-6 rounded-lg border p-4">
+            <form onSubmit={handleAddOverride} className="mb-6 rounded-xl border-2 border-primary/20 bg-primary/5 p-6 animate-fadeInUp">
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="override-date">Date</Label>
@@ -444,40 +517,60 @@ export default function AvailabilityPage() {
                 </div>
               )}
 
-              <div className="mt-4 flex justify-end space-x-2">
+              <div className="mt-6 flex justify-end space-x-3">
                 <Button
                   type="button"
                   variant="outline"
                   onClick={() => setShowOverrideForm(false)}
                 >
+                  <X className="h-4 w-4 mr-2" />
                   Cancel
                 </Button>
-                <Button type="submit">Add Override</Button>
+                <Button
+                  type="submit"
+                  className="bg-gradient-to-r from-primary to-accent hover:shadow-lg hover:shadow-primary/30 transition-all duration-300"
+                >
+                  <Check className="h-4 w-4 mr-2" />
+                  Add Override
+                </Button>
               </div>
             </form>
           )}
 
-          <div className="space-y-2">
+          <div className="space-y-3">
             {dateOverrides.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                No date overrides set
-              </p>
+              <div className="text-center py-8 rounded-xl bg-muted/30 border-2 border-dashed border-muted-foreground/25">
+                <div className="p-3 rounded-xl bg-accent/10 inline-flex mb-3">
+                  <CalendarIcon className="h-8 w-8 text-accent" />
+                </div>
+                <p className="text-sm text-foreground-secondary">
+                  No date overrides set
+                </p>
+              </div>
             ) : (
-              dateOverrides.map((override) => (
+              dateOverrides.map((override, index) => (
                 <div
                   key={override.id}
-                  className="flex items-center justify-between rounded-lg border p-3"
+                  className="group flex items-center justify-between rounded-xl border border-border p-4 hover:border-accent/30 hover:shadow-md hover:shadow-accent/5 transition-all duration-300 animate-fadeInUp"
+                  style={{ animationDelay: `${index * 50}ms` }}
                 >
                   <div>
-                    <p className="font-medium">
-                      {new Date(override.date).toLocaleDateString()}
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                      {override.isAvailable
-                        ? `Available ${override.startTime || ''} - ${
-                            override.endTime || ''
-                          }`
-                        : 'Unavailable'}
+                    <div className="flex items-center gap-2 mb-1">
+                      <p className="font-semibold text-lg">
+                        {new Date(override.date).toLocaleDateString()}
+                      </p>
+                      <Badge variant={override.isAvailable ? 'default' : 'secondary'} className="text-xs">
+                        {override.isAvailable ? (
+                          <><Check className="h-3 w-3 mr-1" /> Available</>
+                        ) : (
+                          <><X className="h-3 w-3 mr-1" /> Unavailable</>
+                        )}
+                      </Badge>
+                    </div>
+                    <p className="text-sm text-foreground-secondary">
+                      {override.isAvailable && override.startTime && override.endTime
+                        ? `${override.startTime} - ${override.endTime}`
+                        : override.isAvailable ? 'All day' : 'Blocked'}
                       {override.reason && ` • ${override.reason}`}
                     </p>
                   </div>
@@ -485,6 +578,7 @@ export default function AvailabilityPage() {
                     variant="outline"
                     size="sm"
                     onClick={() => handleDeleteOverride(override.id)}
+                    className="hover:border-destructive hover:text-destructive hover:bg-destructive/10 transition-all duration-200"
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>

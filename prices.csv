@@ -1,0 +1,11 @@
+Price ID,Product ID,Product Name,Product Statement Descriptor,Product Tax Code,Description,Created (UTC),Amount,Currency,Interval,Interval Count,Usage Type,Aggregate Usage,Billing Scheme,Trial Period Days,Tax Behavior
+price_1Sk98w73t1OiouKfLHqmSlh5,prod_ThXeud8n5i3QPv,SmartWidget Chatbot,,,,2025-12-30 20:03,0.01,usd,month,1,metered,,per_unit,,unspecified
+price_1Sk8mS73t1OiouKfFgKlXJ06,prod_ThXswc8vLiPexu,Additional Team Seat,,,price_seat_annual,2025-12-30 19:40,51.00,usd,year,1,licensed,,per_unit,,unspecified
+price_1Sk8mS73t1OiouKfADP2btEo,prod_ThXswc8vLiPexu,Additional Team Seat,,,price_seat_monthly,2025-12-30 19:40,5.00,usd,month,1,licensed,,per_unit,,unspecified
+price_1Sk8lB73t1OiouKf8Mz02Qro,prod_ThXq9EQm92I3z2,SmartWidget Bundle,,,Bundle Base - Usage Pricing,2025-12-30 19:39,0.01,usd,month,1,metered,,per_unit,,unspecified
+price_1Sk8lB73t1OiouKfWpAdPyGN,prod_ThXq9EQm92I3z2,SmartWidget Bundle,,,Bundle Base - Monthly,2025-12-30 19:39,119.00,usd,month,1,licensed,,per_unit,,unspecified
+price_1Sk8lB73t1OiouKf7UOnFnMH,prod_ThXq9EQm92I3z2,SmartWidget Bundle,,,Bundle Base - Annual,2025-12-30 19:39,1213.00,usd,year,1,licensed,,per_unit,,unspecified
+price_1Sk8ZG73t1OiouKfezrNnA9h,prod_ThXeud8n5i3QPv,SmartWidget Chatbot,,,Chatbot Base - Annual (15% off),2025-12-30 19:26,908.00,usd,year,1,licensed,,per_unit,,unspecified
+price_1Sk8ZG73t1OiouKfAFL4Uh32,prod_ThXeud8n5i3QPv,SmartWidget Chatbot,,,Chatbot Base - Monthly,2025-12-30 19:26,89.00,usd,month,1,licensed,,per_unit,,unspecified
+price_1Sk8Xd73t1OiouKfvVKhDntB,prod_ThXc7kpAyEZLrC,SmartWidget Booking,,,Booking - Monthly,2025-12-30 19:25,29.00,usd,month,1,licensed,,per_unit,,unspecified
+price_1Sk8Xd73t1OiouKfid5UQzpF,prod_ThXc7kpAyEZLrC,SmartWidget Booking,,,Booking - Annual,2025-12-30 19:25,296.00,usd,year,1,licensed,,per_unit,,unspecified

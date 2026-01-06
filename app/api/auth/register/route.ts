@@ -2,13 +2,25 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { hashPassword } from '@/lib/auth-utils';
 import { z } from 'zod';
+import { randomUUID } from 'crypto';
+import { log } from '@/lib/logger';
+
+/**
+ * Password schema with complexity requirements
+ */
+const passwordSchema = z.string()
+  .min(12, 'Password must be at least 12 characters')
+  .regex(/[A-Z]/, 'Password must contain at least one uppercase letter')
+  .regex(/[a-z]/, 'Password must contain at least one lowercase letter')
+  .regex(/[0-9]/, 'Password must contain at least one number')
+  .regex(/[^A-Za-z0-9]/, 'Password must contain at least one special character');
 
 /**
  * Registration schema validation
  */
 const registerSchema = z.object({
   email: z.string().email('Invalid email address'),
-  password: z.string().min(8, 'Password must be at least 8 characters'),
+  password: passwordSchema,
   name: z.string().min(1, 'Name is required'),
   businessName: z.string().optional(),
 });
@@ -42,6 +54,7 @@ export async function POST(req: NextRequest) {
     // Create user with default widget config
     const user = await prisma.user.create({
       data: {
+        id: randomUUID(),
         email: validatedData.email,
         name: validatedData.name,
         passwordHash,
@@ -80,12 +93,12 @@ export async function POST(req: NextRequest) {
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { error: 'Validation error', details: error.errors },
+        { error: 'Validation error', details: error.issues },
         { status: 400 }
       );
     }
 
-    console.error('Registration error:', error);
+    log.error('Registration error', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

@@ -36,6 +36,7 @@
 | **OAuth Security** | ✅ FIXED | 2026-01-02 | Clerk handles all OAuth flows with built-in CSRF protection and secure state management |
 | **Password Security** | ✅ FIXED | 2026-01-02 | Clerk handles password management with automatic breach detection, complexity enforcement, and secure hashing |
 | **Subscription Gating** | ✅ FIXED | 2026-01-02 | Feature access enforcement on all chatbot/knowledge base routes with usage limits |
+| **API Cost Limits** | ✅ FIXED | 2026-01-05 | User-configurable cost limits ($1-$1000/month, default $50) enforced on Anthropic API usage to prevent runaway costs |
 
 ### 🔥 RECOMMENDED NEXT (HIGH Priority)
 
@@ -61,12 +62,12 @@
 
 ### 📊 Progress Summary
 
-- **Critical Issues (8/8)**: ✅ 100% Complete
-- **High Issues (3/3 remaining)**: Data encryption at rest
+- **Critical Issues (9/9)**: ✅ 100% Complete
+- **High Issues (2/3 remaining)**: Data encryption at rest (form submissions, OAuth tokens)
 - **Medium Issues (9)**: Partially addressed, security headers & abuse prevention remaining
 - **Low Issues (4)**: Monitoring & compliance enhancements
 
-**Overall Progress**: 8/23 core vulnerabilities resolved (35%) - **Strong security foundation established with Clerk migration**
+**Overall Progress**: 9/24 core vulnerabilities resolved (38%) - **Strong security foundation established with Clerk migration + API cost controls**
 
 ---
 
@@ -448,50 +449,49 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
 
 ---
 
-### 7. ANTHROPIC API KEY EXPOSED AS ENVIRONMENT VARIABLE
+### 7. ~~ANTHROPIC API KEY EXPOSED AS ENVIRONMENT VARIABLE~~ ✅ MITIGATED
 
 **Location**: `/api/chatbot/chat/route.ts`
-**Severity**: 🟠 HIGH
+**Severity**: 🟠 HIGH → 🟢 MITIGATED
+**Fixed**: 2026-01-05
 
-**Issue**: API key loaded into every chatbot request
+**Previous Issue**: API key loaded into every chatbot request with no cost enforcement
 
+**Resolution**:
+- ✅ **API key is server-side only** - Never exposed to client/browser
+- ✅ **Rate limiting implemented** - 30 messages/hour per IP prevents abuse
+- ✅ **Subscription gating** - Requires paid subscription (Chatbot or Bundle plan)
+- ✅ **Per-user cost limits enforced** - User-configurable cost limit (default $50/month)
+- ✅ **Usage tracking** - All costs monitored and logged
+
+**Implementation**:
 ```typescript
-const apiKey = process.env.ANTHROPIC_API_KEY;
-```
+// Cost limit enforcement (app/api/chatbot/chat/route.ts:112-124)
+const costLimitCents = user.chatbotConfig.costLimitCents; // Default: 5000 ($50)
 
-**Risk**:
-- If process.env is exposed (XSS, code injection), API key is compromised
-- Expensive resource: Each chat call costs money
-- No per-user rate limiting or cost limits
-
-**Evidence**: Costs calculated but not enforced:
-```typescript
-const estimatedCost = Math.ceil(...);
-// NO check if over budget!
-await prisma.chatbotUsage.upsert({
-  update: { estimatedCost: { increment: estimatedCost } }
-});
-```
-
-**Remediation**:
-```typescript
-// 1. Implement per-user cost limits
-const MAX_MONTHLY_COST = 1000; // $10 in cents
-
-const usage = await prisma.chatbotUsage.findUnique({
-  where: { userId_year_month: { userId, year, month } },
-});
-
-if (usage && usage.estimatedCost >= MAX_MONTHLY_COST) {
+if (usage && usage.estimatedCost >= costLimitCents) {
   return NextResponse.json(
-    { error: 'Monthly cost limit reached. Please upgrade your plan.' },
+    {
+      error: `Monthly API cost limit reached ($${(costLimitCents / 100).toFixed(2)})`,
+      currentCost: (usage.estimatedCost / 100).toFixed(2),
+      limit: (costLimitCents / 100).toFixed(2)
+    },
     { status: 429 }
   );
 }
-
-// 2. Use server-side API key proxy
-// 3. Consider using Claude API keys with scoped permissions
 ```
+
+**Configuration**:
+- Users can adjust their cost limit in chatbot settings
+- Range: $1 - $1,000 per month (100 - 100000 cents)
+- Default: $50/month (5000 cents)
+- Stored in `ChatbotConfig.costLimitCents` field
+
+**Security Benefits**:
+- Prevents runaway API costs from attacks or bugs
+- Per-user isolation prevents one user from affecting others
+- Transparent to users with clear error messages
+- Configurable for different use cases
 
 ---
 

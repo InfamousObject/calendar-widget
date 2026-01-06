@@ -1,38 +1,40 @@
-import { getServerSession } from 'next-auth';
+import { auth, currentUser } from '@clerk/nextjs/server';
 import { redirect } from 'next/navigation';
-import { authOptions } from '@/lib/auth';
 import { DashboardNav } from '@/components/dashboard/dashboard-nav';
 import { DashboardHeader } from '@/components/dashboard/dashboard-header';
-import { SessionProvider } from '@/components/providers/session-provider';
 
 export default async function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const session = await getServerSession(authOptions);
+  const { userId } = await auth();
 
-  if (!session) {
+  if (!userId) {
     redirect('/auth/login');
   }
 
+  const user = await currentUser();
+
   return (
-    <SessionProvider>
-      <div className="flex min-h-screen">
-        {/* Sidebar */}
-        <DashboardNav />
+    <div className="flex min-h-screen">
+      {/* Sidebar */}
+      <DashboardNav />
 
-        {/* Main Content */}
-        <div className="flex flex-1 flex-col">
-          {/* Header */}
-          <DashboardHeader user={session.user} />
+      {/* Main Content */}
+      <div className="flex flex-1 flex-col">
+        {/* Header */}
+        <DashboardHeader user={{
+          name: user?.fullName || user?.firstName || 'User',
+          email: user?.emailAddresses[0]?.emailAddress || '',
+          image: user?.imageUrl,
+        }} />
 
-          {/* Page Content */}
-          <main className="flex-1 overflow-y-auto bg-muted/50 p-6">
-            {children}
-          </main>
-        </div>
+        {/* Page Content */}
+        <main className="flex-1 overflow-y-auto bg-muted/50 p-6">
+          {children}
+        </main>
       </div>
-    </SessionProvider>
+    </div>
   );
 }

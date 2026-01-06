@@ -1,20 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import { getCurrentUserId } from '@/lib/clerk-auth';
 import { prisma } from '@/lib/prisma';
 import { getAuthUrl } from '@/lib/google/oauth';
+import { log } from '@/lib/logger';
 
 // GET - Initiate Google Calendar OAuth flow
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
+    const userId = await getCurrentUserId();
 
-    if (!session?.user?.email) {
+    if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const user = await prisma.user.findUnique({
-      where: { email: session.user.email },
+      where: { id: userId },
     });
 
     if (!user) {
@@ -29,12 +29,13 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const authUrl = getAuthUrl(user.id);
+    // Generate secure OAuth URL with CSRF protection
+    const authUrl = await getAuthUrl(user.id);
 
     // Redirect to Google OAuth consent screen
     return NextResponse.redirect(authUrl);
   } catch (error) {
-    console.error('Error initiating Google OAuth:', error);
+    log.error('[Calendar] Error initiating Google OAuth', error);
     return NextResponse.json(
       { error: 'Failed to initiate Google Calendar connection' },
       { status: 500 }

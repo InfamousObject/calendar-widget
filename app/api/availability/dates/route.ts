@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { addDays, format, startOfDay } from 'date-fns';
 import { availabilityCache } from '@/lib/cache/availability-cache';
+import { log } from '@/lib/logger';
 
 // GET - Get available dates (faster endpoint that doesn't calculate individual slots)
 export async function GET(request: NextRequest) {
@@ -132,7 +133,7 @@ export async function GET(request: NextRequest) {
       cached: false,
     });
   } catch (error) {
-    console.error('Error fetching available dates:', error);
+    log.error('Error fetching available dates', { error });
     return NextResponse.json(
       { error: 'Failed to fetch available dates' },
       { status: 500 }

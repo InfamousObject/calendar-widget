@@ -1,0 +1,13 @@
+name = "calendar-widget-cron"
+main = "workers/reminder-cron.ts"
+compatibility_date = "2024-01-01"
+
+[triggers]
+crons = ["0 9 * * *"]  # 9 AM UTC daily - adjust based on your timezone
+
+[env.production]
+vars = { ENVIRONMENT = "production" }
+
+# Secrets (set via: npx wrangler secret put CRON_SECRET)
+# - CRON_SECRET: Authentication token for cron endpoint
+# - NEXT_PUBLIC_APP_URL: Production URL of your Next.js app

@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import { getCurrentUserId } from '@/lib/clerk-auth';
 import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
+import { log } from '@/lib/logger';
 
 // Validation schema
 const fieldSchema = z.object({
@@ -18,14 +18,14 @@ const fieldSchema = z.object({
 // GET - Get all booking form fields for the user
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
+    const userId = await getCurrentUserId();
 
-    if (!session?.user?.email) {
+    if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const user = await prisma.user.findUnique({
-      where: { email: session.user.email },
+      where: { id: userId },
     });
 
     if (!user) {
@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ fields });
   } catch (error) {
-    console.error('Error fetching booking form fields:', error);
+    log.error('[Forms] Failed to fetch booking form fields', error);
     return NextResponse.json(
       { error: 'Failed to fetch form fields' },
       { status: 500 }
@@ -50,14 +50,14 @@ export async function GET(request: NextRequest) {
 // POST - Create a new booking form field
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
+    const userId = await getCurrentUserId();
 
-    if (!session?.user?.email) {
+    if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const user = await prisma.user.findUnique({
-      where: { email: session.user.email },
+      where: { id: userId },
     });
 
     if (!user) {
@@ -65,10 +65,12 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    console.log('[BookingForm] Received body:', body);
+    log.debug('[Forms] Received booking form field creation request', {
+      fieldCount: 1,
+    });
 
     const validatedData = fieldSchema.parse(body);
-    console.log('[BookingForm] Validated data:', validatedData);
+    log.debug('[Forms] Validated booking form field data');
 
     // Get the next order number
     const maxOrderField = await prisma.bookingFormField.findFirst({
@@ -83,7 +85,9 @@ export async function POST(request: NextRequest) {
       userId: user.id,
       order: nextOrder,
     };
-    console.log('[BookingForm] Creating field with data:', createData);
+    log.debug('[Forms] Creating booking form field', {
+      order: nextOrder,
+    });
 
     const field = await prisma.bookingFormField.create({
       data: createData,
@@ -92,14 +96,16 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ field }, { status: 201 });
   } catch (error) {
     if (error instanceof z.ZodError) {
-      console.error('Validation error:', error.errors);
+      log.debug('[Forms] Validation error for booking form field', {
+        issues: error.issues,
+      });
       return NextResponse.json(
-        { error: 'Validation error', details: error.errors },
+        { error: 'Validation error', details: error.issues },
         { status: 400 }
       );
     }
 
-    console.error('Error creating booking form field:', error);
+    log.error('[Forms] Failed to create booking form field', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     return NextResponse.json(
       { error: `Failed to create form field: ${errorMessage}` },

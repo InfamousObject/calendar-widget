@@ -170,74 +170,101 @@ export default function KnowledgeBasePage() {
   if (loading) {
     return (
       <div className="p-8">
-        <p>Loading...</p>
+        <div className="max-w-7xl mx-auto space-y-6 animate-pulse">
+          <div className="h-24 rounded-xl bg-muted" />
+          <div className="h-48 rounded-xl bg-muted" />
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="h-32 rounded-xl bg-muted" />
+            ))}
+          </div>
+          <div className="space-y-4">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="h-32 rounded-xl bg-muted" />
+            ))}
+          </div>
+        </div>
       </div>
     );
   }
 
   return (
     <div className="p-8">
-      <div className="max-w-7xl mx-auto space-y-6">
-        {/* Header */}
-        <div className="flex justify-between items-center">
-          <div>
-            <h1 className="text-3xl font-bold">Knowledge Base</h1>
-            <p className="text-muted-foreground mt-1">
-              Create and manage articles for your AI chatbot
-            </p>
-          </div>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              onClick={() => router.push('/dashboard/knowledge/categories')}
-            >
-              <FolderOpen className="h-4 w-4 mr-2" />
-              Manage Categories
-            </Button>
-            <Dialog open={newArticleOpen} onOpenChange={setNewArticleOpen}>
-              <DialogTrigger asChild>
-                <Button>
-                  <Plus className="h-4 w-4 mr-2" />
-                  New Article
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Create New Article</DialogTitle>
-                  <DialogDescription>
-                    Enter a title for your new article. You can edit the content in the next step.
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label>Article Title</Label>
-                    <Input
-                      value={newArticleTitle}
-                      onChange={(e) => setNewArticleTitle(e.target.value)}
-                      placeholder="How to book an appointment..."
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          handleCreateArticle();
-                        }
-                      }}
-                    />
-                  </div>
+      <div className="max-w-7xl mx-auto space-y-8">
+        {/* Header Section with Gradient */}
+        <div className="relative overflow-hidden rounded-2xl border border-border bg-gradient-to-br from-primary/5 via-background to-accent/5 p-8">
+          <div className="gradient-mesh absolute inset-0 -z-10" />
+
+          <div className="relative z-10 flex items-start justify-between">
+            <div>
+              <div className="flex items-center gap-3 mb-3">
+                <div className="p-3 rounded-xl bg-gradient-to-br from-primary to-accent shadow-lg shadow-primary/30">
+                  <BookOpen className="h-6 w-6 text-white" />
                 </div>
-                <DialogFooter>
-                  <Button variant="outline" onClick={() => setNewArticleOpen(false)}>
-                    Cancel
+                <h1 className="font-display text-4xl font-semibold tracking-tight">Knowledge Base</h1>
+              </div>
+              <p className="text-lg text-foreground-secondary font-light">
+                Create and manage articles for your AI chatbot
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={() => router.push('/dashboard/knowledge/categories')}
+              >
+                <FolderOpen className="h-4 w-4 mr-2" />
+                Manage Categories
+              </Button>
+              <Dialog open={newArticleOpen} onOpenChange={setNewArticleOpen}>
+                <DialogTrigger asChild>
+                  <Button className="bg-gradient-to-r from-primary to-accent hover:shadow-lg hover:shadow-primary/30 transition-all duration-300">
+                    <Plus className="h-4 w-4 mr-2" />
+                    New Article
                   </Button>
-                  <Button onClick={handleCreateArticle}>Create Article</Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Create New Article</DialogTitle>
+                    <DialogDescription>
+                      Enter a title for your new article. You can edit the content in the next step.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label>Article Title</Label>
+                      <Input
+                        value={newArticleTitle}
+                        onChange={(e) => setNewArticleTitle(e.target.value)}
+                        placeholder="How to book an appointment..."
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            handleCreateArticle();
+                          }
+                        }}
+                      />
+                    </div>
+                  </div>
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setNewArticleOpen(false)}>
+                      Cancel
+                    </Button>
+                    <Button onClick={handleCreateArticle}>Create Article</Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            </div>
           </div>
         </div>
 
         {/* Filters */}
-        <Card>
+        <Card className="border-border shadow-md">
           <CardHeader>
-            <CardTitle>Filter Articles</CardTitle>
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-primary/10">
+                <Search className="h-5 w-5 text-primary" />
+              </div>
+              <CardTitle className="font-display text-xl">Filter Articles</CardTitle>
+            </div>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -296,40 +323,40 @@ export default function KnowledgeBasePage() {
 
         {/* Stats */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <Card>
+          <Card className="border-border shadow-md hover:shadow-lg hover:border-primary/30 transition-all duration-300">
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium">Total Articles</CardTitle>
+              <CardTitle className="text-sm font-medium text-foreground-secondary">Total Articles</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{articles.length}</div>
+              <div className="text-2xl font-display font-bold">{articles.length}</div>
             </CardContent>
           </Card>
-          <Card>
+          <Card className="border-border shadow-md hover:shadow-lg hover:border-success/30 transition-all duration-300">
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium">Published</CardTitle>
+              <CardTitle className="text-sm font-medium text-foreground-secondary">Published</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">
+              <div className="text-2xl font-display font-bold text-success">
                 {articles.filter((a) => a.status === 'published').length}
               </div>
             </CardContent>
           </Card>
-          <Card>
+          <Card className="border-border shadow-md hover:shadow-lg hover:border-accent/30 transition-all duration-300">
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium">Drafts</CardTitle>
+              <CardTitle className="text-sm font-medium text-foreground-secondary">Drafts</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">
+              <div className="text-2xl font-display font-bold text-accent">
                 {articles.filter((a) => a.status === 'draft').length}
               </div>
             </CardContent>
           </Card>
-          <Card>
+          <Card className="border-border shadow-md hover:shadow-lg hover:border-primary/30 transition-all duration-300">
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium">Categories</CardTitle>
+              <CardTitle className="text-sm font-medium text-foreground-secondary">Categories</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{categories.length}</div>
+              <div className="text-2xl font-display font-bold">{categories.length}</div>
             </CardContent>
           </Card>
         </div>
@@ -352,7 +379,7 @@ export default function KnowledgeBasePage() {
             </Card>
           ) : (
             articles.map((article) => (
-              <Card key={article.id} className="hover:shadow-md transition-shadow">
+              <Card key={article.id} className="border-border shadow-md hover:border-primary/30 hover:shadow-lg transition-all duration-300">
                 <CardHeader>
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
@@ -361,7 +388,7 @@ export default function KnowledgeBasePage() {
                           <Pin className="h-4 w-4 text-yellow-500" />
                         )}
                         {getTypeIcon(article.type)}
-                        <CardTitle className="text-xl">{article.title}</CardTitle>
+                        <CardTitle className="text-xl font-display">{article.title}</CardTitle>
                       </div>
                       {article.excerpt && (
                         <CardDescription className="mt-2">{article.excerpt}</CardDescription>

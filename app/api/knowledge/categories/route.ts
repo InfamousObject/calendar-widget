@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import { getCurrentUserId } from '@/lib/clerk-auth';
+import { hasFeatureAccess } from '@/lib/subscription';
 import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
+import { log } from '@/lib/logger';
 
 const categorySchema = z.object({
   name: z.string().min(1, 'Category name is required'),
@@ -15,18 +16,27 @@ const categorySchema = z.object({
 // GET - List all categories
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
+    const userId = await getCurrentUserId();
 
-    if (!session?.user?.email) {
+    if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const user = await prisma.user.findUnique({
-      where: { email: session.user.email },
+      where: { id: userId },
     });
 
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    }
+
+    // Check if user's subscription plan includes knowledge base access
+    const hasKnowledgeAccess = await hasFeatureAccess(user.id, 'hasChatbot');
+    if (!hasKnowledgeAccess) {
+      return NextResponse.json(
+        { error: 'Knowledge Base is only available on Chatbot and Bundle plans. Please upgrade to access this feature.' },
+        { status: 403 }
+      );
     }
 
     const categories = await prisma.knowledgeBaseCategory.findMany({
@@ -41,7 +51,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ categories });
   } catch (error) {
-    console.error('Error fetching categories:', error);
+    log.error('[Knowledge] Error fetching categories:', error);
     return NextResponse.json(
       { error: 'Failed to fetch categories' },
       { status: 500 }
@@ -52,18 +62,27 @@ export async function GET(request: NextRequest) {
 // POST - Create a new category
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
+    const userId = await getCurrentUserId();
 
-    if (!session?.user?.email) {
+    if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const user = await prisma.user.findUnique({
-      where: { email: session.user.email },
+      where: { id: userId },
     });
 
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    }
+
+    // Check if user's subscription plan includes knowledge base access
+    const hasKnowledgeAccess = await hasFeatureAccess(user.id, 'hasChatbot');
+    if (!hasKnowledgeAccess) {
+      return NextResponse.json(
+        { error: 'Knowledge Base is only available on Chatbot and Bundle plans. Please upgrade to access this feature.' },
+        { status: 403 }
+      );
     }
 
     const body = await request.json();
@@ -97,12 +116,12 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { error: 'Validation failed', details: error.errors },
+        { error: 'Validation failed', details: error.issues },
         { status: 400 }
       );
     }
 
-    console.error('Error creating category:', error);
+    log.error('[Knowledge] Error creating category:', error);
     return NextResponse.json(
       { error: 'Failed to create category' },
       { status: 500 }

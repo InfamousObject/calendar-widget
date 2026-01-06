@@ -172,36 +172,56 @@ export default function CategoriesPage() {
   if (loading) {
     return (
       <div className="p-8">
-        <p>Loading...</p>
+        <div className="max-w-4xl mx-auto space-y-6 animate-pulse">
+          <div className="h-24 rounded-xl bg-muted" />
+          <div className="space-y-4">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="h-32 rounded-xl bg-muted" />
+            ))}
+          </div>
+        </div>
       </div>
     );
   }
 
   return (
     <div className="p-8">
-      <div className="max-w-4xl mx-auto space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
+      <div className="max-w-4xl mx-auto space-y-8">
+        {/* Header Section with Gradient */}
+        <div className="relative overflow-hidden rounded-2xl border border-border bg-gradient-to-br from-primary/5 via-background to-accent/5 p-8">
+          <div className="gradient-mesh absolute inset-0 -z-10" />
+
+          <div className="relative z-10">
             <Button
               variant="ghost"
               size="sm"
               onClick={() => router.push('/dashboard/knowledge')}
+              className="mb-4"
             >
               <ArrowLeft className="h-4 w-4 mr-2" />
-              Back
+              Back to Knowledge Base
             </Button>
-            <div>
-              <h1 className="text-3xl font-bold">Categories</h1>
-              <p className="text-muted-foreground mt-1">
-                Organize your knowledge base articles
-              </p>
+            <div className="flex items-start justify-between">
+              <div>
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="p-3 rounded-xl bg-gradient-to-br from-primary to-accent shadow-lg shadow-primary/30">
+                    <FolderOpen className="h-6 w-6 text-white" />
+                  </div>
+                  <h1 className="font-display text-4xl font-semibold tracking-tight">Categories</h1>
+                </div>
+                <p className="text-lg text-foreground-secondary font-light">
+                  Organize your knowledge base articles
+                </p>
+              </div>
+              <Button
+                onClick={openCreateDialog}
+                className="bg-gradient-to-r from-primary to-accent hover:shadow-lg hover:shadow-primary/30 transition-all duration-300"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                New Category
+              </Button>
             </div>
           </div>
-          <Button onClick={openCreateDialog}>
-            <Plus className="h-4 w-4 mr-2" />
-            New Category
-          </Button>
         </div>
 
         {/* Categories List */}
@@ -222,7 +242,7 @@ export default function CategoriesPage() {
             </Card>
           ) : (
             categories.map((category) => (
-              <Card key={category.id}>
+              <Card key={category.id} className="border-border shadow-md hover:border-primary/30 hover:shadow-lg transition-all duration-300">
                 <CardHeader>
                   <div className="flex items-start justify-between">
                     <div className="flex items-center gap-3">
@@ -231,7 +251,7 @@ export default function CategoriesPage() {
                         style={{ backgroundColor: category.color }}
                       />
                       <div>
-                        <CardTitle>{category.name}</CardTitle>
+                        <CardTitle className="font-display text-xl">{category.name}</CardTitle>
                         {category.description && (
                           <CardDescription className="mt-1">
                             {category.description}

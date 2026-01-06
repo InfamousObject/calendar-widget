@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import { getCurrentUserId } from '@/lib/clerk-auth';
 import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
+import { log } from '@/lib/logger';
 
 const widgetSettingsSchema = z.object({
   primaryColor: z.string().optional(),
@@ -26,14 +26,14 @@ const widgetSettingsSchema = z.object({
 // GET - Get widget settings for the user
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
+    const userId = await getCurrentUserId();
 
-    if (!session?.user?.email) {
+    if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const user = await prisma.user.findUnique({
-      where: { email: session.user.email },
+      where: { id: userId },
       include: { widgetConfig: true },
     });
 
@@ -59,7 +59,7 @@ export async function GET(request: NextRequest) {
       widgetId: user.widgetId
     });
   } catch (error) {
-    console.error('Error fetching widget settings:', error);
+    log.error('Error fetching widget settings', error);
     return NextResponse.json(
       { error: 'Failed to fetch widget settings' },
       { status: 500 }
@@ -70,14 +70,14 @@ export async function GET(request: NextRequest) {
 // PATCH - Update widget settings
 export async function PATCH(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
+    const userId = await getCurrentUserId();
 
-    if (!session?.user?.email) {
+    if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const user = await prisma.user.findUnique({
-      where: { email: session.user.email },
+      where: { id: userId },
       include: { widgetConfig: true },
     });
 
@@ -102,12 +102,12 @@ export async function PATCH(request: NextRequest) {
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { error: 'Validation error', details: error.errors },
+        { error: 'Validation error', details: error.issues },
         { status: 400 }
       );
     }
 
-    console.error('Error updating widget settings:', error);
+    log.error('Error updating widget settings', error);
     return NextResponse.json(
       { error: 'Failed to update widget settings' },
       { status: 500 }

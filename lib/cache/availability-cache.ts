@@ -4,6 +4,8 @@
  * Automatically invalidates on new bookings
  */
 
+import { log } from '@/lib/logger';
+
 interface CacheEntry<T> {
   data: T;
   timestamp: number;
@@ -104,7 +106,10 @@ class AvailabilityCache {
 
     keysToDelete.forEach(key => this.cache.delete(key));
 
-    console.log(`[Cache] Invalidated ${keysToDelete.length} entries for user ${userId}`);
+    log.debug('[Cache] Invalidated user cache entries', {
+      count: keysToDelete.length,
+      userId
+    });
   }
 
   /**
@@ -121,7 +126,10 @@ class AvailabilityCache {
 
     keysToDelete.forEach(key => this.cache.delete(key));
 
-    console.log(`[Cache] Invalidated ${keysToDelete.length} entries for appointment type ${appointmentTypeId}`);
+    log.debug('[Cache] Invalidated appointment type cache entries', {
+      count: keysToDelete.length,
+      appointmentTypeId
+    });
   }
 
   /**
@@ -137,11 +145,11 @@ class AvailabilityCache {
     // Check if expired
     if (Date.now() > entry.expiresAt) {
       this.cache.delete(key);
-      console.log(`[Cache] Expired and removed: ${key}`);
+      log.debug('[Cache] Expired and removed', { key });
       return null;
     }
 
-    console.log(`[Cache] Hit: ${key}`);
+    log.debug('[Cache] Hit', { key });
     return entry.data as T;
   }
 
@@ -165,7 +173,10 @@ class AvailabilityCache {
       expiresAt,
     });
 
-    console.log(`[Cache] Set: ${key} (expires in ${ttl / 1000 / 60} minutes)`);
+    log.debug('[Cache] Set cache entry', {
+      key,
+      expiresInMinutes: ttl / 1000 / 60
+    });
   }
 
   /**
@@ -184,7 +195,7 @@ class AvailabilityCache {
       }
 
       if (cleanedCount > 0) {
-        console.log(`[Cache] Cleanup: Removed ${cleanedCount} expired entries`);
+        log.debug('[Cache] Cleanup completed', { removedCount: cleanedCount });
       }
     }, 10 * 60 * 1000); // Every 10 minutes
   }
@@ -204,7 +215,7 @@ class AvailabilityCache {
    */
   clear(): void {
     this.cache.clear();
-    console.log('[Cache] Cleared all entries');
+    log.info('[Cache] Cleared all entries');
   }
 }
 

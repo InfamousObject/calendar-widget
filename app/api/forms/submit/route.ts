@@ -1,17 +1,84 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
+import { verifyCaptcha } from '@/lib/captcha';
+import { validateCsrfToken, isCsrfEnabled } from '@/lib/csrf';
+import { encryptJSON } from '@/lib/encryption';
+import { log } from '@/lib/logger';
 import { z } from 'zod';
+import type { Prisma } from '@prisma/client';
 
 // Schema for form submission
 const submitSchema = z.object({
   formId: z.string(),
   data: z.record(z.string(), z.unknown()),
+  captchaToken: z.string().optional(), // hCaptcha token for bot protection
+  csrfToken: z.string().optional(), // CSRF token for request validation
 });
 
 // POST - Submit a form (public endpoint)
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
+
+    // Get client IP for rate limiting, CSRF, and CAPTCHA verification
+    const clientIp = getClientIp(request);
+
+    // Verify CSRF token if enabled (before other validations to fail fast on forged requests)
+    if (isCsrfEnabled()) {
+      if (!body.csrfToken) {
+        return NextResponse.json(
+          { error: 'CSRF token required. Please refresh the page and try again.' },
+          { status: 403 }
+        );
+      }
+
+      const csrfValid = await validateCsrfToken(body.csrfToken, clientIp);
+      if (!csrfValid) {
+        return NextResponse.json(
+          { error: 'Invalid or expired CSRF token. Please refresh the page and try again.' },
+          { status: 403 }
+        );
+      }
+
+      log.info('[Form Submit] CSRF validation successful', { ip: clientIp });
+    }
+
+    // Verify CAPTCHA if configured (before rate limiting to prevent CAPTCHA bypass)
+    if (process.env.HCAPTCHA_SECRET_KEY) {
+      if (!body.captchaToken) {
+        return NextResponse.json(
+          { error: 'CAPTCHA verification required. Please complete the verification.' },
+          { status: 400 }
+        );
+      }
+
+      const captchaValid = await verifyCaptcha(body.captchaToken, clientIp);
+      if (!captchaValid) {
+        return NextResponse.json(
+          { error: 'CAPTCHA verification failed. Please try again.' },
+          { status: 400 }
+        );
+      }
+
+      log.info('[Form Submit] CAPTCHA verification successful', { ip: clientIp });
+    }
+
+    // Check rate limit
+    const { success, remaining } = await checkRateLimit('formSubmission', clientIp);
+
+    if (!success) {
+      return NextResponse.json(
+        { error: 'Too many form submissions. Please try again later.' },
+        {
+          status: 429,
+          headers: {
+            'X-RateLimit-Remaining': remaining.toString(),
+          },
+        }
+      );
+    }
+
     const validatedData = submitSchema.parse(body);
 
     // Get the form to verify it exists and is active
@@ -50,12 +117,17 @@ export async function POST(request: NextRequest) {
     const ipAddress = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown';
     const userAgent = request.headers.get('user-agent') || 'unknown';
 
-    // Create submission
+    // Encrypt form data before saving (protect PII)
+    const { encrypted, iv, authTag } = encryptJSON(validatedData.data);
+
+    // Create submission with encrypted form data
     const submission = await prisma.formSubmission.create({
       data: {
         formId: form.id,
         userId: form.userId,
-        data: validatedData.data,
+        data: encrypted,      // Encrypted hex string
+        dataIv: iv,           // Initialization vector
+        dataAuth: authTag,    // Authentication tag
         ipAddress,
         userAgent,
         status: 'new',
@@ -70,8 +142,21 @@ export async function POST(request: NextRequest) {
     };
 
     if (settings.emailNotifications && settings.notificationEmail) {
-      // TODO: Implement email notification
-      console.log(`[Form Submission] Would send email to: ${settings.notificationEmail}`);
+      try {
+        const { sendFormSubmissionNotification } = await import('@/lib/email');
+
+        await sendFormSubmissionNotification({
+          notificationEmail: settings.notificationEmail,
+          formName: form.name,
+          submissionId: submission.id,
+          submittedAt: submission.createdAt,
+          fieldCount: Object.keys(validatedData.data).length,
+        });
+        log.info('[Form Submission] Notification email sent');
+      } catch (error) {
+        log.error('[Form Submission] Failed to send notification', error);
+        // Don't fail the submission if email fails
+      }
     }
 
     return NextResponse.json({
@@ -82,12 +167,12 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { error: 'Invalid submission data', details: error.errors },
+        { error: 'Invalid submission data', details: error.issues },
         { status: 400 }
       );
     }
 
-    console.error('Error submitting form:', error);
+    log.error('[Form Submission] Error submitting form', error);
     return NextResponse.json(
       { error: 'Failed to submit form' },
       { status: 500 }

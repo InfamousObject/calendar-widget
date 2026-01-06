@@ -1,19 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import { getCurrentUserId } from '@/lib/clerk-auth';
 import { prisma } from '@/lib/prisma';
+import { decrypt } from '@/lib/encryption';
+import { log } from '@/lib/logger';
 
 // GET - List all calendar connections for the user
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
+    const userId = await getCurrentUserId();
 
-    if (!session?.user?.email) {
+    if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const user = await prisma.user.findUnique({
-      where: { email: session.user.email },
+      where: { id: userId },
     });
 
     if (!user) {
@@ -26,6 +27,8 @@ export async function GET(request: NextRequest) {
         id: true,
         provider: true,
         email: true,
+        emailIv: true,
+        emailAuth: true,
         isPrimary: true,
         createdAt: true,
         expiresAt: true,
@@ -33,9 +36,34 @@ export async function GET(request: NextRequest) {
       orderBy: { createdAt: 'desc' },
     });
 
-    return NextResponse.json(connections);
+    // Decrypt email addresses before returning
+    const decryptedConnections = connections.map((conn) => {
+      try {
+        const decryptedEmail = decrypt(conn.email, conn.emailIv, conn.emailAuth);
+        return {
+          id: conn.id,
+          provider: conn.provider,
+          email: decryptedEmail, // Decrypted email
+          isPrimary: conn.isPrimary,
+          createdAt: conn.createdAt,
+          expiresAt: conn.expiresAt,
+        };
+      } catch (error) {
+        log.error('[Calendar] Failed to decrypt email for connection', { error, connectionId: conn.id });
+        return {
+          id: conn.id,
+          provider: conn.provider,
+          email: '***@***.***', // Masked if decryption fails
+          isPrimary: conn.isPrimary,
+          createdAt: conn.createdAt,
+          expiresAt: conn.expiresAt,
+        };
+      }
+    });
+
+    return NextResponse.json(decryptedConnections);
   } catch (error) {
-    console.error('Error fetching calendar connections:', error);
+    log.error('[Calendar] Error fetching calendar connections', error);
     return NextResponse.json(
       { error: 'Failed to fetch calendar connections' },
       { status: 500 }

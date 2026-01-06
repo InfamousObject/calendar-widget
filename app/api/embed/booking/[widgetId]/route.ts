@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { log } from '@/lib/logger';
 
 // GET - Get booking config for embed (public endpoint)
 export async function GET(
@@ -48,7 +49,7 @@ export async function GET(
 
     return NextResponse.json(config);
   } catch (error) {
-    console.error('Error fetching booking config:', error);
+    log.error('Error fetching booking config', error);
     return NextResponse.json(
       { error: 'Failed to load booking configuration' },
       { status: 500 }

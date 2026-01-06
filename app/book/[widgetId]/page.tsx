@@ -1,12 +1,12 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Calendar, Clock, ArrowLeft, ArrowRight, Check } from 'lucide-react';
+import { Calendar, Clock, ArrowLeft, ArrowRight, Check, AlertCircle } from 'lucide-react';
 import { format, addDays, startOfDay, parseISO, addMinutes } from 'date-fns';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -17,6 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import HCaptcha from '@hcaptcha/react-hcaptcha';
 
 interface AppointmentType {
   id: string;
@@ -85,6 +86,10 @@ export default function BookingPage() {
   });
   const [customFormFields, setCustomFormFields] = useState<BookingFormField[]>([]);
   const [formResponses, setFormResponses] = useState<Record<string, any>>({});
+
+  // CAPTCHA state
+  const [captchaToken, setCaptchaToken] = useState('');
+  const captchaRef = useRef<HCaptcha>(null);
 
   // Step 4: Confirmation
   const [booking, setBooking] = useState(false);
@@ -349,6 +354,12 @@ export default function BookingPage() {
       return;
     }
 
+    // Validate CAPTCHA if configured
+    if (process.env.NEXT_PUBLIC_HCAPTCHA_SITE_KEY && !captchaToken) {
+      alert('Please complete the CAPTCHA verification');
+      return;
+    }
+
     setBooking(true);
     try {
       const response = await fetch('/api/appointments/book', {
@@ -364,6 +375,7 @@ export default function BookingPage() {
           notes: contactInfo.notes || undefined,
           timezone: widgetInfo?.timezone || 'UTC',
           formResponses: Object.keys(formResponses).length > 0 ? formResponses : undefined,
+          captchaToken: captchaToken || undefined,
         }),
       });
 
@@ -374,10 +386,20 @@ export default function BookingPage() {
       } else {
         const error = await response.json();
         alert(error.error || 'Failed to book appointment');
+        // Reset CAPTCHA on error
+        if (captchaRef.current) {
+          captchaRef.current.resetCaptcha();
+          setCaptchaToken('');
+        }
       }
     } catch (error) {
       console.error('Error booking appointment:', error);
       alert('Failed to book appointment');
+      // Reset CAPTCHA on error
+      if (captchaRef.current) {
+        captchaRef.current.resetCaptcha();
+        setCaptchaToken('');
+      }
     } finally {
       setBooking(false);
     }
@@ -386,7 +408,10 @@ export default function BookingPage() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <p>Loading...</p>
+        <div className="relative w-16 h-16">
+          <div className="absolute inset-0 rounded-full border-4 border-primary/20" />
+          <div className="absolute inset-0 rounded-full border-4 border-primary border-t-transparent animate-spin" />
+        </div>
       </div>
     );
   }
@@ -404,36 +429,54 @@ export default function BookingPage() {
   }
 
   return (
-    <div className="min-h-screen bg-muted/30 py-12 px-4">
+    <div className="min-h-screen bg-gradient-to-b from-background to-muted/30 py-12 px-4">
       <div className="max-w-4xl mx-auto">
         {/* Header */}
-        <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold mb-2">{widgetInfo.businessName}</h1>
-          <p className="text-muted-foreground">Book an appointment</p>
+        <div className="text-center mb-12">
+          <h1 className="font-display text-5xl font-semibold tracking-tight mb-3">{widgetInfo.businessName}</h1>
+          <p className="text-lg text-foreground-secondary font-light">Schedule your appointment in minutes</p>
         </div>
 
-        {/* Progress Indicator */}
-        <div className="flex items-center justify-center mb-8 gap-2">
-          {[1, 2, 3, 4].map((s) => (
-            <div key={s} className="flex items-center">
-              <div
-                className={`flex items-center justify-center w-8 h-8 rounded-full border-2 ${
-                  step >= s
-                    ? 'bg-primary border-primary text-primary-foreground'
-                    : 'border-muted-foreground text-muted-foreground'
-                }`}
-              >
-                {step > s ? <Check className="h-4 w-4" /> : s}
-              </div>
-              {s < 4 && (
+        {/* Enhanced Progress Indicator */}
+        <div className="relative mb-12">
+          <div className="absolute left-0 right-0 top-4 h-0.5 bg-border">
+            <div
+              className="h-full bg-gradient-to-r from-primary to-accent transition-all duration-500"
+              style={{ width: `${((step - 1) / 3) * 100}%` }}
+            />
+          </div>
+
+          <div className="relative flex items-center justify-between">
+            {[
+              { num: 1, label: 'Service' },
+              { num: 2, label: 'Time' },
+              { num: 3, label: 'Details' },
+              { num: 4, label: 'Confirm' },
+            ].map((s) => (
+              <div key={s.num} className="flex flex-col items-center gap-2">
                 <div
-                  className={`w-12 h-0.5 ${
-                    step > s ? 'bg-primary' : 'bg-muted-foreground'
+                  className={`flex items-center justify-center w-10 h-10 rounded-full border-2 transition-all duration-300 ${
+                    step >= s.num
+                      ? 'bg-primary border-primary text-primary-foreground shadow-lg shadow-primary/30'
+                      : step === s.num - 1
+                      ? 'bg-background border-primary/50 text-primary scale-110'
+                      : 'bg-background border-border text-foreground-tertiary'
                   }`}
-                />
-              )}
-            </div>
-          ))}
+                >
+                  {step > s.num ? (
+                    <Check className="h-5 w-5" />
+                  ) : (
+                    <span className="text-sm font-semibold">{s.num}</span>
+                  )}
+                </div>
+                <span className={`text-xs font-medium transition-colors duration-300 ${
+                  step >= s.num ? 'text-primary' : 'text-foreground-tertiary'
+                }`}>
+                  {s.label}
+                </span>
+              </div>
+            ))}
+          </div>
         </div>
 
         {/* Step 1: Select Appointment Type */}
@@ -441,8 +484,8 @@ export default function BookingPage() {
           <div className="space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle>Select Appointment Type</CardTitle>
-                <CardDescription>
+                <CardTitle className="font-display text-2xl">Select Appointment Type</CardTitle>
+                <CardDescription className="text-base mt-2">
                   Choose the type of appointment you'd like to book
                 </CardDescription>
               </CardHeader>
@@ -456,25 +499,25 @@ export default function BookingPage() {
                     <button
                       key={type.id}
                       onClick={() => handleSelectType(type)}
-                      className="flex items-center gap-4 p-4 rounded-lg border-2 border-border hover:border-primary transition-colors text-left"
+                      className="group flex items-center gap-4 p-4 rounded-xl border-2 border-border hover:border-primary transition-all duration-300 hover:shadow-lg hover:shadow-primary/10 text-left"
                     >
                       <div
                         className="w-12 h-12 rounded-lg flex-shrink-0"
                         style={{ backgroundColor: type.color }}
                       />
                       <div className="flex-1">
-                        <h3 className="font-semibold">{type.name}</h3>
+                        <h3 className="font-semibold text-lg mb-1">{type.name}</h3>
                         {type.description && (
-                          <p className="text-sm text-muted-foreground">
+                          <p className="text-sm text-foreground-secondary">
                             {type.description}
                           </p>
                         )}
-                        <div className="flex items-center gap-1 mt-1 text-sm text-muted-foreground">
+                        <div className="flex items-center gap-1 mt-2 text-sm text-foreground-tertiary">
                           <Clock className="h-4 w-4" />
                           <span>{type.duration} minutes</span>
                         </div>
                       </div>
-                      <ArrowRight className="h-5 w-5 text-muted-foreground" />
+                      <ArrowRight className="h-5 w-5 text-foreground-tertiary group-hover:text-primary transition-colors duration-300" />
                     </button>
                   ))
                 )}
@@ -522,31 +565,59 @@ export default function BookingPage() {
                   // Show available dates
                   <>
                     {loadingDates ? (
-                      <p className="text-center py-8">Loading available dates...</p>
+                      <div className="flex flex-col items-center justify-center py-12">
+                        <div className="relative w-16 h-16 mb-4">
+                          <div className="absolute inset-0 rounded-full border-4 border-primary/20" />
+                          <div className="absolute inset-0 rounded-full border-4 border-primary border-t-transparent animate-spin" />
+                        </div>
+                        <p className="text-foreground-secondary">Finding available dates...</p>
+                      </div>
                     ) : availableDates.length === 0 ? (
-                      <p className="text-muted-foreground text-center py-8">
-                        No available dates found
-                      </p>
+                      <div className="py-12 px-4">
+                        <div className="max-w-md mx-auto rounded-2xl border border-warning/20 bg-gradient-to-br from-warning/5 to-background p-8 text-center">
+                          <div className="inline-flex p-4 rounded-full bg-warning/10 mb-4">
+                            <AlertCircle className="h-8 w-8 text-warning" />
+                          </div>
+                          <h3 className="font-display text-2xl font-semibold text-foreground mb-3">
+                            No Available Dates
+                          </h3>
+                          <p className="text-foreground-secondary">
+                            This calendar doesn't have any available booking dates configured yet.
+                            Please check back later or contact the business directly.
+                          </p>
+                        </div>
+                      </div>
                     ) : (
-                      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                        {availableDates.map((date) => (
-                          <Button
-                            key={date}
-                            variant="outline"
-                            onClick={() => handleSelectDate(date)}
-                            className="h-auto py-4 flex flex-col items-center gap-1"
-                          >
-                            <span className="text-sm font-medium">
-                              {format(parseISO(date), 'EEE')}
-                            </span>
-                            <span className="text-2xl font-bold">
-                              {format(parseISO(date), 'd')}
-                            </span>
-                            <span className="text-xs text-muted-foreground">
-                              {format(parseISO(date), 'MMM yyyy')}
-                            </span>
-                          </Button>
-                        ))}
+                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                        {availableDates.map((date, index) => {
+                          const parsedDate = parseISO(date);
+                          const isToday = format(new Date(), 'yyyy-MM-dd') === date;
+
+                          return (
+                            <button
+                              key={date}
+                              onClick={() => handleSelectDate(date)}
+                              className="group relative h-auto py-6 px-4 flex flex-col items-center gap-2 rounded-xl border-2 border-border bg-surface transition-all duration-300 hover:border-primary hover:shadow-lg hover:shadow-primary/10 hover:-translate-y-1"
+                              style={{ animationDelay: `${index * 30}ms` }}
+                            >
+                              {isToday && (
+                                <span className="absolute -top-2 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-full bg-primary text-primary-foreground text-xs font-medium">
+                                  Today
+                                </span>
+                              )}
+
+                              <span className="text-xs font-medium text-foreground-tertiary group-hover:text-primary transition-colors">
+                                {format(parsedDate, 'EEE')}
+                              </span>
+                              <span className="text-3xl font-display font-bold text-foreground group-hover:text-primary transition-colors">
+                                {format(parsedDate, 'd')}
+                              </span>
+                              <span className="text-xs text-foreground-tertiary">
+                                {format(parsedDate, 'MMM')}
+                              </span>
+                            </button>
+                          );
+                        })}
                       </div>
                     )}
                   </>
@@ -554,14 +625,25 @@ export default function BookingPage() {
                   // Show time slots for selected date
                   <>
                     {validating && optimisticSlots.length > 0 && (
-                      <div className="mb-3 text-sm text-muted-foreground flex items-center gap-2">
-                        <div className="animate-spin h-3 w-3 border-2 border-primary border-t-transparent rounded-full" />
-                        Validating availability...
+                      <div className="mb-4 flex items-center justify-center gap-3 p-4 rounded-xl bg-primary/5 border border-primary/20">
+                        <div className="relative w-5 h-5">
+                          <div className="absolute inset-0 rounded-full border-2 border-primary/20" />
+                          <div className="absolute inset-0 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+                        </div>
+                        <span className="text-sm font-medium text-primary">
+                          Validating availability with your calendar...
+                        </span>
                       </div>
                     )}
 
                     {loadingSlots && optimisticSlots.length === 0 ? (
-                      <p className="text-center py-8">Loading available times...</p>
+                      <div className="flex flex-col items-center justify-center py-12">
+                        <div className="relative w-16 h-16 mb-4">
+                          <div className="absolute inset-0 rounded-full border-4 border-primary/20" />
+                          <div className="absolute inset-0 rounded-full border-4 border-primary border-t-transparent animate-spin" />
+                        </div>
+                        <p className="text-foreground-secondary">Loading available times...</p>
+                      </div>
                     ) : optimisticSlots.length > 0 ? (
                       // Show optimistic slots (being validated)
                       <div className="grid grid-cols-3 md:grid-cols-4 gap-2">
@@ -577,21 +659,39 @@ export default function BookingPage() {
                         ))}
                       </div>
                     ) : availableSlots.length === 0 ? (
-                      <p className="text-muted-foreground text-center py-8">
-                        No available times for this date
-                      </p>
+                      <div className="py-12 px-4">
+                        <div className="max-w-md mx-auto rounded-2xl border border-border bg-surface p-8 text-center">
+                          <div className="inline-flex p-4 rounded-full bg-muted mb-4">
+                            <AlertCircle className="h-8 w-8 text-foreground-secondary" />
+                          </div>
+                          <h3 className="font-display text-2xl font-semibold text-foreground mb-3">
+                            Fully Booked
+                          </h3>
+                          <p className="text-foreground-secondary mb-6">
+                            All time slots for this date are taken. Please select a different date.
+                          </p>
+                          <Button
+                            variant="outline"
+                            onClick={handleBackToDateSelection}
+                            className="gap-2"
+                          >
+                            <ArrowLeft className="h-4 w-4" />
+                            Choose Another Date
+                          </Button>
+                        </div>
+                      </div>
                     ) : (
                       // Show real validated slots
-                      <div className="grid grid-cols-3 md:grid-cols-4 gap-2">
+                      <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2">
                         {availableSlots.map((slot, idx) => (
-                          <Button
+                          <button
                             key={idx}
-                            variant="outline"
                             onClick={() => handleSelectSlot(slot)}
-                            className="h-auto py-3"
+                            className="group relative h-auto py-4 px-3 rounded-xl border-2 border-border bg-surface text-sm font-semibold transition-all duration-200 hover:border-primary hover:bg-primary hover:text-primary-foreground hover:shadow-lg hover:shadow-primary/20 hover:scale-105"
+                            style={{ animationDelay: `${idx * 20}ms` }}
                           >
                             {format(parseISO(slot.start), 'h:mm a')}
-                          </Button>
+                          </button>
                         ))}
                       </div>
                     )}
@@ -681,10 +781,28 @@ export default function BookingPage() {
                 {/* Custom form fields */}
                 {customFormFields.map((field) => renderCustomField(field))}
 
+                {/* hCaptcha verification */}
+                {process.env.NEXT_PUBLIC_HCAPTCHA_SITE_KEY && (
+                  <div className="flex justify-center">
+                    <HCaptcha
+                      ref={captchaRef}
+                      sitekey={process.env.NEXT_PUBLIC_HCAPTCHA_SITE_KEY}
+                      onVerify={(token) => setCaptchaToken(token)}
+                      onExpire={() => setCaptchaToken('')}
+                      onError={() => setCaptchaToken('')}
+                    />
+                  </div>
+                )}
+
                 <Button
                   className="w-full"
                   onClick={handleBookAppointment}
-                  disabled={booking || !contactInfo.name || !contactInfo.email}
+                  disabled={
+                    booking ||
+                    !contactInfo.name ||
+                    !contactInfo.email ||
+                    (!!process.env.NEXT_PUBLIC_HCAPTCHA_SITE_KEY && !captchaToken)
+                  }
                 >
                   {booking ? 'Booking...' : 'Confirm Booking'}
                 </Button>
@@ -693,77 +811,125 @@ export default function BookingPage() {
           </div>
         )}
 
-        {/* Step 4: Confirmation */}
+        {/* Step 4: Enhanced Confirmation */}
         {step === 4 && confirmationData && (
-          <div className="space-y-4">
-            <Card>
-              <CardHeader>
+          <div className="space-y-6">
+            <Card className="border-success/20 bg-gradient-to-br from-success/5 via-background to-background overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-br from-success/10 to-transparent opacity-50" />
+
+              <CardHeader className="relative">
                 <div className="flex flex-col items-center text-center">
-                  <div className="w-16 h-16 rounded-full bg-green-500/10 flex items-center justify-center mb-4">
-                    <Check className="h-8 w-8 text-green-500" />
+                  {/* Animated success icon */}
+                  <div className="relative mb-6">
+                    <div className="absolute inset-0 animate-ping">
+                      <div className="w-20 h-20 rounded-full bg-success/20" />
+                    </div>
+                    <div className="relative w-20 h-20 rounded-full bg-gradient-to-br from-success to-success/70 flex items-center justify-center shadow-lg shadow-success/30">
+                      <Check className="h-10 w-10 text-white animate-bounce" />
+                    </div>
                   </div>
-                  <CardTitle>Appointment Confirmed!</CardTitle>
-                  <CardDescription>
-                    You'll receive a confirmation email shortly
+
+                  <CardTitle className="font-display text-3xl font-semibold mb-3">
+                    You're All Set!
+                  </CardTitle>
+                  <CardDescription className="text-lg">
+                    Your appointment has been confirmed. We've sent the details to your email.
                   </CardDescription>
                 </div>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="border rounded-lg p-4 space-y-2">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Type:</span>
-                    <span className="font-medium">
-                      {confirmationData.appointmentType.name}
-                    </span>
+              <CardContent className="relative space-y-6">
+                {/* Appointment details card */}
+                <div className="rounded-xl border border-border bg-surface p-6 space-y-4">
+                  <div className="flex items-start gap-4 pb-4 border-b border-border">
+                    <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-accent text-white font-bold text-lg">
+                      {confirmationData.visitorName.split(' ').map((n: string) => n[0]).join('')}
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="font-semibold text-lg text-foreground mb-1">
+                        {confirmationData.visitorName}
+                      </h3>
+                      <p className="text-sm text-foreground-secondary">
+                        {confirmationData.visitorEmail}
+                      </p>
+                    </div>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Date:</span>
-                    <span className="font-medium">
-                      {format(parseISO(confirmationData.startTime), 'MMMM d, yyyy')}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Time:</span>
-                    <span className="font-medium">
-                      {format(parseISO(confirmationData.startTime), 'h:mm a')} -{' '}
-                      {format(parseISO(confirmationData.endTime), 'h:mm a')}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Name:</span>
-                    <span className="font-medium">
-                      {confirmationData.visitorName}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Email:</span>
-                    <span className="font-medium">
-                      {confirmationData.visitorEmail}
-                    </span>
+
+                  <div className="grid gap-3">
+                    <div className="flex items-center justify-between py-2">
+                      <span className="text-sm text-foreground-secondary font-medium">Service</span>
+                      <span className="font-semibold text-foreground">
+                        {confirmationData.appointmentType.name}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between py-2">
+                      <span className="text-sm text-foreground-secondary font-medium">Date</span>
+                      <span className="font-semibold text-foreground">
+                        {format(parseISO(confirmationData.startTime), 'EEEE, MMMM d, yyyy')}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between py-2">
+                      <span className="text-sm text-foreground-secondary font-medium">Time</span>
+                      <span className="font-semibold text-foreground">
+                        {format(parseISO(confirmationData.startTime), 'h:mm a')} - {format(parseISO(confirmationData.endTime), 'h:mm a')}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between py-2">
+                      <span className="text-sm text-foreground-secondary font-medium">Duration</span>
+                      <span className="font-semibold text-foreground">
+                        {confirmationData.appointmentType.duration} minutes
+                      </span>
+                    </div>
                   </div>
                 </div>
 
-                <div className="bg-muted/50 rounded-lg p-4 text-sm">
-                  <p className="text-muted-foreground">
-                    A calendar invitation has been sent to your email. If you need to
-                    cancel, please use the cancellation link in your confirmation
-                    email.
-                  </p>
+                {/* Next steps */}
+                <div className="rounded-xl bg-primary/5 border border-primary/20 p-6">
+                  <h4 className="font-semibold text-foreground mb-3 flex items-center gap-2">
+                    <Calendar className="h-5 w-5 text-primary" />
+                    What happens next?
+                  </h4>
+                  <ul className="space-y-2 text-sm text-foreground-secondary">
+                    <li className="flex items-start gap-2">
+                      <span className="text-primary mt-1">✓</span>
+                      <span>Calendar invitation sent to {confirmationData.visitorEmail}</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="text-primary mt-1">✓</span>
+                      <span>You'll receive a reminder 24 hours before your appointment</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="text-primary mt-1">✓</span>
+                      <span>Need to reschedule? Use the link in your confirmation email</span>
+                    </li>
+                  </ul>
                 </div>
 
-                <Button
-                  variant="outline"
-                  className="w-full"
-                  onClick={() => {
-                    setStep(1);
-                    setSelectedType(null);
-                    setSelectedSlot(null);
-                    setContactInfo({ name: '', email: '', phone: '', notes: '' });
-                    setConfirmationData(null);
-                  }}
-                >
-                  Book Another Appointment
-                </Button>
+                {/* CTA buttons */}
+                <div className="flex gap-3">
+                  <Button
+                    variant="outline"
+                    className="flex-1 gap-2"
+                    onClick={() => {
+                      setStep(1);
+                      setSelectedType(null);
+                      setSelectedSlot(null);
+                      setContactInfo({ name: '', email: '', phone: '', notes: '' });
+                      setConfirmationData(null);
+                    }}
+                  >
+                    Book Another
+                  </Button>
+                  <Button
+                    className="flex-1 gap-2 bg-gradient-to-r from-primary to-accent hover:shadow-lg hover:shadow-primary/30"
+                    onClick={() => window.close()}
+                  >
+                    Done
+                    <Check className="h-4 w-4" />
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           </div>

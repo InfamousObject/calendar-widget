@@ -5,7 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Plus, Edit, Trash2, Check, X } from 'lucide-react';
+import { Plus, Edit, Trash2, Check, X, Calendar, Clock, AlertCircle } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface AppointmentType {
   id: string;
@@ -67,11 +68,15 @@ export default function AppointmentsPage() {
       });
 
       if (response.ok) {
+        toast.success(editingId ? 'Appointment type updated successfully' : 'Appointment type created successfully');
         await fetchAppointmentTypes();
         resetForm();
+      } else {
+        toast.error('Failed to save appointment type');
       }
     } catch (error) {
       console.error('Error saving appointment type:', error);
+      toast.error('Failed to save appointment type');
     }
   };
 
@@ -90,7 +95,9 @@ export default function AppointmentsPage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this appointment type?')) {
+    // Use toast with confirmation instead of alert
+    const confirmDelete = window.confirm('Are you sure you want to delete this appointment type?');
+    if (!confirmDelete) {
       return;
     }
 
@@ -100,10 +107,14 @@ export default function AppointmentsPage() {
       });
 
       if (response.ok) {
+        toast.success('Appointment type deleted successfully');
         await fetchAppointmentTypes();
+      } else {
+        toast.error('Failed to delete appointment type');
       }
     } catch (error) {
       console.error('Error deleting appointment type:', error);
+      toast.error('Failed to delete appointment type');
     }
   };
 
@@ -116,10 +127,14 @@ export default function AppointmentsPage() {
       });
 
       if (response.ok) {
+        toast.success(`Appointment type ${!type.active ? 'activated' : 'deactivated'}`);
         await fetchAppointmentTypes();
+      } else {
+        toast.error('Failed to update appointment type');
       }
     } catch (error) {
       console.error('Error updating appointment type:', error);
+      toast.error('Failed to update appointment type');
     }
   };
 
@@ -138,33 +153,56 @@ export default function AppointmentsPage() {
   };
 
   if (loading) {
-    return <div>Loading...</div>;
+    return (
+      <div className="space-y-6 animate-pulse">
+        <div className="h-24 rounded-xl bg-muted" />
+        <div className="h-48 rounded-xl bg-muted" />
+        <div className="h-32 rounded-xl bg-muted" />
+      </div>
+    );
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-3xl font-bold tracking-tight">Appointment Types</h2>
-          <p className="text-muted-foreground">
-            Manage your appointment types and durations
-          </p>
+    <div className="space-y-8">
+      {/* Header Section with Gradient */}
+      <div className="relative overflow-hidden rounded-2xl border border-border bg-gradient-to-br from-primary/5 via-background to-accent/5 p-8">
+        <div className="gradient-mesh absolute inset-0 -z-10" />
+
+        <div className="relative z-10 flex items-start justify-between">
+          <div>
+            <div className="flex items-center gap-3 mb-3">
+              <div className="p-3 rounded-xl bg-gradient-to-br from-primary to-accent shadow-lg shadow-primary/30">
+                <Calendar className="h-6 w-6 text-white" />
+              </div>
+              <h2 className="font-display text-4xl font-semibold tracking-tight">Appointment Types</h2>
+            </div>
+            <p className="text-lg text-foreground-secondary font-light">
+              Manage your appointment types and durations
+            </p>
+          </div>
+          <Button
+            onClick={() => setShowForm(!showForm)}
+            className="bg-gradient-to-r from-primary to-accent hover:shadow-lg hover:shadow-primary/30 transition-all duration-300"
+            size="lg"
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            New Appointment Type
+          </Button>
         </div>
-        <Button onClick={() => setShowForm(!showForm)}>
-          <Plus className="mr-2 h-4 w-4" />
-          New Appointment Type
-        </Button>
       </div>
 
       {showForm && (
-        <Card>
+        <Card className="border-primary/20 shadow-lg shadow-primary/5 animate-fadeInUp">
           <CardHeader>
-            <CardTitle>
+            <CardTitle className="font-display text-2xl">
               {editingId ? 'Edit Appointment Type' : 'New Appointment Type'}
             </CardTitle>
+            <CardDescription className="text-base">
+              {editingId ? 'Update the details below' : 'Create a new appointment type for your calendar'}
+            </CardDescription>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-6">
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="name">Name</Label>
@@ -249,11 +287,16 @@ export default function AppointmentsPage() {
                 </div>
               </div>
 
-              <div className="flex justify-end space-x-2">
+              <div className="flex justify-end space-x-3 pt-2">
                 <Button type="button" variant="outline" onClick={resetForm}>
+                  <X className="h-4 w-4 mr-2" />
                   Cancel
                 </Button>
-                <Button type="submit">
+                <Button
+                  type="submit"
+                  className="bg-gradient-to-r from-primary to-accent hover:shadow-lg hover:shadow-primary/30 transition-all duration-300"
+                >
+                  <Check className="h-4 w-4 mr-2" />
                   {editingId ? 'Update' : 'Create'}
                 </Button>
               </div>
@@ -264,32 +307,57 @@ export default function AppointmentsPage() {
 
       <div className="grid gap-4">
         {appointmentTypes.length === 0 ? (
-          <Card>
-            <CardContent className="flex flex-col items-center justify-center py-12">
-              <p className="text-muted-foreground">
-                No appointment types yet. Create one to get started.
+          <Card className="border-dashed border-2 border-muted-foreground/25 bg-muted/20">
+            <CardContent className="flex flex-col items-center justify-center py-16">
+              <div className="p-4 rounded-2xl bg-primary/10 mb-4">
+                <Calendar className="h-12 w-12 text-primary" />
+              </div>
+              <h3 className="font-display text-xl font-semibold mb-2">No appointment types yet</h3>
+              <p className="text-foreground-secondary mb-6 text-center max-w-md">
+                Create your first appointment type to start accepting bookings
               </p>
+              <Button
+                onClick={() => setShowForm(true)}
+                className="bg-gradient-to-r from-primary to-accent hover:shadow-lg hover:shadow-primary/30 transition-all duration-300"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Create Appointment Type
+              </Button>
             </CardContent>
           </Card>
         ) : (
-          appointmentTypes.map((type) => (
-            <Card key={type.id}>
+          appointmentTypes.map((type, index) => (
+            <Card
+              key={type.id}
+              className="group border-border hover:border-primary/30 hover:shadow-lg hover:shadow-primary/5 transition-all duration-300 animate-fadeInUp"
+              style={{ animationDelay: `${index * 50}ms` }}
+            >
               <CardContent className="flex items-center justify-between p-6">
-                <div className="flex items-center space-x-4">
+                <div className="flex items-center space-x-5 flex-1">
                   <div
-                    className="h-12 w-12 rounded-lg"
+                    className="h-14 w-14 rounded-xl shadow-md transition-transform duration-200 group-hover:scale-105"
                     style={{ backgroundColor: type.color }}
                   />
-                  <div>
-                    <h3 className="font-semibold">{type.name}</h3>
-                    <p className="text-sm text-muted-foreground">
-                      {type.duration} minutes
-                      {type.bufferBefore > 0 &&
-                        ` • ${type.bufferBefore}m before`}
-                      {type.bufferAfter > 0 && ` • ${type.bufferAfter}m after`}
-                    </p>
+                  <div className="flex-1">
+                    <h3 className="font-display text-xl font-semibold mb-1">{type.name}</h3>
+                    <div className="flex items-center gap-3 text-sm text-foreground-secondary">
+                      <span className="flex items-center gap-1">
+                        <Clock className="h-3.5 w-3.5" />
+                        {type.duration} minutes
+                      </span>
+                      {type.bufferBefore > 0 && (
+                        <span className="text-foreground-tertiary">
+                          • {type.bufferBefore}m buffer before
+                        </span>
+                      )}
+                      {type.bufferAfter > 0 && (
+                        <span className="text-foreground-tertiary">
+                          • {type.bufferAfter}m buffer after
+                        </span>
+                      )}
+                    </div>
                     {type.description && (
-                      <p className="mt-1 text-sm text-muted-foreground">
+                      <p className="mt-2 text-sm text-foreground-secondary">
                         {type.description}
                       </p>
                     )}
@@ -300,15 +368,16 @@ export default function AppointmentsPage() {
                     variant="outline"
                     size="sm"
                     onClick={() => toggleActive(type)}
+                    className={type.active ? 'border-success text-success hover:bg-success/10' : 'border-muted-foreground/50'}
                   >
                     {type.active ? (
                       <>
-                        <Check className="mr-1 h-4 w-4" />
+                        <Check className="mr-1.5 h-4 w-4" />
                         Active
                       </>
                     ) : (
                       <>
-                        <X className="mr-1 h-4 w-4" />
+                        <X className="mr-1.5 h-4 w-4" />
                         Inactive
                       </>
                     )}
@@ -317,6 +386,7 @@ export default function AppointmentsPage() {
                     variant="outline"
                     size="sm"
                     onClick={() => handleEdit(type)}
+                    className="hover:border-primary hover:text-primary transition-all duration-200"
                   >
                     <Edit className="h-4 w-4" />
                   </Button>
@@ -324,6 +394,7 @@ export default function AppointmentsPage() {
                     variant="outline"
                     size="sm"
                     onClick={() => handleDelete(type.id)}
+                    className="hover:border-destructive hover:text-destructive transition-all duration-200"
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>

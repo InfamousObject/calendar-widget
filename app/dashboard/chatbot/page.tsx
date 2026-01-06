@@ -9,8 +9,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
-import { MessageSquare, Save, TrendingUp, DollarSign, Zap } from 'lucide-react';
+import { MessageSquare, Save, DollarSign, Lock, ArrowRight, TrendingUp, Zap } from 'lucide-react';
 import { toast } from 'sonner';
+import Link from 'next/link';
 
 interface ChatbotConfig {
   id: string;
@@ -40,6 +41,7 @@ export default function ChatbotPage() {
   const [usage, setUsage] = useState<ChatbotUsage | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [hasAccess, setHasAccess] = useState(true);
 
   useEffect(() => {
     fetchConfig();
@@ -52,6 +54,12 @@ export default function ChatbotPage() {
       if (response.ok) {
         const data = await response.json();
         setConfig(data.config);
+        setHasAccess(true);
+      } else if (response.status === 403) {
+        // User doesn't have access to chatbot
+        setHasAccess(false);
+      } else {
+        toast.error('Failed to load chatbot settings');
       }
     } catch (error) {
       console.error('Error fetching config:', error);
@@ -127,7 +135,84 @@ export default function ChatbotPage() {
   if (loading) {
     return (
       <div className="p-8">
-        <p>Loading...</p>
+        <div className="space-y-6 animate-pulse">
+          <div className="h-24 rounded-xl bg-muted" />
+          <div className="grid gap-6 md:grid-cols-2">
+            <div className="h-32 rounded-xl bg-muted" />
+            <div className="h-32 rounded-xl bg-muted" />
+          </div>
+          <div className="h-96 rounded-xl bg-muted" />
+        </div>
+      </div>
+    );
+  }
+
+  if (!hasAccess) {
+    return (
+      <div className="p-8">
+        <div className="max-w-3xl mx-auto">
+          <Card className="border-2 border-primary/20 shadow-xl animate-fadeInUp">
+            <CardHeader className="text-center pb-4">
+              <div className="mx-auto w-20 h-20 bg-gradient-to-br from-primary to-accent rounded-2xl flex items-center justify-center mb-4 shadow-lg shadow-primary/30">
+                <Lock className="h-10 w-10 text-white" />
+              </div>
+              <CardTitle className="font-display text-3xl font-semibold">AI Chatbot is a Premium Feature</CardTitle>
+              <CardDescription className="text-base mt-3">
+                Upgrade to the Chatbot or Bundle plan to unlock powerful AI-powered conversations
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="grid gap-4">
+                <div className="flex items-start gap-3">
+                  <MessageSquare className="h-5 w-5 text-primary mt-0.5" />
+                  <div>
+                    <h3 className="font-semibold">Intelligent Conversations</h3>
+                    <p className="text-sm text-muted-foreground">
+                      Engage visitors with AI-powered responses using your knowledge base
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <TrendingUp className="h-5 w-5 text-primary mt-0.5" />
+                  <div>
+                    <h3 className="font-semibold">Lead Qualification</h3>
+                    <p className="text-sm text-muted-foreground">
+                      Automatically collect visitor information and qualify leads
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <Zap className="h-5 w-5 text-primary mt-0.5" />
+                  <div>
+                    <h3 className="font-semibold">24/7 Availability</h3>
+                    <p className="text-sm text-muted-foreground">
+                      Answer questions and book appointments around the clock
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-4 border-t">
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <Link href="/dashboard/billing" className="flex-1">
+                    <Button className="w-full bg-gradient-to-r from-primary to-accent hover:shadow-lg hover:shadow-primary/30 transition-all duration-300" size="lg">
+                      Upgrade to Chatbot Plan
+                      <ArrowRight className="h-4 w-4 ml-2" />
+                    </Button>
+                  </Link>
+                  <Link href="/dashboard/billing" className="flex-1">
+                    <Button variant="outline" className="w-full border-primary/30 hover:border-primary transition-all duration-200" size="lg">
+                      View All Plans
+                    </Button>
+                  </Link>
+                </div>
+                <p className="text-xs text-center text-muted-foreground mt-4">
+                  Chatbot plan starts at $89/month • Bundle plan includes booking + chatbot for $119/month
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     );
   }
@@ -145,36 +230,50 @@ export default function ChatbotPage() {
 
   return (
     <div className="p-8">
-      <div className="max-w-6xl mx-auto space-y-6">
-        {/* Header */}
-        <div className="flex justify-between items-center">
-          <div>
-            <h1 className="text-3xl font-bold">AI Chatbot</h1>
-            <p className="text-muted-foreground mt-1">
-              Configure your intelligent AI assistant
-            </p>
-          </div>
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2">
-              <Label htmlFor="enabled">Enable Chatbot</Label>
-              <Switch
-                id="enabled"
-                checked={config.enabled}
-                onCheckedChange={(checked) => setConfig({ ...config, enabled: checked })}
-              />
-              <Badge variant={config.enabled ? 'default' : 'secondary'}>
-                {config.enabled ? 'Active' : 'Inactive'}
-              </Badge>
+      <div className="max-w-6xl mx-auto space-y-8">
+        {/* Header Section with Gradient */}
+        <div className="relative overflow-hidden rounded-2xl border border-border bg-gradient-to-br from-primary/5 via-background to-accent/5 p-8">
+          <div className="gradient-mesh absolute inset-0 -z-10" />
+
+          <div className="relative z-10 flex items-start justify-between">
+            <div>
+              <div className="flex items-center gap-3 mb-3">
+                <div className="p-3 rounded-xl bg-gradient-to-br from-primary to-accent shadow-lg shadow-primary/30">
+                  <MessageSquare className="h-6 w-6 text-white" />
+                </div>
+                <h1 className="font-display text-4xl font-semibold tracking-tight">AI Chatbot</h1>
+              </div>
+              <p className="text-lg text-foreground-secondary font-light">
+                Configure your intelligent AI assistant
+              </p>
             </div>
-            <Button onClick={handleSave} disabled={saving}>
-              <Save className="h-4 w-4 mr-2" />
-              {saving ? 'Saving...' : 'Save Settings'}
-            </Button>
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-3 rounded-xl border border-border bg-surface p-3">
+                <Label htmlFor="enabled" className="text-sm font-medium">Enable Chatbot</Label>
+                <Switch
+                  id="enabled"
+                  checked={config.enabled}
+                  onCheckedChange={(checked) => setConfig({ ...config, enabled: checked })}
+                />
+                <Badge variant={config.enabled ? 'default' : 'secondary'}>
+                  {config.enabled ? 'Active' : 'Inactive'}
+                </Badge>
+              </div>
+              <Button
+                onClick={handleSave}
+                disabled={saving}
+                className="bg-gradient-to-r from-primary to-accent hover:shadow-lg hover:shadow-primary/30 transition-all duration-300"
+                size="lg"
+              >
+                <Save className="h-4 w-4 mr-2" />
+                {saving ? 'Saving...' : 'Save Settings'}
+              </Button>
+            </div>
           </div>
         </div>
 
         {/* Usage Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-medium flex items-center gap-2">
@@ -194,40 +293,6 @@ export default function ChatbotPage() {
               </div>
               <p className="text-xs text-muted-foreground mt-2">
                 {usagePercentage.toFixed(0)}% used
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium flex items-center gap-2">
-                <TrendingUp className="h-4 w-4" />
-                Input Tokens
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {(usage?.inputTokens || 0).toLocaleString()}
-              </div>
-              <p className="text-xs text-muted-foreground mt-2">
-                User messages
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium flex items-center gap-2">
-                <Zap className="h-4 w-4" />
-                Output Tokens
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {(usage?.outputTokens || 0).toLocaleString()}
-              </div>
-              <p className="text-xs text-muted-foreground mt-2">
-                AI responses
               </p>
             </CardContent>
           </Card>

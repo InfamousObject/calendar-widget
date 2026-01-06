@@ -91,15 +91,18 @@ export function DashboardNav() {
   const pathname = usePathname();
 
   return (
-    <aside className="hidden w-64 border-r bg-card lg:block">
+    <aside className="hidden w-72 border-r border-border bg-surface lg:block">
       <div className="flex h-full flex-col">
         {/* Logo */}
-        <div className="flex h-16 items-center border-b px-6">
-          <Link href="/dashboard" className="flex items-center space-x-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
-              <span className="text-lg font-bold text-primary-foreground">S</span>
+        <div className="flex h-20 items-center border-b border-border px-6">
+          <Link href="/dashboard" className="flex items-center space-x-3 group">
+            <div className="relative flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-accent shadow-lg shadow-primary/25 transition-all duration-300 group-hover:shadow-xl group-hover:shadow-primary/40 group-hover:scale-110">
+              <span className="text-xl font-display font-bold text-white">S</span>
             </div>
-            <span className="text-lg font-bold">SmartWidget</span>
+            <div>
+              <span className="text-xl font-display font-bold text-foreground">SmartWidget</span>
+              <p className="text-xs text-foreground-tertiary">Scheduling Platform</p>
+            </div>
           </Link>
         </div>
 
@@ -114,18 +117,43 @@ export function DashboardNav() {
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  'flex items-center space-x-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
+                  'group relative flex items-center space-x-3 rounded-xl px-4 py-3 text-sm font-medium transition-all duration-200',
                   isActive
-                    ? 'bg-primary text-primary-foreground'
-                    : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                    ? 'bg-gradient-to-r from-primary to-accent text-white shadow-lg shadow-primary/25'
+                    : 'text-foreground-secondary hover:bg-surface-elevated hover:text-foreground'
                 )}
               >
-                <Icon className="h-5 w-5" />
-                <span>{item.title}</span>
+                <Icon className={cn(
+                  "h-5 w-5 transition-transform duration-200",
+                  isActive ? "text-white" : "text-foreground-tertiary group-hover:text-primary",
+                  "group-hover:scale-110"
+                )} />
+                <span className="flex-1">{item.title}</span>
+
+                {/* Hover effect */}
+                {!isActive && (
+                  <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-primary/5 to-accent/5 opacity-0 group-hover:opacity-100 transition-opacity duration-200 -z-10" />
+                )}
               </Link>
             );
           })}
         </nav>
+
+        {/* Footer */}
+        <div className="border-t border-border p-4">
+          <div className="rounded-xl bg-gradient-to-br from-primary/10 to-accent/10 p-4">
+            <p className="text-xs font-medium text-foreground mb-2">Need help?</p>
+            <p className="text-xs text-foreground-secondary mb-3">
+              Check our docs or reach out to support
+            </p>
+            <Link
+              href="/docs"
+              className="inline-flex items-center gap-2 text-xs font-medium text-primary hover:text-accent transition-colors"
+            >
+              View Documentation →
+            </Link>
+          </div>
+        </div>
       </div>
     </aside>
   );

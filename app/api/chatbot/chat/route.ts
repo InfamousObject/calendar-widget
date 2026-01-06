@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { generateChatResponse, Message, KnowledgeBaseArticle } from '@/lib/claude';
+import { incrementUsage, hasFeatureAccess } from '@/lib/subscription';
+import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
+import { validateCsrfToken, isCsrfEnabled } from '@/lib/csrf';
 import { z } from 'zod';
+import { log } from '@/lib/logger';
 
 const chatSchema = z.object({
   widgetId: z.string(),
@@ -12,12 +16,52 @@ const chatSchema = z.object({
       content: z.string(),
     })
   ),
+  csrfToken: z.string().optional(), // CSRF token for request validation
 });
 
 // POST - Send a chat message and get AI response
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
+
+    // Get client IP for CSRF and rate limiting
+    const clientIp = getClientIp(request);
+
+    // Verify CSRF token if enabled (before other validations to fail fast on forged requests)
+    if (isCsrfEnabled()) {
+      if (!body.csrfToken) {
+        return NextResponse.json(
+          { error: 'CSRF token required. Please refresh the page and try again.' },
+          { status: 403 }
+        );
+      }
+
+      const csrfValid = await validateCsrfToken(body.csrfToken, clientIp);
+      if (!csrfValid) {
+        return NextResponse.json(
+          { error: 'Invalid or expired CSRF token. Please refresh the page and try again.' },
+          { status: 403 }
+        );
+      }
+
+      log.info('[Chatbot] CSRF validation successful', { ip: clientIp });
+    }
+
+    // Check rate limit (critical for preventing expensive API abuse)
+    const { success, remaining } = await checkRateLimit('chatbot', clientIp);
+
+    if (!success) {
+      return NextResponse.json(
+        { error: 'Too many chat requests. Please try again later.' },
+        {
+          status: 429,
+          headers: {
+            'X-RateLimit-Remaining': remaining.toString(),
+          },
+        }
+      );
+    }
+
     const validatedData = chatSchema.parse(body);
 
     // Find user by widgetId
@@ -44,6 +88,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Widget not found' }, { status: 404 });
     }
 
+    // Check if user's subscription plan includes chatbot access
+    const hasChatbotAccess = await hasFeatureAccess(user.id, 'hasChatbot');
+    if (!hasChatbotAccess) {
+      return NextResponse.json(
+        { error: 'Chatbot is only available on Chatbot and Bundle plans. Please upgrade to access this feature.' },
+        { status: 403 }
+      );
+    }
+
     if (!user.chatbotConfig) {
       return NextResponse.json({ error: 'Chatbot not configured' }, { status: 400 });
     }
@@ -55,7 +108,7 @@ export async function POST(request: NextRequest) {
     // Check shared API key exists
     const apiKey = process.env.ANTHROPIC_API_KEY;
     if (!apiKey) {
-      console.error('ANTHROPIC_API_KEY not configured in environment');
+      log.error('[Chatbot] ANTHROPIC_API_KEY not configured in environment');
       return NextResponse.json({ error: 'Chatbot service unavailable' }, { status: 500 });
     }
 
@@ -74,9 +127,24 @@ export async function POST(request: NextRequest) {
       },
     });
 
+    // Check message count limit
     if (usage && usage.messagesCount >= user.chatbotConfig.messageLimit) {
       return NextResponse.json(
         { error: 'Monthly message limit reached. Please upgrade your plan.' },
+        { status: 429 }
+      );
+    }
+
+    // Check cost limit - prevent runaway API costs
+    // User-configurable limit (default $50/month = 5000 cents)
+    const costLimitCents = user.chatbotConfig.costLimitCents;
+    if (usage && usage.estimatedCost >= costLimitCents) {
+      return NextResponse.json(
+        {
+          error: `Monthly API cost limit reached ($${(costLimitCents / 100).toFixed(2)}). This protects against unexpected charges. You can adjust this limit in your chatbot settings.`,
+          currentCost: (usage.estimatedCost / 100).toFixed(2),
+          limit: (costLimitCents / 100).toFixed(2)
+        },
         { status: 429 }
       );
     }
@@ -93,9 +161,9 @@ export async function POST(request: NextRequest) {
     const host = request.headers.get('host') || 'localhost:3000';
     const baseUrl = `${protocol}://${host}`;
 
-    console.log('[Chat] Base URL:', baseUrl);
-    console.log('[Chat] Widget ID:', validatedData.widgetId);
-    console.log('[Chat] Messages count:', validatedData.messages.length);
+    log.info('[Chatbot] Base URL:', baseUrl);
+    log.info('[Chatbot] Widget ID:', validatedData.widgetId);
+    log.info('[Chatbot] Messages count:', validatedData.messages.length);
 
     // Generate AI response
     const chatResponse = await generateChatResponse(
@@ -183,21 +251,24 @@ export async function POST(request: NextRequest) {
       },
     });
 
+    // Track usage for billing
+    await incrementUsage(user.id, 'chat_message');
+
     return NextResponse.json({
       message: chatResponse.message,
     });
   } catch (error) {
     if (error instanceof z.ZodError) {
-      console.error('[Chat] Validation error:', error.errors);
+      log.error('[Chatbot] Validation error:', error.issues);
       return NextResponse.json(
-        { error: 'Validation failed', details: error.errors },
+        { error: 'Validation failed', details: error.issues },
         { status: 400 }
       );
     }
 
-    console.error('[Chat] Error details:', error);
-    console.error('[Chat] Error message:', error instanceof Error ? error.message : String(error));
-    console.error('[Chat] Error stack:', error instanceof Error ? error.stack : 'No stack');
+    log.error('[Chatbot] Error details:', error);
+    log.error('[Chatbot] Error message:', error instanceof Error ? error.message : String(error));
+    log.error('[Chatbot] Error stack:', error instanceof Error ? error.stack : 'No stack');
 
     // Handle Anthropic API errors
     if (error instanceof Error) {

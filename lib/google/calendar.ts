@@ -1,6 +1,83 @@
 import { prisma } from '@/lib/prisma';
 import { getCalendarClient, refreshAccessToken } from './oauth';
+import { decrypt, encrypt } from '@/lib/encryption';
+import { log } from '@/lib/logger';
+import { Redis } from '@upstash/redis';
+import crypto from 'crypto';
 import type { calendar_v3 } from 'googleapis';
+
+// Initialize Redis client for distributed locking
+let redis: Redis | null = null;
+
+try {
+  if (process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN) {
+    redis = new Redis({
+      url: process.env.UPSTASH_REDIS_REST_URL,
+      token: process.env.UPSTASH_REDIS_REST_TOKEN,
+    });
+  } else {
+    log.warn('[Calendar] Redis not configured - token refresh race condition possible');
+  }
+} catch (error) {
+  log.error('[Calendar] Failed to initialize Redis', error);
+}
+
+/**
+ * Retry wrapper with exponential backoff for Google Calendar API calls
+ * Handles rate limiting (429), service unavailable (503), and transient errors (500)
+ */
+async function withRetry<T>(
+  fn: () => Promise<T>,
+  operationName: string,
+  maxRetries = 3,
+  baseDelay = 1000
+): Promise<T> {
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (error: any) {
+      const statusCode = error?.code || error?.status || error?.response?.status;
+
+      // Determine if error is retryable
+      const isRetryable =
+        statusCode === 429 || // Rate limit exceeded
+        statusCode === 503 || // Service unavailable
+        statusCode === 500;   // Internal server error
+
+      // If not retryable or last attempt, throw the error
+      if (!isRetryable || attempt === maxRetries - 1) {
+        log.error(`[Calendar] ${operationName} failed after ${attempt + 1} attempts`, {
+          error: error?.message,
+          statusCode,
+          attempt: attempt + 1,
+          maxRetries,
+        });
+        throw error;
+      }
+
+      // Calculate exponential backoff with jitter
+      // Formula: min(baseDelay * 2^attempt + random(0-1000ms), 10000ms)
+      const exponentialDelay = Math.min(
+        baseDelay * Math.pow(2, attempt) + Math.random() * 1000,
+        10000 // Max 10 seconds delay
+      );
+
+      log.warn(`[Calendar] ${operationName} failed, retrying...`, {
+        error: error?.message,
+        statusCode,
+        attempt: attempt + 1,
+        maxRetries,
+        retryAfterMs: Math.round(exponentialDelay),
+      });
+
+      // Wait before retrying
+      await new Promise(resolve => setTimeout(resolve, exponentialDelay));
+    }
+  }
+
+  // This should never be reached, but TypeScript needs it
+  throw new Error(`${operationName} failed after ${maxRetries} retries`);
+}
 
 interface CreateEventParams {
   userId: string;
@@ -37,14 +114,99 @@ async function getValidConnection(userId: string) {
     throw new Error('No Google Calendar connection found');
   }
 
+  // Decrypt tokens for use
+  let decryptedAccessToken: string;
+  let decryptedRefreshToken: string;
+
+  try {
+    decryptedAccessToken = decrypt(
+      connection.accessToken,
+      connection.accessTokenIv,
+      connection.accessTokenAuth
+    );
+    decryptedRefreshToken = decrypt(
+      connection.refreshToken,
+      connection.refreshTokenIv,
+      connection.refreshTokenAuth
+    );
+  } catch (error) {
+    log.error('[Calendar] Failed to decrypt tokens', error);
+    throw new Error('Failed to decrypt calendar tokens - please reconnect your calendar');
+  }
+
   // Check if token is expired
   const now = new Date();
   const expiresAt = new Date(connection.expiresAt);
 
   if (now >= expiresAt) {
-    // Refresh the token
+    // Use distributed locking to prevent multiple concurrent token refreshes
+    // Google invalidates old refresh tokens after use, so only one refresh should happen
+    const lockKey = `calendar:refresh:${userId}`;
+    const lockValue = crypto.randomBytes(16).toString('hex');
+    let lockAcquired = false;
+
     try {
-      const newTokens = await refreshAccessToken(connection.refreshToken);
+      if (redis) {
+        // Try to acquire distributed lock (expires in 10 seconds)
+        const acquired = await redis.set(lockKey, lockValue, {
+          ex: 10, // 10 second lock expiry
+          nx: true, // Only set if doesn't exist (atomic operation)
+        });
+
+        lockAcquired = acquired === 'OK';
+
+        if (!lockAcquired) {
+          // Another process is already refreshing the token
+          // Wait briefly and recursively retry to get the refreshed connection
+          log.info('[Calendar] Token refresh in progress by another request, waiting...', { userId });
+          await new Promise(resolve => setTimeout(resolve, 500)); // Wait 500ms
+          return getValidConnection(userId); // Recursive retry
+        }
+
+        log.info('[Calendar] Acquired token refresh lock', { userId });
+      } else {
+        // Redis not available - proceed without locking (best effort)
+        log.warn('[Calendar] No Redis available for token refresh locking', { userId });
+      }
+
+      // Double-check token expiry after acquiring lock (another request may have already refreshed)
+      const freshConnection = await prisma.calendarConnection.findFirst({
+        where: {
+          userId,
+          provider: 'google',
+          isPrimary: true,
+        },
+      });
+
+      if (freshConnection) {
+        const freshExpiresAt = new Date(freshConnection.expiresAt);
+        if (new Date() < freshExpiresAt) {
+          // Token was already refreshed by another request
+          log.info('[Calendar] Token already refreshed by another request', { userId });
+
+          // Decrypt and return the fresh tokens
+          const freshAccessToken = decrypt(
+            freshConnection.accessToken,
+            freshConnection.accessTokenIv,
+            freshConnection.accessTokenAuth
+          );
+          const freshRefreshToken = decrypt(
+            freshConnection.refreshToken,
+            freshConnection.refreshTokenIv,
+            freshConnection.refreshTokenAuth
+          );
+
+          return {
+            ...freshConnection,
+            accessToken: freshAccessToken,
+            refreshToken: freshRefreshToken,
+          };
+        }
+      }
+
+      // Refresh the token while holding the lock
+      log.info('[Calendar] Refreshing expired token', { userId });
+      const newTokens = await refreshAccessToken(decryptedRefreshToken);
 
       if (!newTokens.access_token) {
         throw new Error('Failed to refresh access token');
@@ -54,30 +216,74 @@ async function getValidConnection(userId: string) {
         ? new Date(newTokens.expiry_date)
         : new Date(Date.now() + 3600 * 1000);
 
-      // Update connection with new tokens
+      // Encrypt new tokens before saving
+      const {
+        encrypted: newEncryptedAccessToken,
+        iv: newAccessTokenIv,
+        authTag: newAccessTokenAuth,
+      } = encrypt(newTokens.access_token);
+
+      const {
+        encrypted: newEncryptedRefreshToken,
+        iv: newRefreshTokenIv,
+        authTag: newRefreshTokenAuth,
+      } = encrypt(newTokens.refresh_token || decryptedRefreshToken);
+
+      // Update connection with new encrypted tokens
       const updatedConnection = await prisma.calendarConnection.update({
         where: { id: connection.id },
         data: {
-          accessToken: newTokens.access_token,
-          refreshToken: newTokens.refresh_token || connection.refreshToken,
+          accessToken: newEncryptedAccessToken,
+          accessTokenIv: newAccessTokenIv,
+          accessTokenAuth: newAccessTokenAuth,
+          refreshToken: newEncryptedRefreshToken,
+          refreshTokenIv: newRefreshTokenIv,
+          refreshTokenAuth: newRefreshTokenAuth,
           expiresAt: newExpiresAt,
         },
       });
 
-      return updatedConnection;
+      log.info('[Calendar] Token refresh successful', { userId });
+
+      // Return connection with decrypted tokens for immediate use
+      return {
+        ...updatedConnection,
+        accessToken: newTokens.access_token,
+        refreshToken: newTokens.refresh_token || decryptedRefreshToken,
+      };
     } catch (error) {
-      console.error('Error refreshing token:', error);
+      log.error('[Calendar] Error refreshing token', error);
       throw new Error('Failed to refresh access token');
+    } finally {
+      // Always release the lock if we acquired it
+      if (redis && lockAcquired) {
+        try {
+          // Only delete the lock if we still own it (check lock value)
+          const currentValue = await redis.get(lockKey);
+          if (currentValue === lockValue) {
+            await redis.del(lockKey);
+            log.info('[Calendar] Released token refresh lock', { userId });
+          }
+        } catch (error) {
+          log.error('[Calendar] Failed to release lock', error);
+          // Don't throw - lock will expire automatically
+        }
+      }
     }
   }
 
-  return connection;
+  // Return connection with decrypted tokens
+  return {
+    ...connection,
+    accessToken: decryptedAccessToken,
+    refreshToken: decryptedRefreshToken,
+  };
 }
 
 /**
  * Create a calendar event
  */
-export async function createCalendarEvent(params: CreateEventParams) {
+export async function createCalendarEvent(params: CreateEventParams): Promise<string | undefined> {
   const connection = await getValidConnection(params.userId);
 
   const calendar = getCalendarClient(
@@ -138,13 +344,17 @@ export async function createCalendarEvent(params: CreateEventParams) {
     event.attendees = attendees;
   }
 
-  const response = await calendar.events.insert({
-    calendarId: 'primary',
-    requestBody: event,
-    sendUpdates: 'all', // Send email notifications to all attendees
-  });
+  // Use retry logic to handle rate limits and transient errors
+  const response = await withRetry(
+    async () => calendar.events.insert({
+      calendarId: 'primary',
+      requestBody: event,
+      sendUpdates: 'all', // Send email notifications to all attendees
+    }),
+    'createCalendarEvent'
+  );
 
-  return response.data.id;
+  return response.data.id ?? undefined;
 }
 
 /**
@@ -175,12 +385,16 @@ export async function updateCalendarEvent(params: UpdateEventParams) {
     };
   }
 
-  await calendar.events.patch({
-    calendarId: 'primary',
-    eventId: params.eventId,
-    requestBody: event,
-    sendUpdates: 'all',
-  });
+  // Use retry logic to handle rate limits and transient errors
+  await withRetry(
+    async () => calendar.events.patch({
+      calendarId: 'primary',
+      eventId: params.eventId,
+      requestBody: event,
+      sendUpdates: 'all',
+    }),
+    'updateCalendarEvent'
+  );
 }
 
 /**
@@ -194,11 +408,15 @@ export async function deleteCalendarEvent(userId: string, eventId: string) {
     connection.refreshToken
   );
 
-  await calendar.events.delete({
-    calendarId: 'primary',
-    eventId,
-    sendUpdates: 'all',
-  });
+  // Use retry logic to handle rate limits and transient errors
+  await withRetry(
+    async () => calendar.events.delete({
+      calendarId: 'primary',
+      eventId,
+      sendUpdates: 'all',
+    }),
+    'deleteCalendarEvent'
+  );
 }
 
 /**
@@ -218,13 +436,17 @@ export async function checkForConflicts(
       connection.refreshToken
     );
 
-    const response = await calendar.events.list({
-      calendarId: 'primary',
-      timeMin: startTime.toISOString(),
-      timeMax: endTime.toISOString(),
-      singleEvents: true,
-      orderBy: 'startTime',
-    });
+    // Use retry logic to handle rate limits and transient errors
+    const response = await withRetry(
+      async () => calendar.events.list({
+        calendarId: 'primary',
+        timeMin: startTime.toISOString(),
+        timeMax: endTime.toISOString(),
+        singleEvents: true,
+        orderBy: 'startTime',
+      }),
+      'checkForConflicts'
+    );
 
     // Filter out declined events and check for conflicts
     const events = response.data.items || [];
@@ -237,7 +459,7 @@ export async function checkForConflicts(
 
     return activeEvents.length > 0;
   } catch (error) {
-    console.error('Error checking for conflicts:', error);
+    log.error('[Calendar] Error checking for conflicts', error);
     // If calendar is not connected or error occurs, don't block bookings
     return false;
   }
@@ -259,17 +481,21 @@ export async function getCalendarEvents(
       connection.refreshToken
     );
 
-    const response = await calendar.events.list({
-      calendarId: 'primary',
-      timeMin: startDate.toISOString(),
-      timeMax: endDate.toISOString(),
-      singleEvents: true,
-      orderBy: 'startTime',
-    });
+    // Use retry logic to handle rate limits and transient errors
+    const response = await withRetry(
+      async () => calendar.events.list({
+        calendarId: 'primary',
+        timeMin: startDate.toISOString(),
+        timeMax: endDate.toISOString(),
+        singleEvents: true,
+        orderBy: 'startTime',
+      }),
+      'getCalendarEvents'
+    );
 
     return response.data.items || [];
   } catch (error) {
-    console.error('Error fetching calendar events:', error);
+    log.error('[Calendar] Error fetching calendar events', error);
     return [];
   }
 }

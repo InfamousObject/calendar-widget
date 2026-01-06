@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { log } from '@/lib/logger';
 
 // GET - Get public widget information
 export async function GET(
@@ -51,7 +52,7 @@ export async function GET(
       appointmentTypes,
     });
   } catch (error) {
-    console.error('Error fetching widget info:', error);
+    log.error('Error fetching widget info', error);
     return NextResponse.json(
       { error: 'Failed to fetch widget information' },
       { status: 500 }

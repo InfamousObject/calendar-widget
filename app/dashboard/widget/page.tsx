@@ -14,8 +14,8 @@ import {
 } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
-import { Palette, Save, Eye } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
+import { Palette, Save, Eye, Settings, Smartphone, Timer } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface WidgetSettings {
   id: string;
@@ -41,7 +41,6 @@ export default function WidgetSettingsPage() {
   const [settings, setSettings] = useState<WidgetSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const { toast } = useToast();
 
   useEffect(() => {
     fetchSettings();
@@ -53,9 +52,12 @@ export default function WidgetSettingsPage() {
       if (response.ok) {
         const data = await response.json();
         setSettings(data.settings);
+      } else {
+        toast.error('Failed to load widget settings');
       }
     } catch (error) {
       console.error('Error fetching settings:', error);
+      toast.error('Failed to load widget settings');
     } finally {
       setLoading(false);
     }
@@ -73,20 +75,13 @@ export default function WidgetSettingsPage() {
       });
 
       if (response.ok) {
-        toast({
-          title: 'Settings saved',
-          description: 'Your widget settings have been updated successfully.',
-        });
+        toast.success('Widget settings saved successfully');
       } else {
-        throw new Error('Failed to save settings');
+        toast.error('Failed to save settings');
       }
     } catch (error) {
       console.error('Error saving settings:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to save settings. Please try again.',
-        variant: 'destructive',
-      });
+      toast.error('Failed to save settings. Please try again.');
     } finally {
       setSaving(false);
     }
@@ -95,35 +90,62 @@ export default function WidgetSettingsPage() {
   if (loading || !settings) {
     return (
       <div className="p-8">
-        <p>Loading settings...</p>
+        <div className="max-w-4xl mx-auto space-y-6 animate-pulse">
+          <div className="h-24 rounded-xl bg-muted" />
+          <div className="h-64 rounded-xl bg-muted" />
+          <div className="h-48 rounded-xl bg-muted" />
+          <div className="h-64 rounded-xl bg-muted" />
+        </div>
       </div>
     );
   }
 
   return (
     <div className="p-8">
-      <div className="max-w-4xl mx-auto">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h1 className="text-3xl font-bold">Widget Settings</h1>
-            <p className="text-muted-foreground mt-1">
-              Customize your booking widget appearance and behavior
-            </p>
+      <div className="max-w-4xl mx-auto space-y-8">
+        {/* Header Section with Gradient */}
+        <div className="relative overflow-hidden rounded-2xl border border-border bg-gradient-to-br from-primary/5 via-background to-accent/5 p-8">
+          <div className="gradient-mesh absolute inset-0 -z-10" />
+
+          <div className="relative z-10 flex items-start justify-between">
+            <div>
+              <div className="flex items-center gap-3 mb-3">
+                <div className="p-3 rounded-xl bg-gradient-to-br from-primary to-accent shadow-lg shadow-primary/30">
+                  <Settings className="h-6 w-6 text-white" />
+                </div>
+                <h1 className="font-display text-4xl font-semibold tracking-tight">Widget Settings</h1>
+              </div>
+              <p className="text-lg text-foreground-secondary font-light">
+                Customize your booking widget appearance and behavior
+              </p>
+            </div>
+            <Button
+              onClick={handleSave}
+              disabled={saving}
+              className="bg-gradient-to-r from-primary to-accent hover:shadow-lg hover:shadow-primary/30 transition-all duration-300"
+              size="lg"
+            >
+              <Save className="h-4 w-4 mr-2" />
+              {saving ? 'Saving...' : 'Save Changes'}
+            </Button>
           </div>
-          <Button onClick={handleSave} disabled={saving}>
-            <Save className="h-4 w-4 mr-2" />
-            {saving ? 'Saving...' : 'Save Changes'}
-          </Button>
         </div>
 
         <div className="space-y-6">
           {/* Branding Section */}
-          <Card>
+          <Card className="border-border shadow-md">
             <CardHeader>
-              <CardTitle>Branding</CardTitle>
-              <CardDescription>
-                Set your business name and welcome message
-              </CardDescription>
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-primary/10">
+                  <Eye className="h-5 w-5 text-primary" />
+                </div>
+                <div>
+                  <CardTitle className="font-display text-xl">Branding</CardTitle>
+                  <CardDescription className="text-base">
+                    Set your business name and welcome message
+                  </CardDescription>
+                </div>
+              </div>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
@@ -167,12 +189,19 @@ export default function WidgetSettingsPage() {
           </Card>
 
           {/* Appearance Section */}
-          <Card>
+          <Card className="border-border shadow-md">
             <CardHeader>
-              <CardTitle>Appearance</CardTitle>
-              <CardDescription>
-                Customize colors and styling
-              </CardDescription>
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-accent/10">
+                  <Palette className="h-5 w-5 text-accent" />
+                </div>
+                <div>
+                  <CardTitle className="font-display text-xl">Appearance</CardTitle>
+                  <CardDescription className="text-base">
+                    Customize colors and styling
+                  </CardDescription>
+                </div>
+              </div>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

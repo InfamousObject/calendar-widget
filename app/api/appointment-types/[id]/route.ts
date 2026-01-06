@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import { getCurrentUserId } from '@/lib/clerk-auth';
 import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
+import { log } from '@/lib/logger';
 
 const appointmentTypeSchema = z.object({
   name: z.string().min(1, 'Name is required').optional(),
@@ -23,10 +23,10 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await getServerSession(authOptions);
+    const userId = await getCurrentUserId();
     const { id } = await params;
 
-    if (!session?.user?.id) {
+    if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -35,7 +35,7 @@ export async function PATCH(
       where: { id },
     });
 
-    if (!existing || existing.userId !== session.user.id) {
+    if (!existing || existing.userId !== userId) {
       return NextResponse.json(
         { error: 'Appointment type not found' },
         { status: 404 }
@@ -54,12 +54,14 @@ export async function PATCH(
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { error: 'Validation error', details: error.errors },
+        { error: 'Validation error', details: error.issues },
         { status: 400 }
       );
     }
 
-    console.error('Error updating appointment type:', error);
+    log.error('[AppointmentType] Error updating appointment type', {
+      error: error instanceof Error ? error.message : String(error)
+    });
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
@@ -76,10 +78,10 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await getServerSession(authOptions);
+    const userId = await getCurrentUserId();
     const { id } = await params;
 
-    if (!session?.user?.id) {
+    if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -88,7 +90,7 @@ export async function DELETE(
       where: { id },
     });
 
-    if (!existing || existing.userId !== session.user.id) {
+    if (!existing || existing.userId !== userId) {
       return NextResponse.json(
         { error: 'Appointment type not found' },
         { status: 404 }
@@ -101,7 +103,9 @@ export async function DELETE(
 
     return NextResponse.json({ message: 'Appointment type deleted' });
   } catch (error) {
-    console.error('Error deleting appointment type:', error);
+    log.error('[AppointmentType] Error deleting appointment type', {
+      error: error instanceof Error ? error.message : String(error)
+    });
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

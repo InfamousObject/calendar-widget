@@ -1,13 +1,15 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useSession } from 'next-auth/react';
+import { useUser } from '@clerk/nextjs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Calendar, FileText, MessageSquare, Users, Copy, ExternalLink } from 'lucide-react';
+import { Calendar, FileText, MessageSquare, Users, Copy, ExternalLink, Clock } from 'lucide-react';
+import { toast } from 'sonner';
+import { SetupChecklist } from '@/components/dashboard/setup-checklist';
 
 export default function DashboardPage() {
-  const { data: session } = useSession();
+  const { user, isLoaded, isSignedIn } = useUser();
   const [stats, setStats] = useState({
     appointments: 0,
     forms: 0,
@@ -19,7 +21,7 @@ export default function DashboardPage() {
   const [recentBookings, setRecentBookings] = useState<any[]>([]);
 
   useEffect(() => {
-    if (session?.user?.email) {
+    if (isSignedIn) {
       fetchDashboardData();
       fetchRecentBookings();
 
@@ -27,7 +29,7 @@ export default function DashboardPage() {
       const interval = setInterval(fetchRecentBookings, 30000);
       return () => clearInterval(interval);
     }
-  }, [session]);
+  }, [isSignedIn]);
 
   const fetchDashboardData = async () => {
     try {
@@ -64,19 +66,44 @@ export default function DashboardPage() {
   const copyBookingUrl = () => {
     const url = `${window.location.origin}/book/${widgetId}`;
     navigator.clipboard.writeText(url);
-    alert('Copied to clipboard!');
+    toast.success('Copied to clipboard!', {
+      description: 'Share this link with your customers',
+    });
   };
 
   const openBookingPage = () => {
     window.open(`/book/${widgetId}`, '_blank');
   };
 
-  if (!session) {
-    return null;
+  if (!isLoaded || !isSignedIn) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="relative w-16 h-16">
+          <div className="absolute inset-0 rounded-full border-4 border-primary/20" />
+          <div className="absolute inset-0 rounded-full border-4 border-primary border-t-transparent animate-spin" />
+        </div>
+      </div>
+    );
   }
 
   if (loading) {
-    return <div>Loading...</div>;
+    return (
+      <div className="space-y-8 animate-pulse">
+        {/* Hero skeleton */}
+        <div className="h-32 rounded-2xl bg-muted" />
+
+        {/* Stats skeleton */}
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="h-24 rounded-xl bg-muted" />
+          ))}
+        </div>
+
+        {/* Content skeleton */}
+        <div className="h-64 rounded-xl bg-muted" />
+        <div className="h-48 rounded-xl bg-muted" />
+      </div>
+    );
   }
 
   const statCards = [
@@ -107,64 +134,109 @@ export default function DashboardPage() {
   ];
 
   return (
-    <div className="space-y-6">
-      {/* Welcome Section */}
-      <div>
-        <h2 className="text-3xl font-bold tracking-tight">
-          Welcome back, {session.user.name}!
-        </h2>
-        <p className="text-muted-foreground">
-          Here&apos;s an overview of your SmartWidget account
-        </p>
+    <div className="space-y-8">
+      {/* Welcome Section with Gradient Background */}
+      <div className="relative overflow-hidden rounded-2xl border border-border bg-gradient-to-br from-primary/5 via-background to-accent/5 p-8">
+        <div className="gradient-mesh absolute inset-0 -z-10" />
+
+        <div className="relative z-10">
+          <h2 className="font-display text-4xl font-semibold tracking-tight mb-3">
+            Welcome back, {user?.firstName || user?.fullName || 'there'}
+          </h2>
+          <p className="text-lg text-foreground-secondary font-light">
+            {recentBookings.filter(b => b.isNew).length > 0
+              ? `You have ${recentBookings.filter(b => b.isNew).length} new booking${recentBookings.filter(b => b.isNew).length !== 1 ? 's' : ''} waiting for you`
+              : "Here's your scheduling overview for today"}
+          </p>
+        </div>
       </div>
 
-      {/* Stats Grid */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        {statCards.map((stat) => (
-          <Card key={stat.title}>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">
-                {stat.title}
-              </CardTitle>
-              <stat.icon className={`h-4 w-4 ${stat.color}`} />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stat.value}</div>
-            </CardContent>
-          </Card>
-        ))}
+      {/* Setup Checklist */}
+      <SetupChecklist />
+
+      {/* Enhanced Stats Grid */}
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+        {statCards.map((stat, index) => {
+          const Icon = stat.icon;
+          return (
+            <Card
+              key={stat.title}
+              className="group relative overflow-hidden border-border hover:border-primary/50 transition-all duration-300 hover:shadow-lg hover:shadow-primary/10"
+              style={{ animationDelay: `${index * 100}ms` }}
+            >
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium text-foreground-secondary">
+                  {stat.title}
+                </CardTitle>
+                <div className={`p-2 rounded-lg bg-${stat.color}/10 transition-transform duration-300 group-hover:scale-110`}>
+                  <Icon className={`h-4 w-4 ${stat.color}`} />
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-bold font-display tracking-tight">
+                  {stat.value}
+                </div>
+              </CardContent>
+
+              {/* Subtle gradient overlay on hover */}
+              <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
+            </Card>
+          );
+        })}
       </div>
 
-      {/* Recent Bookings Notifications */}
+      {/* Recent Bookings with Enhanced Design */}
       {recentBookings.filter((b) => b.isNew).length > 0 && (
-        <Card className="border-blue-500 bg-blue-50 dark:bg-blue-950">
+        <Card className="border-primary/20 bg-gradient-to-br from-primary/5 via-background to-background overflow-hidden">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Calendar className="h-5 w-5 text-blue-500" />
-              New Bookings! 🎉
-            </CardTitle>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-primary/10">
+                  <Calendar className="h-5 w-5 text-primary" />
+                </div>
+                <div>
+                  <CardTitle className="text-xl font-display">New Bookings</CardTitle>
+                  <p className="text-sm text-foreground-secondary mt-1">
+                    {recentBookings.filter((b) => b.isNew).length} appointment{recentBookings.filter((b) => b.isNew).length !== 1 ? 's' : ''} pending review
+                  </p>
+                </div>
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
               {recentBookings
                 .filter((b) => b.isNew)
-                .map((booking) => (
+                .map((booking, index) => (
                   <div
                     key={booking.id}
-                    className="flex items-start justify-between rounded-lg border bg-white dark:bg-gray-900 p-4"
+                    className="group flex items-start justify-between rounded-xl border border-border bg-surface p-4 transition-all duration-300 hover:border-primary/30 hover:shadow-md hover:shadow-primary/5"
+                    style={{ animationDelay: `${index * 50}ms` }}
                   >
-                    <div>
-                      <p className="font-medium">{booking.visitorName}</p>
-                      <p className="text-sm text-muted-foreground">
-                        {booking.appointmentType}
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        {new Date(booking.startTime).toLocaleString()}
-                      </p>
+                    <div className="flex items-start gap-4 flex-1">
+                      {/* Avatar placeholder */}
+                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-primary to-accent text-white font-semibold text-sm">
+                        {booking.visitorName.split(' ').map((n: string) => n[0]).join('')}
+                      </div>
+
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-foreground mb-1">
+                          {booking.visitorName}
+                        </p>
+                        <p className="text-sm text-foreground-secondary mb-1">
+                          {booking.appointmentType}
+                        </p>
+                        <div className="flex items-center gap-2 text-xs text-foreground-tertiary">
+                          <Clock className="h-3 w-3" />
+                          <span>{new Date(booking.startTime).toLocaleString()}</span>
+                        </div>
+                      </div>
                     </div>
+
                     <Button
                       variant="outline"
                       size="sm"
+                      className="opacity-0 group-hover:opacity-100 transition-opacity duration-200"
                       onClick={() =>
                         (window.location.href = '/dashboard/bookings')
                       }
@@ -178,68 +250,84 @@ export default function DashboardPage() {
         </Card>
       )}
 
-      {/* Booking Link Card */}
+      {/* Booking Link Card with Enhanced Styling */}
       {widgetId && (
-        <Card>
+        <Card className="border-border">
           <CardHeader>
-            <CardTitle>Your Booking Page</CardTitle>
+            <CardTitle className="font-display text-2xl">Your Booking Page</CardTitle>
+            <p className="text-sm text-foreground-secondary mt-2">
+              Share this link for customers to book appointments
+            </p>
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
-              <p className="text-sm text-muted-foreground mb-2">
-                Share this link for customers to book appointments:
-              </p>
               <div className="flex gap-2">
-                <code className="flex-1 rounded-md bg-muted p-3 text-sm overflow-x-auto">
-                  {`${window.location.origin}/book/${widgetId}`}
-                </code>
-                <Button variant="outline" size="sm" onClick={copyBookingUrl}>
+                <div className="flex-1 relative group">
+                  <code className="block rounded-lg border border-border bg-surface p-4 text-sm font-mono overflow-x-auto transition-colors duration-200 group-hover:border-primary/30">
+                    {`${window.location.origin}/book/${widgetId}`}
+                  </code>
+                </div>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-auto aspect-square hover:bg-primary hover:text-primary-foreground hover:border-primary transition-all duration-200"
+                  onClick={copyBookingUrl}
+                >
                   <Copy className="h-4 w-4" />
                 </Button>
-                <Button variant="outline" size="sm" onClick={openBookingPage}>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-auto aspect-square hover:bg-primary hover:text-primary-foreground hover:border-primary transition-all duration-200"
+                  onClick={openBookingPage}
+                >
                   <ExternalLink className="h-4 w-4" />
                 </Button>
               </div>
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground mb-2">
-                Widget ID for embedding:
-              </p>
-              <code className="block rounded-md bg-muted p-3 text-sm">
-                {widgetId}
-              </code>
             </div>
           </CardContent>
         </Card>
       )}
 
-      {/* Quick Actions */}
+      {/* Quick Actions with Enhanced Hover Effects */}
       <Card>
         <CardHeader>
-          <CardTitle>Quick Actions</CardTitle>
+          <CardTitle className="font-display text-2xl">Quick Actions</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="grid gap-4 md:grid-cols-3">
             <a
               href="/dashboard/appointments"
-              className="flex flex-col items-center justify-center rounded-lg border p-6 text-center transition-colors hover:bg-accent"
+              className="group relative flex flex-col items-center justify-center rounded-xl border border-border p-8 text-center transition-all duration-300 hover:border-primary/50 hover:shadow-lg hover:shadow-primary/10 hover:-translate-y-1"
             >
-              <Calendar className="mb-2 h-8 w-8 text-primary" />
-              <span className="font-medium">Manage Appointments</span>
+              <div className="mb-4 p-4 rounded-xl bg-primary/10 transition-all duration-300 group-hover:bg-primary group-hover:scale-110">
+                <Calendar className="h-8 w-8 text-primary transition-colors duration-300 group-hover:text-primary-foreground" />
+              </div>
+              <span className="font-semibold text-foreground group-hover:text-primary transition-colors duration-300">
+                Manage Appointments
+              </span>
             </a>
             <a
               href="/dashboard/forms"
-              className="flex flex-col items-center justify-center rounded-lg border p-6 text-center transition-colors hover:bg-accent"
+              className="group relative flex flex-col items-center justify-center rounded-xl border border-border p-8 text-center transition-all duration-300 hover:border-primary/50 hover:shadow-lg hover:shadow-primary/10 hover:-translate-y-1"
             >
-              <FileText className="mb-2 h-8 w-8 text-primary" />
-              <span className="font-medium">Create Form</span>
+              <div className="mb-4 p-4 rounded-xl bg-accent/10 transition-all duration-300 group-hover:bg-accent group-hover:scale-110">
+                <FileText className="h-8 w-8 text-accent transition-colors duration-300 group-hover:text-accent-foreground" />
+              </div>
+              <span className="font-semibold text-foreground group-hover:text-accent transition-colors duration-300">
+                Create Form
+              </span>
             </a>
             <a
               href="/dashboard/widget"
-              className="flex flex-col items-center justify-center rounded-lg border p-6 text-center transition-colors hover:bg-accent"
+              className="group relative flex flex-col items-center justify-center rounded-xl border border-border p-8 text-center transition-all duration-300 hover:border-primary/50 hover:shadow-lg hover:shadow-primary/10 hover:-translate-y-1"
             >
-              <MessageSquare className="mb-2 h-8 w-8 text-primary" />
-              <span className="font-medium">Customize Widget</span>
+              <div className="mb-4 p-4 rounded-xl bg-success/10 transition-all duration-300 group-hover:bg-success group-hover:scale-110">
+                <MessageSquare className="h-8 w-8 text-success transition-colors duration-300 group-hover:text-success-foreground" />
+              </div>
+              <span className="font-semibold text-foreground group-hover:text-success transition-colors duration-300">
+                Customize Widget
+              </span>
             </a>
           </div>
         </CardContent>

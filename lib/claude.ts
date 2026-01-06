@@ -1,4 +1,9 @@
 import Anthropic from '@anthropic-ai/sdk';
+import { prisma } from '@/lib/prisma';
+import { addDays, format, parse, startOfDay, endOfDay, addMinutes, isBefore, isAfter, parseISO } from 'date-fns';
+import { getCalendarEvents, checkSlotsAgainstEvents } from '@/lib/google/calendar';
+import { availabilityCache } from '@/lib/cache/availability-cache';
+import { log } from '@/lib/logger';
 
 export interface Message {
   role: 'user' | 'assistant';
@@ -129,7 +134,7 @@ export async function generateChatResponse(
 
   while (iteration < maxIterations) {
     iteration++;
-    console.log(`[Claude] Iteration ${iteration}, messages:`, currentMessages.length);
+    log.debug('[Claude] Processing iteration', { iteration, messageCount: currentMessages.length });
 
     try {
       const response = await anthropic.messages.create({
@@ -141,7 +146,7 @@ export async function generateChatResponse(
         tools: config.enableScheduling ? schedulingTools : undefined,
       });
 
-      console.log(`[Claude] Response received, stop_reason: ${response.stop_reason}`);
+      log.debug('[Claude] Response received', { stopReason: response.stop_reason });
 
       totalInputTokens += response.usage.input_tokens;
       totalOutputTokens += response.usage.output_tokens;
@@ -157,11 +162,11 @@ export async function generateChatResponse(
 
       if (toolUseBlocks.length === 0) {
         // No tools used, we're done
-        console.log('[Claude] No tools used, finishing');
+        log.debug('[Claude] No tools used, finishing');
         break;
       }
 
-      console.log(`[Claude] Executing ${toolUseBlocks.length} tools`);
+      log.debug('[Claude] Executing tools', { toolCount: toolUseBlocks.length });
 
       // Execute tools and prepare results
       const toolResults: Anthropic.ToolResultBlockParam[] = [];
@@ -169,7 +174,7 @@ export async function generateChatResponse(
       for (const toolUse of toolUseBlocks) {
         if (toolUse.type !== 'tool_use') continue;
 
-        console.log(`[Claude] Executing tool: ${toolUse.name}`);
+        log.debug('[Claude] Executing tool', { toolName: toolUse.name });
         let toolResult: any;
 
         try {
@@ -185,7 +190,10 @@ export async function generateChatResponse(
             toolResult = { error: 'Unknown tool' };
           }
 
-          console.log(`[Claude] Tool ${toolUse.name} result:`, toolResult);
+          log.debug('[Claude] Tool execution result', {
+            toolName: toolUse.name,
+            success: !toolResult.error,
+          });
 
           toolResults.push({
             type: 'tool_result',
@@ -193,7 +201,10 @@ export async function generateChatResponse(
             content: JSON.stringify(toolResult),
           });
         } catch (error: any) {
-          console.error(`[Claude] Error executing tool ${toolUse.name}:`, error);
+          log.error('[Claude] Tool execution error', {
+            toolName: toolUse.name,
+            error: error instanceof Error ? error.message : 'Unknown error',
+          });
           toolResults.push({
             type: 'tool_result',
             tool_use_id: toolUse.id,
@@ -216,7 +227,7 @@ export async function generateChatResponse(
         },
       ];
     } catch (error: any) {
-      console.error('[Claude] Error in iteration:', error);
+      log.error('[Claude] Error in iteration', error);
       throw error;
     }
   }
@@ -356,15 +367,35 @@ function buildSystemPrompt(
 
 async function getAppointmentTypes(widgetId: string, baseUrl: string) {
   try {
-    const response = await fetch(`${baseUrl}/api/appointment-types?widgetId=${widgetId}`);
+    // Find user by widgetId
+    const user = await prisma.user.findUnique({
+      where: { widgetId },
+      select: { id: true },
+    });
 
-    if (!response.ok) {
-      return { error: 'Failed to fetch appointment types' };
+    if (!user) {
+      return { error: 'Widget not found' };
     }
 
-    const data = await response.json();
+    // Get active appointment types
+    const appointmentTypes = await prisma.appointmentType.findMany({
+      where: {
+        userId: user.id,
+        active: true,
+      },
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        duration: true,
+      },
+      orderBy: {
+        name: 'asc',
+      },
+    });
+
     return {
-      appointmentTypes: data.appointmentTypes.map((apt: any) => ({
+      appointmentTypes: appointmentTypes.map((apt) => ({
         id: apt.id,
         name: apt.name,
         description: apt.description,
@@ -372,40 +403,130 @@ async function getAppointmentTypes(widgetId: string, baseUrl: string) {
       })),
     };
   } catch (error: any) {
-    console.error('Error fetching appointment types:', error);
+    log.error('[Claude] Error fetching appointment types', error);
     return { error: error.message };
   }
 }
 
 async function checkAvailability(widgetId: string, appointmentTypeId: string, date: string, baseUrl: string) {
   try {
-    const response = await fetch(
-      `${baseUrl}/api/availability/slots?widgetId=${widgetId}&appointmentTypeId=${appointmentTypeId}&startDate=${date}&endDate=${date}`
+    // Find user by widgetId
+    const user = await prisma.user.findUnique({
+      where: { widgetId },
+    });
+
+    if (!user) {
+      return { error: 'User not found' };
+    }
+
+    // Get appointment type
+    const appointmentType = await prisma.appointmentType.findFirst({
+      where: {
+        id: appointmentTypeId,
+        userId: user.id,
+        active: true,
+      },
+    });
+
+    if (!appointmentType) {
+      return { error: 'Appointment type not found or inactive' };
+    }
+
+    // Parse date
+    const targetDate = parseISO(date);
+    const startDate = startOfDay(targetDate);
+    const endDate = endOfDay(targetDate);
+
+    // Get availability settings
+    const availability = await prisma.availability.findMany({
+      where: {
+        userId: user.id,
+        isAvailable: true,
+      },
+    });
+
+    // Get date overrides
+    const dateOverrides = await prisma.dateOverride.findMany({
+      where: {
+        userId: user.id,
+        date: {
+          gte: startDate,
+          lte: endDate,
+        },
+      },
+    });
+
+    // Get existing appointments
+    const existingAppointments = await prisma.appointment.findMany({
+      where: {
+        userId: user.id,
+        startTime: {
+          gte: startDate,
+          lte: endDate,
+        },
+        status: {
+          not: 'cancelled',
+        },
+      },
+      include: {
+        appointmentType: true,
+      },
+    });
+
+    // Generate slots for this day
+    const dayOfWeek = targetDate.getDay();
+    const dateStr = format(targetDate, 'yyyy-MM-dd');
+
+    // Check for date override
+    const override = dateOverrides.find(
+      (o) => format(o.date, 'yyyy-MM-dd') === dateStr
     );
 
-    if (!response.ok) {
-      return { error: 'Failed to check availability' };
+    let daySlots: any[] = [];
+
+    if (override) {
+      if (override.isAvailable && override.startTime && override.endTime) {
+        daySlots = await generateSlots(
+          targetDate,
+          override.startTime,
+          override.endTime,
+          appointmentType,
+          user,
+          existingAppointments
+        );
+      }
+    } else {
+      const dayAvailability = availability.find((a) => a.dayOfWeek === dayOfWeek);
+      if (dayAvailability) {
+        daySlots = await generateSlots(
+          targetDate,
+          dayAvailability.startTime,
+          dayAvailability.endTime,
+          appointmentType,
+          user,
+          existingAppointments
+        );
+      }
     }
 
-    const data = await response.json();
-
-    if (!data.slots || data.slots.length === 0) {
-      return { error: 'No availability data found for this date' };
-    }
-
-    const daySlots = data.slots[0];
-    const availableSlots = daySlots.slots.filter((slot: any) => slot.available);
-    const unavailableSlots = daySlots.slots.filter((slot: any) => !slot.available);
+    const availableSlots = daySlots.filter((slot) => slot.available);
+    const unavailableSlots = daySlots.filter((slot) => !slot.available);
 
     return {
-      date: daySlots.date,
-      timezone: data.timezone,
-      appointmentType: data.appointmentType,
-      availableSlots: availableSlots.map((slot: any) => ({
+      date: dateStr,
+      timezone: user.timezone,
+      appointmentType: {
+        id: appointmentType.id,
+        name: appointmentType.name,
+        duration: appointmentType.duration,
+      },
+      availableSlots: availableSlots.map((slot) => ({
         start: slot.start,
         end: slot.end,
+        startLocal: slot.startLocal,
+        endLocal: slot.endLocal,
       })),
-      unavailableSlots: unavailableSlots.map((slot: any) => ({
+      unavailableSlots: unavailableSlots.map((slot) => ({
         start: slot.start,
         end: slot.end,
       })),
@@ -413,46 +534,275 @@ async function checkAvailability(widgetId: string, appointmentTypeId: string, da
       totalUnavailable: unavailableSlots.length,
     };
   } catch (error: any) {
-    console.error('Error checking availability:', error);
+    log.error('[Claude] Error checking availability', error);
     return { error: error.message };
   }
 }
 
-async function bookAppointment(widgetId: string, timezone: string, bookingData: any, baseUrl: string) {
-  try {
-    const payload = {
-      widgetId,
-      timezone,
-      ...bookingData,
-    };
+async function generateSlots(
+  date: Date,
+  startTime: string,
+  endTime: string,
+  appointmentType: any,
+  user: any,
+  existingAppointments: any[]
+): Promise<any[]> {
+  const dateStr = format(date, 'yyyy-MM-dd');
 
-    console.log('[bookAppointment] Payload:', JSON.stringify(payload, null, 2));
+  // Parse start and end times
+  const [startHour, startMinute] = startTime.split(':').map(Number);
+  const [endHour, endMinute] = endTime.split(':').map(Number);
 
-    const response = await fetch(`${baseUrl}/api/appointments/book`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(payload),
-    });
+  let currentSlotStart = new Date(date);
+  currentSlotStart.setHours(startHour, startMinute, 0, 0);
 
-    if (!response.ok) {
-      const errorData = await response.json();
-      console.error('[bookAppointment] Error response:', errorData);
-      return {
-        error: errorData.error || 'Failed to book appointment',
-        details: errorData.details || undefined
-      };
+  const dayEnd = new Date(date);
+  dayEnd.setHours(endHour, endMinute, 0, 0);
+
+  // Generate all possible slots
+  const allSlots: { start: Date; end: Date; bufferedStart: Date; bufferedEnd: Date }[] = [];
+  let tempSlotStart = new Date(currentSlotStart);
+
+  while (isBefore(tempSlotStart, dayEnd)) {
+    const tempSlotEnd = addMinutes(tempSlotStart, appointmentType.duration);
+
+    if (isAfter(tempSlotEnd, dayEnd)) {
+      break;
     }
 
-    const data = await response.json();
-    console.log('[bookAppointment] Success:', data);
+    const bufferedStart = addMinutes(tempSlotStart, -(appointmentType.bufferBefore || 0));
+    const bufferedEnd = addMinutes(tempSlotEnd, appointmentType.bufferAfter || 0);
+
+    allSlots.push({
+      start: new Date(tempSlotStart),
+      end: new Date(tempSlotEnd),
+      bufferedStart,
+      bufferedEnd,
+    });
+
+    tempSlotStart = addMinutes(tempSlotStart, appointmentType.duration);
+  }
+
+  // Get calendar events
+  let calendarEvents = availabilityCache.getCalendarEvents(user.id, dateStr);
+
+  if (!calendarEvents) {
+    const dayStart = startOfDay(date);
+    const dayEnd = endOfDay(date);
+
+    try {
+      calendarEvents = await getCalendarEvents(user.id, dayStart, dayEnd);
+      availabilityCache.setCalendarEvents(user.id, dateStr, calendarEvents);
+    } catch (error) {
+      log.error('[Claude] Error fetching calendar events', error);
+      calendarEvents = [];
+    }
+  }
+
+  // Check slots against calendar
+  const calendarConflicts = checkSlotsAgainstEvents(
+    allSlots.map(s => ({ start: s.bufferedStart, end: s.bufferedEnd })),
+    calendarEvents
+  );
+
+  // Build final slots
+  const slots = allSlots.map((slot, index) => {
+    // Check appointment conflicts
+    const hasAppointmentConflict = existingAppointments.some((apt) => {
+      const aptStart = new Date(apt.startTime);
+      const aptEnd = new Date(apt.endTime);
+
+      const bufferedAptStart = addMinutes(
+        aptStart,
+        -(apt.appointmentType.bufferBefore || 0)
+      );
+      const bufferedAptEnd = addMinutes(aptEnd, apt.appointmentType.bufferAfter || 0);
+
+      return (
+        (slot.bufferedStart >= bufferedAptStart && slot.bufferedStart < bufferedAptEnd) ||
+        (slot.bufferedEnd > bufferedAptStart && slot.bufferedEnd <= bufferedAptEnd) ||
+        (slot.bufferedStart <= bufferedAptStart && slot.bufferedEnd >= bufferedAptEnd)
+      );
+    });
+
+    const hasCalendarConflict = calendarConflicts[index];
+    const isAvailable = !hasAppointmentConflict && !hasCalendarConflict;
+
+    // Format times
+    const timeFormatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: user.timezone,
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+    });
+
+    const startLocal = timeFormatter.format(slot.start);
+    const endLocal = timeFormatter.format(slot.end);
+
+    return {
+      start: slot.start.toISOString(),
+      end: slot.end.toISOString(),
+      startLocal,
+      endLocal,
+      available: isAvailable,
+    };
+  });
+
+  return slots;
+}
+
+async function bookAppointment(widgetId: string, timezone: string, bookingData: any, baseUrl: string) {
+  try {
+    // Import dependencies needed for booking
+    const { createCalendarEvent } = await import('@/lib/google/calendar');
+    const { incrementUsage } = await import('@/lib/subscription');
+    const crypto = await import('crypto');
+
+    log.debug('[bookAppointment] Processing booking', {
+      appointmentTypeId: bookingData.appointmentTypeId,
+      startTime: bookingData.startTime,
+      // PII automatically redacted by logger
+      visitorEmail: bookingData.visitorEmail,
+      visitorName: bookingData.visitorName,
+      visitorPhone: bookingData.visitorPhone,
+    });
+
+    // Find user by widgetId
+    const user = await prisma.user.findUnique({
+      where: { widgetId },
+    });
+
+    if (!user) {
+      return { error: 'Widget not found' };
+    }
+
+    // Find appointment type
+    const appointmentType = await prisma.appointmentType.findFirst({
+      where: {
+        id: bookingData.appointmentTypeId,
+        userId: user.id,
+        active: true,
+      },
+    });
+
+    if (!appointmentType) {
+      return { error: 'Appointment type not found or inactive' };
+    }
+
+    // Calculate end time
+    const startTime = new Date(bookingData.startTime);
+    const endTime = new Date(startTime.getTime() + appointmentType.duration * 60000);
+
+    // Check for conflicts
+    const conflictingAppointment = await prisma.appointment.findFirst({
+      where: {
+        userId: user.id,
+        status: {
+          not: 'cancelled',
+        },
+        OR: [
+          {
+            AND: [
+              { startTime: { lte: startTime } },
+              { endTime: { gt: startTime } },
+            ],
+          },
+          {
+            AND: [
+              { startTime: { lt: endTime } },
+              { endTime: { gte: endTime } },
+            ],
+          },
+          {
+            AND: [
+              { startTime: { gte: startTime } },
+              { endTime: { lte: endTime } },
+            ],
+          },
+        ],
+      },
+    });
+
+    if (conflictingAppointment) {
+      return { error: 'This time slot is no longer available' };
+    }
+
+    // Generate cancellation token
+    const cancellationToken = crypto.randomBytes(64).toString('hex');
+
+    // Create appointment
+    const appointment = await prisma.appointment.create({
+      data: {
+        userId: user.id,
+        appointmentTypeId: appointmentType.id,
+        startTime,
+        endTime,
+        timezone,
+        visitorName: bookingData.visitorName,
+        visitorEmail: bookingData.visitorEmail,
+        visitorPhone: bookingData.visitorPhone,
+        notes: bookingData.notes,
+        formResponses: bookingData.formResponses,
+        status: 'confirmed',
+        cancellationToken,
+      },
+      include: {
+        appointmentType: true,
+      },
+    });
+
+    // Track usage
+    await incrementUsage(user.id, 'booking');
+
+    // Create Google Calendar event
+    let calendarEventId: string | undefined;
+    try {
+      const description = `Appointment with ${bookingData.visitorName}\nEmail: ${bookingData.visitorEmail}${
+        bookingData.visitorPhone ? `\nPhone: ${bookingData.visitorPhone}` : ''
+      }${bookingData.notes ? `\n\nNotes: ${bookingData.notes}` : ''}`;
+
+      calendarEventId = await createCalendarEvent({
+        userId: user.id,
+        summary: `${appointmentType.name} - ${bookingData.visitorName}`,
+        description: description ?? undefined,
+        startTime,
+        endTime,
+        attendeeEmail: bookingData.visitorEmail ?? undefined,
+        attendeeName: bookingData.visitorName ?? undefined,
+      });
+
+      if (calendarEventId) {
+        await prisma.appointment.update({
+          where: { id: appointment.id },
+          data: { calendarEventId },
+        });
+      }
+    } catch (error) {
+      log.error('[bookAppointment] Error creating calendar event', error);
+    }
+
+    // Invalidate cache
+    availabilityCache.invalidateUser(user.id);
+
+    log.info('[bookAppointment] Booking created successfully', { appointmentId: appointment.id });
     return {
       success: true,
-      appointment: data.appointment,
+      appointment: {
+        id: appointment.id,
+        appointmentType: {
+          name: appointmentType.name,
+          duration: appointmentType.duration,
+        },
+        startTime: appointment.startTime.toISOString(),
+        endTime: appointment.endTime.toISOString(),
+        timezone: appointment.timezone,
+        visitorName: appointment.visitorName,
+        visitorEmail: appointment.visitorEmail,
+        cancellationToken: appointment.cancellationToken,
+      },
     };
   } catch (error: any) {
-    console.error('[bookAppointment] Exception:', error);
+    log.error('[bookAppointment] Exception', error);
     return { error: error.message };
   }
 }

@@ -1,6 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -10,94 +7,130 @@ datasource db {
 }
 
 model User {
-  id            String    @id @default(cuid())
-  email         String    @unique
-  name          String?
-  passwordHash  String
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  businessName  String?
-  timezone      String    @default("America/New_York")
-  widgetId      String    @unique @default(cuid())
-
-  // Relations
-  appointments             Appointment[]
-  forms                    Form[]
-  formSubmissions          FormSubmission[]
-  calendars                CalendarConnection[]
-  chatbotConfig            ChatbotConfig?
-  chatbotUsage             ChatbotUsage[]
-  subscription             Subscription?
-  appointmentTypes         AppointmentType[]
-  availability             Availability[]
-  dateOverrides            DateOverride[]
-  widgetConfig             WidgetConfig?
-  knowledgeBase            KnowledgeBase[]
-  knowledgeBaseCategories  KnowledgeBaseCategory[]
-  conversations            Conversation[]
-  bookingFormFields        BookingFormField[]
+  id                      String                  @id
+  email                   String                  @unique
+  name                    String?
+  passwordHash            String?
+  emailVerified           DateTime?
+  createdAt               DateTime                @default(now())
+  updatedAt               DateTime                @updatedAt
+  businessName            String?
+  timezone                String                  @default("America/New_York")
+  widgetId                String                  @unique @default(cuid())
+  stripeCustomerId        String?                 @unique
+  stripeSubscriptionId    String?                 @unique
+  subscriptionTier        String                  @default("free")
+  subscriptionStatus      String?
+  billingInterval         String?
+  currentPeriodEnd        DateTime?
+  cancelAtPeriodEnd       Boolean                 @default(false)
+  monthlyBookings         Int                     @default(0)
+  monthlyChatMessages     Int                     @default(0)
+  lastUsageReset          DateTime                @default(now())
+  appointments            Appointment[]
+  appointmentTypes        AppointmentType[]
+  availability            Availability[]
+  bookingFormFields       BookingFormField[]
+  calendars               CalendarConnection[]
+  chatbotConfig           ChatbotConfig?
+  chatbotUsage            ChatbotUsage[]
+  conversations           Conversation[]
+  dateOverrides           DateOverride[]
+  forms                   Form[]
+  formSubmissions         FormSubmission[]
+  knowledgeBase           KnowledgeBase[]
+  knowledgeBaseCategories KnowledgeBaseCategory[]
+  subscription            Subscription?
+  teamMembers             TeamMember[]            @relation("AccountOwner")
+  teamMemberships         TeamMember[]            @relation("TeamMemberUser")
+  usageRecords            UsageRecord[]
+  widgetConfig            WidgetConfig?
 }
 
 model Subscription {
-  id                String   @id @default(cuid())
-  userId            String   @unique
-  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  plan              String   // "starter", "professional", "enterprise"
-  hasAiAddon        Boolean  @default(false)
-  stripeCustomerId  String?
-  status            String   // "active", "cancelled", "past_due"
-  currentPeriodEnd  DateTime
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  id                   String    @id @default(cuid())
+  userId               String    @unique
+  stripeSubscriptionId String    @unique
+  stripePriceId        String
+  stripeCustomerId     String
+  tier                 String
+  billingInterval      String
+  status               String
+  currentPeriodStart   DateTime
+  currentPeriodEnd     DateTime
+  cancelAtPeriodEnd    Boolean   @default(false)
+  canceledAt           DateTime?
+  trialEnd             DateTime?
+  includedSeats        Int       @default(1)
+  additionalSeats      Int       @default(0)
+  totalSeats           Int       @default(1)
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+  user                 User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([stripeCustomerId])
 }
 
 model CalendarConnection {
   id           String   @id @default(cuid())
   userId       String
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   provider     String   // "google" or "outlook"
-  email        String
-  accessToken  String   @db.Text
-  refreshToken String   @db.Text
+
+  // Encrypted email (PII protection)
+  email        String   @db.Text // Encrypted email (hex string)
+  emailIv      String   @default("") // IV for email
+  emailAuth    String   @default("") // Auth tag for email
+
+  // Encrypted OAuth tokens (protect calendar access)
+  accessToken      String   @db.Text // Encrypted access token (hex string)
+  accessTokenIv    String   @default("") // IV for access token
+  accessTokenAuth  String   @default("") // Auth tag for access token
+
+  refreshToken     String   @db.Text // Encrypted refresh token (hex string)
+  refreshTokenIv   String   @default("") // IV for refresh token
+  refreshTokenAuth String   @default("") // Auth tag for refresh token
+
   expiresAt    DateTime
   isPrimary    Boolean  @default(false)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model AppointmentType {
   id           String        @id @default(cuid())
   userId       String
-  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  name         String        // "30-min Consultation"
+  name         String
   description  String?
-  duration     Int           // minutes
+  duration     Int
   color        String        @default("#3b82f6")
-  bufferBefore Int           @default(0) // minutes
-  bufferAfter  Int           @default(0) // minutes
+  bufferBefore Int           @default(0)
+  bufferAfter  Int           @default(0)
   active       Boolean       @default(true)
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
-
   appointments Appointment[]
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model Availability {
-  id           String   @id @default(cuid())
-  userId       String
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  dayOfWeek    Int      // 0-6 (Sunday-Saturday)
-  startTime    String   // "09:00"
-  endTime      String   // "17:00"
-  isAvailable  Boolean  @default(true)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id          String   @id @default(cuid())
+  userId      String
+  dayOfWeek   Int
+  startTime   String
+  endTime     String
+  isAvailable Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, dayOfWeek])
 }
 
 model DateOverride {
   id          String   @id @default(cuid())
   userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   date        DateTime
   isAvailable Boolean
   startTime   String?
@@ -105,48 +138,50 @@ model DateOverride {
   reason      String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, date])
 }
 
 model Appointment {
   id                String          @id @default(cuid())
   userId            String
-  user              User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   appointmentTypeId String
-  appointmentType   AppointmentType @relation(fields: [appointmentTypeId], references: [id])
-
   startTime         DateTime
   endTime           DateTime
   timezone          String
-
   visitorName       String
   visitorEmail      String
   visitorPhone      String?
   notes             String?
-  formResponses     Json?            // Custom form field responses
+  formResponses     Json?
+  status            String
+  calendarEventId   String?
+  cancellationToken String          @unique
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  appointmentType   AppointmentType @relation(fields: [appointmentTypeId], references: [id])
+  user              User            @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  status            String   // "confirmed", "cancelled", "completed"
-  calendarEventId   String?  // ID from Google/Outlook
-  cancellationToken String   @unique @default(cuid())
-
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  @@index([userId, status])
+  @@index([appointmentTypeId, startTime])
+  @@index([status, startTime])
+  @@index([cancellationToken])
 }
 
 model BookingFormField {
   id          String   @id @default(cuid())
   userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  label       String   // "Company Name"
-  fieldType   String   // "text", "email", "phone", "select", "textarea", "checkbox"
+  label       String
+  fieldType   String
   placeholder String?
   required    Boolean  @default(false)
-  options     Json?    // For select/radio fields: ["Option 1", "Option 2"]
+  options     Json?
   order       Int      @default(0)
   active      Boolean  @default(true)
-
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, order])
 }
@@ -154,119 +189,100 @@ model BookingFormField {
 model Form {
   id          String           @id @default(cuid())
   userId      String
-  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   name        String
   description String?
-  fields      Json             // Array of field definitions
-  settings    Json             // Email recipients, success message, etc.
+  fields      Json
+  settings    Json
   active      Boolean          @default(true)
   createdAt   DateTime         @default(now())
   updatedAt   DateTime         @updatedAt
-
+  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   submissions FormSubmission[]
 }
 
 model FormSubmission {
   id        String   @id @default(cuid())
   formId    String
-  form      Form     @relation(fields: [formId], references: [id], onDelete: Cascade)
   userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  data      Json     // Submitted form data
+
+  // Encrypted form data (PII protection)
+  data      String   @db.Text // Encrypted hex string (was Json)
+  dataIv    String   @default("") // Initialization vector
+  dataAuth  String   @default("") // Authentication tag
+
   ipAddress String?
   userAgent String?
-  status    String   @default("new") // "new", "read", "archived"
+  status    String   @default("new")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  form      Form     @relation(fields: [formId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status, createdAt])
+  @@index([formId, createdAt])
 }
 
 model WidgetConfig {
   id              String   @id @default(cuid())
   userId          String   @unique
-  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  // Appearance
   primaryColor    String   @default("#3b82f6")
   backgroundColor String   @default("#ffffff")
   textColor       String   @default("#1f2937")
-  borderRadius    String   @default("medium") // "sharp", "medium", "rounded"
+  borderRadius    String   @default("medium")
   fontFamily      String   @default("system")
-
-  // Position
   position        String   @default("bottom-right")
   offsetX         Int      @default(20)
   offsetY         Int      @default(20)
-
-  // Behavior
   showOnMobile    Boolean  @default(true)
   delaySeconds    Int      @default(0)
-
-  // Branding
   logoUrl         String?
   businessName    String?
   welcomeMessage  String   @default("Book an appointment with us")
-
-  // Booking Settings
-  timeFormat      String   @default("12h") // "12h" or "24h"
+  timeFormat      String   @default("12h")
   requirePhone    Boolean  @default(false)
   showNotes       Boolean  @default(true)
-
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model ChatbotConfig {
-  id                  String         @id @default(cuid())
-  userId              String         @unique
-  user                User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  enabled             Boolean        @default(false)
-  botName             String         @default("Assistant")
-  greetingMessage     String         @default("Hi! How can I help you today?")
-  tone                String         @default("professional") // "professional", "friendly", "casual"
-  customInstructions  String?
-
-  // Capabilities
-  enableFaq           Boolean        @default(true)
-  enableLeadQual      Boolean        @default(true)
-  enableScheduling    Boolean        @default(true)
-
-  // API Config (shared key in env)
-  model               String         @default("claude-haiku-4-5-20251001")
-  maxTokens           Int            @default(1024)
-  temperature         Float          @default(0.7)
-
-  // Usage Limits (messages per month)
-  messageLimit        Int            @default(100)
-
-  createdAt           DateTime       @default(now())
-  updatedAt           DateTime       @updatedAt
-
-  conversations       Conversation[]
-  usage               ChatbotUsage[]
+  id                 String         @id @default(cuid())
+  userId             String         @unique
+  enabled            Boolean        @default(false)
+  botName            String         @default("Assistant")
+  greetingMessage    String         @default("Hi! How can I help you today?")
+  tone               String         @default("professional")
+  customInstructions String?
+  enableFaq          Boolean        @default(true)
+  enableLeadQual     Boolean        @default(true)
+  enableScheduling   Boolean        @default(true)
+  model              String         @default("claude-haiku-4-5-20251001")
+  maxTokens          Int            @default(1024)
+  temperature        Float          @default(0.7)
+  messageLimit       Int            @default(100)
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+  costLimitCents     Int            @default(5000)
+  user               User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  usage              ChatbotUsage[]
+  conversations      Conversation[]
 }
 
 model ChatbotUsage {
   id              String        @id @default(cuid())
   userId          String
-  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   chatbotConfigId String
-  chatbotConfig   ChatbotConfig @relation(fields: [chatbotConfigId], references: [id], onDelete: Cascade)
-
-  // Usage metrics
   messagesCount   Int           @default(0)
   inputTokens     Int           @default(0)
   outputTokens    Int           @default(0)
-
-  // Cost tracking (in cents)
   estimatedCost   Int           @default(0)
-
-  // Period tracking
-  month           Int           // 1-12
-  year            Int           // 2025, 2026, etc.
-
+  month           Int
+  year            Int
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
+  chatbotConfig   ChatbotConfig @relation(fields: [chatbotConfigId], references: [id], onDelete: Cascade)
+  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, year, month])
   @@index([userId, year, month])
@@ -275,7 +291,6 @@ model ChatbotUsage {
 model KnowledgeBaseCategory {
   id          String          @id @default(cuid())
   userId      String
-  user        User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   name        String
   slug        String
   description String?
@@ -283,37 +298,32 @@ model KnowledgeBaseCategory {
   order       Int             @default(0)
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt
-
   articles    KnowledgeBase[]
+  user        User            @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, slug])
   @@index([userId])
 }
 
 model KnowledgeBase {
-  id          String                  @id @default(cuid())
-  userId      String
-  user        User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  categoryId  String?
-  category    KnowledgeBaseCategory?  @relation(fields: [categoryId], references: [id], onDelete: SetNull)
-
-  title       String
-  slug        String
-  content     String                  @db.Text
-  excerpt     String?
-
-  type        String                  @default("article") // "article", "faq", "webpage"
-  status      String                  @default("draft") // "draft", "published"
-  isPinned    Boolean                 @default(false)
-
-  tags        Json?                   // Array of tag strings
-  metadata    Json?                   // Additional metadata
-  url         String?                 // For external sources
-
-  viewCount   Int                     @default(0)
-
-  createdAt   DateTime                @default(now())
-  updatedAt   DateTime                @updatedAt
+  id         String                 @id @default(cuid())
+  userId     String
+  categoryId String?
+  title      String
+  slug       String
+  content    String
+  excerpt    String?
+  type       String                 @default("article")
+  status     String                 @default("draft")
+  isPinned   Boolean                @default(false)
+  tags       Json?
+  metadata   Json?
+  url        String?
+  viewCount  Int                    @default(0)
+  createdAt  DateTime               @default(now())
+  updatedAt  DateTime               @updatedAt
+  category   KnowledgeBaseCategory? @relation(fields: [categoryId], references: [id])
+  user       User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, slug])
   @@index([userId])
@@ -324,16 +334,65 @@ model KnowledgeBase {
 model Conversation {
   id              String        @id @default(cuid())
   userId          String
-  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   chatbotConfigId String
-  chatbotConfig   ChatbotConfig @relation(fields: [chatbotConfigId], references: [id])
-  visitorId       String        // Anonymous or identified
-  messages        Json          // Array of messages
+  visitorId       String
+  messages        Json
   leadQualified   Boolean       @default(false)
-  leadData        Json?         // Captured lead info
-  outcome         String?       // "scheduled", "qualified", "abandoned"
+  leadData        Json?
+  outcome         String?
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
+  chatbotConfig   ChatbotConfig @relation(fields: [chatbotConfigId], references: [id])
+  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, createdAt])
+  @@index([chatbotConfigId])
+}
+
+model TeamMember {
+  id           String    @id @default(cuid())
+  accountId    String
+  userId       String?
+  email        String
+  name         String?
+  role         String    @default("member")
+  status       String    @default("pending")
+  invitedAt    DateTime  @default(now())
+  joinedAt     DateTime?
+  removedAt    DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  accountOwner User      @relation("AccountOwner", fields: [accountId], references: [id], onDelete: Cascade)
+  user         User?     @relation("TeamMemberUser", fields: [userId], references: [id])
+
+  @@unique([accountId, email])
+  @@index([accountId])
+  @@index([userId])
+  @@index([email])
+}
+
+model UsageRecord {
+  id        String   @id @default(cuid())
+  userId    String
+  type      String
+  metadata  Json?
+  billable  Boolean  @default(true)
+  billed    Boolean  @default(false)
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([userId, type, createdAt])
+  @@index([userId, billable, billed])
+}
+
+model WebhookEvent {
+  id        String   @id @default(cuid())
+  provider  String   // 'stripe' or 'clerk'
+  eventId   String   @unique
+  eventType String
+  processed Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([provider, eventId])
 }

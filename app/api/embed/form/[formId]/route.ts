@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { log } from '@/lib/logger';
 
 // GET - Get form for embed (public endpoint)
 export async function GET(
@@ -31,7 +32,7 @@ export async function GET(
 
     return NextResponse.json(form);
   } catch (error) {
-    console.error('Error fetching form:', error);
+    log.error('Error fetching form', error);
     return NextResponse.json(
       { error: 'Failed to load form' },
       { status: 500 }

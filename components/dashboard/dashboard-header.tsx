@@ -1,19 +1,25 @@
 'use client';
 
-import { signOut } from 'next-auth/react';
+import { useClerk } from '@clerk/nextjs';
 import { Button } from '@/components/ui/button';
 import { LogOut, User } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 
 interface DashboardHeaderProps {
   user: {
     name?: string | null;
     email: string;
+    image?: string | null;
   };
 }
 
 export function DashboardHeader({ user }: DashboardHeaderProps) {
+  const { signOut } = useClerk();
+  const router = useRouter();
+
   const handleSignOut = async () => {
-    await signOut({ callbackUrl: '/auth/login' });
+    await signOut();
+    router.push('/auth/login');
   };
 
   return (
@@ -25,9 +31,17 @@ export function DashboardHeader({ user }: DashboardHeaderProps) {
       {/* User Menu */}
       <div className="flex items-center space-x-4">
         <div className="flex items-center space-x-2 text-sm">
-          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground">
-            <User className="h-4 w-4" />
-          </div>
+          {user.image ? (
+            <img
+              src={user.image}
+              alt={user.name || 'User'}
+              className="h-8 w-8 rounded-full"
+            />
+          ) : (
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground">
+              <User className="h-4 w-4" />
+            </div>
+          )}
           <div className="hidden md:block">
             <p className="font-medium">{user.name || 'User'}</p>
             <p className="text-xs text-muted-foreground">{user.email}</p>

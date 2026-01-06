@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import { getCurrentUserId } from '@/lib/clerk-auth';
 import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
+import { log } from '@/lib/logger';
 
 const availabilitySchema = z.object({
   dayOfWeek: z.number().min(0).max(6),
@@ -14,14 +14,14 @@ const availabilitySchema = z.object({
 // GET - Fetch all availability settings for the user
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
+    const userId = await getCurrentUserId();
 
-    if (!session?.user?.email) {
+    if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const user = await prisma.user.findUnique({
-      where: { email: session.user.email },
+      where: { id: userId },
     });
 
     if (!user) {
@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(availability);
   } catch (error) {
-    console.error('Error fetching availability:', error);
+    log.error('Error fetching availability', { error });
     return NextResponse.json(
       { error: 'Failed to fetch availability' },
       { status: 500 }
@@ -46,14 +46,14 @@ export async function GET(request: NextRequest) {
 // POST - Create new availability setting
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
+    const userId = await getCurrentUserId();
 
-    if (!session?.user?.email) {
+    if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const user = await prisma.user.findUnique({
-      where: { email: session.user.email },
+      where: { id: userId },
     });
 
     if (!user) {
@@ -82,12 +82,12 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { error: 'Invalid data', details: error.errors },
+        { error: 'Invalid data', details: error.issues },
         { status: 400 }
       );
     }
 
-    console.error('Error creating availability:', error);
+    log.error('Error creating availability', { error });
     return NextResponse.json(
       { error: 'Failed to create availability' },
       { status: 500 }

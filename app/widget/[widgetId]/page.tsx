@@ -167,11 +167,11 @@ export default function WidgetPage() {
         {view === 'menu' && (
           <MenuView
             config={config}
-            onSelectBooking={(type) => {
+            onSelectBooking={(type: WidgetConfig['features']['appointmentTypes'][number]) => {
               setSelectedFeature(type);
               setView('booking');
             }}
-            onSelectForm={(form) => {
+            onSelectForm={(form: WidgetConfig['features']['forms'][number]) => {
               setSelectedFeature(form);
               setView('form');
             }}

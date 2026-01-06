@@ -3,6 +3,12 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 
+declare global {
+  interface Window {
+    SmartWidgetLoaded?: boolean;
+  }
+}
+
 export default function TestWidgetPage() {
   const searchParams = useSearchParams();
   const widgetId = searchParams.get('widgetId');
