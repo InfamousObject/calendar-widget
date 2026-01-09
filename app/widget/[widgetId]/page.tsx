@@ -2,7 +2,7 @@
 // Force dynamic rendering to avoid useSearchParams() prerender errors
 export const dynamic = 'force-dynamic';
 
-import { useEffect, useState, useRef } from 'react';
+import { Suspense, useEffect, useState, useRef } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -56,7 +56,7 @@ interface WidgetConfig {
 
 type View = 'menu' | 'booking' | 'form' | 'chat' | 'success';
 
-export default function WidgetPage() {
+function WidgetContent() {
   const params = useParams();
   const searchParams = useSearchParams();
   const widgetId = params.widgetId as string;
@@ -210,6 +210,18 @@ export default function WidgetPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function WidgetPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center h-screen">
+        <p>Loading...</p>
+      </div>
+    }>
+      <WidgetContent />
+    </Suspense>
   );
 }
 

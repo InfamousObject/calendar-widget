@@ -2,7 +2,7 @@
 // Force dynamic rendering to avoid useSearchParams() prerender errors
 export const dynamic = 'force-dynamic';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -19,7 +19,7 @@ interface CalendarConnection {
   expiresAt: string;
 }
 
-export default function CalendarPage() {
+function CalendarContent() {
   const [connections, setConnections] = useState<CalendarConnection[]>([]);
   const [loading, setLoading] = useState(true);
   const searchParams = useSearchParams();
@@ -229,5 +229,19 @@ export default function CalendarPage() {
         </CardHeader>
       </Card>
     </div>
+  );
+}
+
+export default function CalendarPage() {
+  return (
+    <Suspense fallback={
+      <div className="space-y-6 animate-pulse">
+        <div className="h-24 rounded-xl bg-muted" />
+        <div className="h-64 rounded-xl bg-muted" />
+        <div className="h-32 rounded-xl bg-muted" />
+      </div>
+    }>
+      <CalendarContent />
+    </Suspense>
   );
 }
