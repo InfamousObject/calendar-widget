@@ -1,7 +1,0 @@
-# Cloudflare Pages Configuration
-name = "calendar-widget"
-compatibility_date = "2024-01-01"
-
-# Build configuration is managed in Cloudflare Dashboard:
-# - Build command: npm run pages:build
-# - Output will be in .vercel/output/static (auto-generated)
