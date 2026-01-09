@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -367,6 +368,15 @@ export default function PricingPage() {
             </div>
           </div>
         </div>
+
+        {/* Footer */}
+        <footer className="mt-24 pt-8 border-t border-border text-center text-sm text-muted-foreground">
+          <div className="flex justify-center gap-6 mb-4">
+            <Link href="/privacy" className="hover:text-primary">Privacy Policy</Link>
+            <Link href="/terms" className="hover:text-primary">Terms of Service</Link>
+          </div>
+          <p>&copy; 2025 SmartWidget. All rights reserved.</p>
+        </footer>
       </div>
     </div>
   );
