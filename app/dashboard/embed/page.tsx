@@ -78,7 +78,7 @@ export default function EmbedPage() {
       ? `${origin}/embed/booking/${widgetId}?type=${appointmentTypeId}`
       : `${origin}/embed/booking/${widgetId}`;
 
-    return `<!-- SmartWidget Booking Embed -->
+    return `<!-- Kentroi Booking Embed -->
 <iframe
   src="${url}"
   width="100%"
@@ -89,7 +89,7 @@ export default function EmbedPage() {
   };
 
   const getFormIframeCode = (formId: string) => {
-    return `<!-- SmartWidget Form Embed -->
+    return `<!-- Kentroi Form Embed -->
 <iframe
   src="${origin}/embed/form/${formId}"
   width="100%"
@@ -100,7 +100,7 @@ export default function EmbedPage() {
   };
 
   const getChatbotIframeCode = () => {
-    return `<!-- SmartWidget AI Chatbot Embed -->
+    return `<!-- Kentroi AI Chatbot Embed -->
 <iframe
   src="${origin}/widget/${widgetId}?view=chat"
   width="100%"
@@ -111,7 +111,7 @@ export default function EmbedPage() {
   };
 
   const getFloatingWidgetCode = () => {
-    return `<!-- SmartWidget Floating Chat Button (Coming Soon) -->
+    return `<!-- Kentroi Floating Chat Button (Coming Soon) -->
 <script
   src="${origin}/widget.js"
   data-widget-id="${widgetId}"

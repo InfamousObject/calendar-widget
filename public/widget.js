@@ -1,14 +1,14 @@
 (function() {
   // Prevent multiple initializations
-  if (window.SmartWidgetLoaded) return;
-  window.SmartWidgetLoaded = true;
+  if (window.KentroiLoaded) return;
+  window.KentroiLoaded = true;
 
   // Get widget ID from script tag
   const scriptTag = document.currentScript || document.querySelector('script[data-widget-id]');
   const widgetId = scriptTag?.getAttribute('data-widget-id');
 
   if (!widgetId) {
-    console.error('SmartWidget: Missing data-widget-id attribute');
+    console.error('Kentroi: Missing data-widget-id attribute');
     return;
   }
 
@@ -24,7 +24,7 @@
       config = await response.json();
       initializeWidget();
     } catch (error) {
-      console.error('SmartWidget: Failed to load configuration', error);
+      console.error('Kentroi: Failed to load configuration', error);
     }
   }
 
@@ -46,14 +46,14 @@
 
     // Create button container
     const button = document.createElement('div');
-    button.id = 'smartwidget-button';
+    button.id = 'kentroi-button';
     button.style.cssText = `
       position: fixed;
       ${getPositionStyles()}
       width: 60px;
       height: 60px;
       border-radius: 50%;
-      background-color: ${config.appearance?.primaryColor || '#3b82f6'};
+      background-color: ${config.appearance?.primaryColor || '#4F46E5'};
       color: white;
       display: flex;
       align-items: center;
@@ -113,7 +113,7 @@
   function openWidget() {
     // Create modal overlay
     const overlay = document.createElement('div');
-    overlay.id = 'smartwidget-overlay';
+    overlay.id = 'kentroi-overlay';
     overlay.style.cssText = `
       position: fixed;
       top: 0;
@@ -131,7 +131,7 @@
 
     // Create modal
     const modal = document.createElement('div');
-    modal.id = 'smartwidget-modal';
+    modal.id = 'kentroi-modal';
     modal.style.cssText = `
       background-color: white;
       border-radius: ${getBorderRadius()};
@@ -147,7 +147,7 @@
 
     // Create iframe for widget content
     const iframe = document.createElement('iframe');
-    iframe.id = 'smartwidget-iframe';
+    iframe.id = 'kentroi-iframe';
     iframe.src = `${API_BASE}/widget/${widgetId}`;
     iframe.style.cssText = `
       width: 100%;
@@ -184,7 +184,7 @@
 
     // Listen for close messages from iframe
     window.addEventListener('message', (event) => {
-      if (event.data === 'smartwidget:close') {
+      if (event.data === 'kentroi:close') {
         closeWidget();
       }
     });
@@ -192,7 +192,7 @@
 
   // Close widget modal
   function closeWidget() {
-    const overlay = document.getElementById('smartwidget-overlay');
+    const overlay = document.getElementById('kentroi-overlay');
     if (overlay) {
       overlay.remove();
     }

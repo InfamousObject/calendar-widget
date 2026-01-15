@@ -288,7 +288,7 @@ export function SetupChecklist({ onComplete }: SetupChecklistProps) {
                   Great progress!
                 </p>
                 <p className="text-sm text-foreground-secondary">
-                  Complete the remaining {totalCount - completedCount} task{totalCount - completedCount !== 1 ? 's' : ''} to unlock the full potential of SmartWidget.
+                  Complete the remaining {totalCount - completedCount} task{totalCount - completedCount !== 1 ? 's' : ''} to unlock the full potential of Kentroi.
                 </p>
               </div>
             </div>

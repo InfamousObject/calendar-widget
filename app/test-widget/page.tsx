@@ -5,7 +5,7 @@ import { useSearchParams } from 'next/navigation';
 
 declare global {
   interface Window {
-    SmartWidgetLoaded?: boolean;
+    KentroiLoaded?: boolean;
   }
 }
 
@@ -31,12 +31,12 @@ function TestWidgetContent() {
 
     return () => {
       // Cleanup
-      const button = document.getElementById('smartwidget-button');
+      const button = document.getElementById('kentroi-button');
       if (button) button.remove();
-      const overlay = document.getElementById('smartwidget-overlay');
+      const overlay = document.getElementById('kentroi-overlay');
       if (overlay) overlay.remove();
       script.remove();
-      window.SmartWidgetLoaded = false;
+      window.KentroiLoaded = false;
     };
   }, [widgetId]);
 
@@ -79,7 +79,7 @@ function TestWidgetContent() {
             Welcome to Our Demo Website
           </h1>
           <p className="text-xl text-gray-600 mb-8 max-w-3xl mx-auto">
-            This is a sample website to demonstrate the SmartWidget embed.
+            This is a sample website to demonstrate the Kentroi embed.
             Look for the floating widget button in the bottom corner!
           </p>
           <div className="flex justify-center gap-4">
@@ -155,7 +155,7 @@ function TestWidgetContent() {
           <h3 className="text-xl font-bold mb-4">Embed Code Used on This Page</h3>
           {origin ? (
             <pre className="bg-gray-800 p-4 rounded-lg overflow-x-auto text-sm">
-              <code>{`<!-- SmartWidget Embed Code -->
+              <code>{`<!-- Kentroi Embed Code -->
 <script
   src="${origin}/widget.js"
   data-widget-id="${widgetId}"
@@ -175,7 +175,7 @@ function TestWidgetContent() {
       <footer className="bg-white mt-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
           <div className="text-center text-gray-600">
-            <p>&copy; 2024 Demo Company. This is a test page for SmartWidget.</p>
+            <p>&copy; 2024 Demo Company. This is a test page for Kentroi.</p>
           </div>
         </div>
       </footer>

@@ -315,7 +315,7 @@ export default function PricingPage() {
                 </li>
                 <li className="flex items-start gap-2">
                   <Check className="h-5 w-5 text-green-600 shrink-0 mt-0.5" />
-                  <span className="text-sm">Remove SmartWidget branding</span>
+                  <span className="text-sm">Remove Kentroi branding</span>
                 </li>
               </ul>
             </CardContent>
@@ -375,7 +375,7 @@ export default function PricingPage() {
             <Link href="/privacy" className="hover:text-primary">Privacy Policy</Link>
             <Link href="/terms" className="hover:text-primary">Terms of Service</Link>
           </div>
-          <p>&copy; 2025 SmartWidget. All rights reserved.</p>
+          <p>&copy; 2025 Kentroi. All rights reserved.</p>
         </footer>
       </div>
     </div>

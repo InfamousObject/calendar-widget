@@ -22,7 +22,7 @@ export function EmailLayout({ preview, children }: EmailLayoutProps) {
         <Container style={container}>
           {children}
           <Text style={footer}>
-            SmartWidget - All-in-One Website Widget
+            Kentroi - One embed, endless possibilities
             <br />
             This is an automated notification. Please do not reply to this email.
           </Text>

@@ -9,10 +9,8 @@ export default function Home() {
       <header className="border-b">
         <div className="container mx-auto flex h-16 items-center justify-between px-4">
           <div className="flex items-center space-x-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
-              <span className="text-lg font-bold text-primary-foreground">S</span>
-            </div>
-            <span className="text-xl font-bold">SmartWidget</span>
+            <img src="/kentroi-icon.svg" alt="Kentroi" className="h-8 w-8" />
+            <span className="text-xl font-bold">Kentroi</span>
           </div>
           <nav className="flex items-center space-x-4">
             <Link href="/auth/login">
@@ -100,7 +98,7 @@ export default function Home() {
             <Link href="/privacy" className="hover:text-primary">Privacy Policy</Link>
             <Link href="/terms" className="hover:text-primary">Terms of Service</Link>
           </div>
-          <p>&copy; 2025 SmartWidget. All rights reserved.</p>
+          <p>&copy; 2025 Kentroi. All rights reserved.</p>
         </div>
       </footer>
     </div>

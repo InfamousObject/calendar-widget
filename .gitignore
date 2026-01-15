@@ -42,4 +42,8 @@ next-env.d.ts
 
 # planning and internal documentation
 /docs/planning
+/completed-plans
 build.log
+
+
+.mcp.json

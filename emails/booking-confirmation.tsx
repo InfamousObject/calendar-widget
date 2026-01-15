@@ -19,7 +19,7 @@ export function BookingConfirmation({
   endTime,
   timezone,
   cancelUrl,
-  businessName = 'SmartWidget',
+  businessName = 'Kentroi',
 }: BookingConfirmationProps) {
   const formattedDate = formatInTimeZone(startTime, timezone, 'EEEE, MMMM d, yyyy');
   const formattedTime = formatInTimeZone(startTime, timezone, 'h:mm a');
@@ -96,7 +96,7 @@ const detailValue = {
 };
 
 const button = {
-  backgroundColor: '#3b82f6',
+  backgroundColor: '#4F46E5',
   borderRadius: '6px',
   color: '#ffffff',
   display: 'inline-block',

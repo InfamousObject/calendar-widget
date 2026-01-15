@@ -9,7 +9,7 @@ import { PaymentFailureAlert } from '@/emails/payment-failure';
 
 // Provide fallback for build time (when env vars aren't available)
 const resend = new Resend(process.env.RESEND_API_KEY || 'dummy-key-for-build');
-const FROM_EMAIL = 'SmartWidget <noreply@yourdomain.com>';
+const FROM_EMAIL = 'Kentroi <noreply@kentroi.com>';
 
 // Retry helper with exponential backoff
 async function sendWithRetry<T>(

@@ -96,12 +96,12 @@ export function DashboardNav() {
         {/* Logo */}
         <div className="flex h-20 items-center border-b border-border px-6">
           <Link href="/dashboard" className="flex items-center space-x-3 group">
-            <div className="relative flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-accent shadow-lg shadow-primary/25 transition-all duration-300 group-hover:shadow-xl group-hover:shadow-primary/40 group-hover:scale-110">
-              <span className="text-xl font-display font-bold text-white">S</span>
+            <div className="relative flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-accent shadow-lg shadow-primary/25 transition-all duration-300 group-hover:shadow-xl group-hover:shadow-primary/40 group-hover:scale-110 p-2">
+              <img src="/kentroi-icon-white.svg" alt="Kentroi" className="w-full h-full" />
             </div>
             <div>
-              <span className="text-xl font-display font-bold text-foreground">SmartWidget</span>
-              <p className="text-xs text-foreground-tertiary">Scheduling Platform</p>
+              <span className="text-xl font-display font-bold text-foreground">Kentroi</span>
+              <p className="text-xs text-foreground-tertiary">One embed, endless possibilities</p>
             </div>
           </Link>
         </div>

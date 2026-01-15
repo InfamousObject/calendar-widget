@@ -1,12 +1,12 @@
 @import "tailwindcss";
 
 :root {
-  /* Primary: Deep Indigo */
-  --primary: 239 84% 67%;
+  /* Primary: Kentroi Indigo #4F46E5 */
+  --primary: 243 76% 59%;
   --primary-foreground: 0 0% 100%;
 
-  /* Accent: Warm Amber */
-  --accent: 38 92% 50%;
+  /* Accent: Kentroi Coral #F97316 */
+  --accent: 25 95% 53%;
   --accent-foreground: 0 0% 100%;
 
   /* Success: Rich Emerald */
@@ -56,7 +56,7 @@
   --input: 240 6% 90%;
 
   /* Ring */
-  --ring: 239 84% 67%;
+  --ring: 243 76% 59%;
 
   /* Radius */
   --radius: 0.5rem;
@@ -93,23 +93,22 @@
   --color-input: hsl(var(--input));
   --color-ring: hsl(var(--ring));
   --font-sans: var(--font-sans);
-  --font-display: var(--font-display);
-  --font-family-sans: var(--font-sans), system-ui, sans-serif;
-  --font-family-display: var(--font-display), Georgia, serif;
+  --font-display: 'Satoshi', sans-serif;
+  --font-family-sans: var(--font-sans), 'Manrope', system-ui, sans-serif;
+  --font-family-display: 'Satoshi', var(--font-sans), sans-serif;
 
   --font-size-display-lg: 4.5rem;
   --font-size-display-md: 3.5rem;
   --font-size-display-sm: 2.5rem;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    /* Primary: Brighter Indigo for dark mode */
-    --primary: 239 84% 75%;
+.dark {
+    /* Primary: Brighter Kentroi Indigo for dark mode */
+    --primary: 243 76% 70%;
     --primary-foreground: 240 10% 10%;
 
-    /* Accent: Warmer Amber for dark mode */
-    --accent: 38 92% 60%;
+    /* Accent: Brighter Kentroi Coral for dark mode */
+    --accent: 25 95% 60%;
     --accent-foreground: 240 10% 10%;
 
     /* Success: Brighter Emerald */
@@ -159,8 +158,7 @@
     --input: 240 8% 20%;
 
     /* Ring */
-    --ring: 239 84% 75%;
-  }
+    --ring: 243 76% 70%;
 }
 
 body {

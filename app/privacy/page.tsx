@@ -8,10 +8,8 @@ export default function PrivacyPolicy() {
       <header className="border-b">
         <div className="container mx-auto flex h-16 items-center justify-between px-4">
           <Link href="/" className="flex items-center space-x-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
-              <span className="text-lg font-bold text-primary-foreground">S</span>
-            </div>
-            <span className="text-xl font-bold">SmartWidget</span>
+            <img src="/kentroi-icon.svg" alt="Kentroi" className="h-8 w-8" />
+            <span className="text-xl font-bold">Kentroi</span>
           </Link>
           <nav className="flex items-center space-x-4">
             <Link href="/auth/login">
@@ -34,12 +32,12 @@ export default function PrivacyPolicy() {
             <section className="mb-8">
               <h2 className="text-2xl font-semibold mb-4">1. Introduction</h2>
               <p className="text-muted-foreground mb-4">
-                SmartWidget (&quot;we,&quot; &quot;our,&quot; or &quot;us&quot;) operates the kentroi.com website and SmartWidget
+                Kentroi (&quot;we,&quot; &quot;our,&quot; or &quot;us&quot;) operates the kentroi.com website and Kentroi
                 service. This Privacy Policy explains how we collect, use, disclose, and safeguard your
                 information when you use our service.
               </p>
               <p className="text-muted-foreground">
-                By using SmartWidget, you agree to the collection and use of information in accordance
+                By using Kentroi, you agree to the collection and use of information in accordance
                 with this policy.
               </p>
             </section>
@@ -214,7 +212,7 @@ export default function PrivacyPolicy() {
             <section className="mb-8">
               <h2 className="text-2xl font-semibold mb-4">9. Children&apos;s Privacy</h2>
               <p className="text-muted-foreground">
-                SmartWidget is not intended for use by children under 13. We do not knowingly
+                Kentroi is not intended for use by children under 13. We do not knowingly
                 collect data from children under 13. If you believe we have collected such data,
                 please contact us immediately.
               </p>
@@ -249,7 +247,7 @@ export default function PrivacyPolicy() {
             <Link href="/privacy" className="hover:text-primary">Privacy Policy</Link>
             <Link href="/terms" className="hover:text-primary">Terms of Service</Link>
           </div>
-          <p>&copy; 2025 SmartWidget. All rights reserved.</p>
+          <p>&copy; 2025 Kentroi. All rights reserved.</p>
         </div>
       </footer>
     </div>

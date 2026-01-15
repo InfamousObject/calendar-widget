@@ -8,10 +8,8 @@ export default function TermsOfService() {
       <header className="border-b">
         <div className="container mx-auto flex h-16 items-center justify-between px-4">
           <Link href="/" className="flex items-center space-x-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
-              <span className="text-lg font-bold text-primary-foreground">S</span>
-            </div>
-            <span className="text-xl font-bold">SmartWidget</span>
+            <img src="/kentroi-icon.svg" alt="Kentroi" className="h-8 w-8" />
+            <span className="text-xl font-bold">Kentroi</span>
           </Link>
           <nav className="flex items-center space-x-4">
             <Link href="/auth/login">
@@ -34,7 +32,7 @@ export default function TermsOfService() {
             <section className="mb-8">
               <h2 className="text-2xl font-semibold mb-4">1. Agreement to Terms</h2>
               <p className="text-muted-foreground mb-4">
-                By accessing or using SmartWidget (&quot;Service&quot;), operated by SmartWidget (&quot;we,&quot; &quot;us,&quot;
+                By accessing or using Kentroi (&quot;Service&quot;), operated by Kentroi (&quot;we,&quot; &quot;us,&quot;
                 or &quot;our&quot;) at kentroi.com, you agree to be bound by these Terms of Service (&quot;Terms&quot;).
               </p>
               <p className="text-muted-foreground">
@@ -45,7 +43,7 @@ export default function TermsOfService() {
             <section className="mb-8">
               <h2 className="text-2xl font-semibold mb-4">2. Description of Service</h2>
               <p className="text-muted-foreground mb-4">
-                SmartWidget provides an embeddable website widget that includes:
+                Kentroi provides an embeddable website widget that includes:
               </p>
               <ul className="list-disc pl-6 text-muted-foreground mb-4 space-y-1">
                 <li>Appointment scheduling and booking management</li>
@@ -169,7 +167,7 @@ export default function TermsOfService() {
             <section className="mb-8">
               <h2 className="text-2xl font-semibold mb-4">8. Intellectual Property</h2>
               <p className="text-muted-foreground mb-4">
-                The Service, including its design, features, and technology, is owned by SmartWidget
+                The Service, including its design, features, and technology, is owned by Kentroi
                 and protected by intellectual property laws. You may not:
               </p>
               <ul className="list-disc pl-6 text-muted-foreground mb-4 space-y-1">
@@ -227,7 +225,7 @@ export default function TermsOfService() {
             <section className="mb-8">
               <h2 className="text-2xl font-semibold mb-4">12. Indemnification</h2>
               <p className="text-muted-foreground">
-                You agree to indemnify and hold harmless SmartWidget and its officers, directors,
+                You agree to indemnify and hold harmless Kentroi and its officers, directors,
                 employees, and agents from any claims, damages, or expenses arising from your use
                 of the Service, violation of these Terms, or infringement of any rights of others.
               </p>
@@ -272,7 +270,7 @@ export default function TermsOfService() {
               <ul className="list-disc pl-6 text-muted-foreground mb-4 space-y-1">
                 <li>
                   <strong>Entire Agreement:</strong> These Terms constitute the entire agreement
-                  between you and SmartWidget.
+                  between you and Kentroi.
                 </li>
                 <li>
                   <strong>Severability:</strong> If any provision is found unenforceable, the
@@ -309,7 +307,7 @@ export default function TermsOfService() {
             <Link href="/privacy" className="hover:text-primary">Privacy Policy</Link>
             <Link href="/terms" className="hover:text-primary">Terms of Service</Link>
           </div>
-          <p>&copy; 2025 SmartWidget. All rights reserved.</p>
+          <p>&copy; 2025 Kentroi. All rights reserved.</p>
         </div>
       </footer>
     </div>
