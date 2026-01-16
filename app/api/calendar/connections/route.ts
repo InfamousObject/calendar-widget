@@ -26,6 +26,7 @@ export async function GET(request: NextRequest) {
       select: {
         id: true,
         provider: true,
+        source: true,
         email: true,
         emailIv: true,
         emailAuth: true,
@@ -43,6 +44,7 @@ export async function GET(request: NextRequest) {
         return {
           id: conn.id,
           provider: conn.provider,
+          source: conn.source as 'clerk' | 'manual',
           email: decryptedEmail, // Decrypted email
           isPrimary: conn.isPrimary,
           createdAt: conn.createdAt,
@@ -53,6 +55,7 @@ export async function GET(request: NextRequest) {
         return {
           id: conn.id,
           provider: conn.provider,
+          source: conn.source as 'clerk' | 'manual',
           email: '***@***.***', // Masked if decryption fails
           isPrimary: conn.isPrimary,
           createdAt: conn.createdAt,

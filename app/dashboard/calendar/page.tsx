@@ -6,7 +6,7 @@ import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Calendar, Check, Trash2, CalendarCheck, AlertCircle, Zap } from 'lucide-react';
+import { Calendar, Check, Trash2, CalendarCheck, AlertCircle, Zap, Link2, Loader2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 
@@ -17,15 +17,27 @@ interface CalendarConnection {
   isPrimary: boolean;
   createdAt: string;
   expiresAt: string;
+  source?: 'clerk' | 'manual';
+}
+
+interface CalendarStatus {
+  connected: boolean;
+  source?: 'clerk' | 'manual';
+  email?: string;
+  hasGoogleSignIn: boolean;
+  hasCalendarScopes: boolean;
+  canAutoConnect: boolean;
 }
 
 function CalendarContent() {
   const [connections, setConnections] = useState<CalendarConnection[]>([]);
+  const [status, setStatus] = useState<CalendarStatus | null>(null);
   const [loading, setLoading] = useState(true);
+  const [autoConnecting, setAutoConnecting] = useState(false);
   const searchParams = useSearchParams();
 
   useEffect(() => {
-    fetchConnections();
+    fetchData();
 
     // Handle OAuth callback messages
     const success = searchParams.get('success');
@@ -49,15 +61,25 @@ function CalendarContent() {
     }
   }, [searchParams]);
 
-  const fetchConnections = async () => {
+  const fetchData = async () => {
     try {
-      const response = await fetch('/api/calendar/connections');
-      if (response.ok) {
-        const data = await response.json();
+      // Fetch both connections and status in parallel
+      const [connectionsRes, statusRes] = await Promise.all([
+        fetch('/api/calendar/connections'),
+        fetch('/api/calendar/status'),
+      ]);
+
+      if (connectionsRes.ok) {
+        const data = await connectionsRes.json();
         setConnections(data);
       }
+
+      if (statusRes.ok) {
+        const statusData = await statusRes.json();
+        setStatus(statusData);
+      }
     } catch (error) {
-      console.error('Error fetching connections:', error);
+      console.error('Error fetching calendar data:', error);
     } finally {
       setLoading(false);
     }
@@ -66,6 +88,28 @@ function CalendarContent() {
   const handleConnect = () => {
     // Redirect to Google OAuth flow
     window.location.href = '/api/calendar/connect';
+  };
+
+  const handleAutoConnect = async () => {
+    setAutoConnecting(true);
+    try {
+      const response = await fetch('/api/calendar/auto-connect', {
+        method: 'POST',
+      });
+
+      if (response.ok) {
+        toast.success('Google Calendar connected using your Google sign-in!');
+        await fetchData();
+      } else {
+        const data = await response.json();
+        toast.error(data.message || 'Failed to auto-connect calendar');
+      }
+    } catch (error) {
+      console.error('Error auto-connecting:', error);
+      toast.error('Failed to auto-connect calendar');
+    } finally {
+      setAutoConnecting(false);
+    }
   };
 
   const handleDisconnect = async (connectionId: string) => {
@@ -82,7 +126,7 @@ function CalendarContent() {
 
       if (response.ok) {
         toast.success('Calendar disconnected successfully');
-        await fetchConnections();
+        await fetchData();
       } else {
         toast.error('Failed to disconnect calendar');
       }
@@ -139,14 +183,35 @@ function CalendarContent() {
               </div>
             </div>
             {!hasGoogleConnection && (
-              <Button
-                onClick={handleConnect}
-                className="bg-gradient-to-r from-blue-500 to-blue-600 hover:shadow-lg hover:shadow-blue-500/30 transition-all duration-300"
-                size="lg"
-              >
-                <Zap className="h-4 w-4 mr-2" />
-                Connect Google Calendar
-              </Button>
+              <div className="flex items-center gap-3">
+                {status?.canAutoConnect && (
+                  <Button
+                    onClick={handleAutoConnect}
+                    disabled={autoConnecting}
+                    className="bg-gradient-to-r from-green-500 to-green-600 hover:shadow-lg hover:shadow-green-500/30 transition-all duration-300"
+                    size="lg"
+                  >
+                    {autoConnecting ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <Link2 className="h-4 w-4 mr-2" />
+                    )}
+                    Auto-connect
+                  </Button>
+                )}
+                <Button
+                  onClick={handleConnect}
+                  variant={status?.canAutoConnect ? 'outline' : 'default'}
+                  className={status?.canAutoConnect
+                    ? 'hover:border-blue-500 hover:text-blue-500 transition-all duration-300'
+                    : 'bg-gradient-to-r from-blue-500 to-blue-600 hover:shadow-lg hover:shadow-blue-500/30 transition-all duration-300'
+                  }
+                  size="lg"
+                >
+                  <Zap className="h-4 w-4 mr-2" />
+                  {status?.canAutoConnect ? 'Manual Connect' : 'Connect Google Calendar'}
+                </Button>
+              </div>
             )}
           </div>
         </CardHeader>
@@ -181,6 +246,16 @@ function CalendarContent() {
                         {connection.isPrimary && (
                           <Badge variant="default" className="text-xs">
                             Primary
+                          </Badge>
+                        )}
+                        {connection.source === 'clerk' ? (
+                          <Badge variant="secondary" className="text-xs bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300">
+                            <Link2 className="h-3 w-3 mr-1" />
+                            Google Sign-in
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="text-xs">
+                            Manual
                           </Badge>
                         )}
                       </div>

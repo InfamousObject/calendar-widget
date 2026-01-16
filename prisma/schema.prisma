@@ -76,6 +76,7 @@ model CalendarConnection {
   id           String   @id @default(cuid())
   userId       String
   provider     String   // "google" or "outlook"
+  source       String   @default("manual") // "clerk" or "manual" - how the connection was established
 
   // Encrypted email (PII protection)
   email        String   @db.Text // Encrypted email (hex string)
@@ -83,6 +84,7 @@ model CalendarConnection {
   emailAuth    String   @default("") // Auth tag for email
 
   // Encrypted OAuth tokens (protect calendar access)
+  // For source="clerk", these may be empty as tokens come from Clerk
   accessToken      String   @db.Text // Encrypted access token (hex string)
   accessTokenIv    String   @default("") // IV for access token
   accessTokenAuth  String   @default("") // Auth tag for access token
