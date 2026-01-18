@@ -52,7 +52,9 @@ export async function POST(req: Request) {
   const eventType = evt.type;
   const eventId = (evt as any).id || `${eventType}-${Date.now()}`;
 
-  // Check if already processed
+  log.info('[Clerk Webhook] Received event', { eventType, eventId });
+
+  // Check if already processed (idempotency)
   const existing = await prisma.webhookEvent.findUnique({
     where: { eventId }
   });
@@ -62,9 +64,11 @@ export async function POST(req: Request) {
     return NextResponse.json({ success: true });
   }
 
-  // Create idempotency record
-  await prisma.webhookEvent.create({
-    data: {
+  // Create or update idempotency record (upsert handles retries)
+  await prisma.webhookEvent.upsert({
+    where: { eventId },
+    update: {}, // No update needed, just ensure it exists
+    create: {
       provider: 'clerk',
       eventId,
       eventType,
@@ -84,32 +88,79 @@ export async function POST(req: Request) {
           throw new Error('No email found');
         }
 
-        // Create user in database with Clerk ID
-        const user = await tx.user.create({
-          data: {
-            id, // Use Clerk user ID as our user ID
-            email,
-            name: `${first_name || ''} ${last_name || ''}`.trim() || email.split('@')[0],
-            emailVerified: new Date(), // Clerk handles email verification
-            widgetConfig: {
-              create: {
-                // Default widget configuration
-                primaryColor: '#3b82f6',
-                backgroundColor: '#ffffff',
-                textColor: '#1f2937',
-                borderRadius: 'medium',
-                fontFamily: 'system',
-                position: 'bottom-right',
-                offsetX: 20,
-                offsetY: 20,
-                showOnMobile: true,
-                delaySeconds: 0,
+        // Check if user already exists (by ID or email)
+        const existingById = await tx.user.findUnique({ where: { id } });
+        const existingByEmail = await tx.user.findUnique({ where: { email } });
+
+        if (existingById) {
+          // User already exists with this Clerk ID, just update
+          log.info('[Clerk Webhook] User already exists, updating', { userId: id });
+          await tx.user.update({
+            where: { id },
+            data: {
+              email,
+              name: `${first_name || ''} ${last_name || ''}`.trim() || email.split('@')[0],
+            },
+          });
+        } else if (existingByEmail) {
+          // Email exists with different ID - update the ID to match Clerk
+          log.info('[Clerk Webhook] Email exists, updating user ID to match Clerk', {
+            oldId: existingByEmail.id,
+            newId: id,
+            email
+          });
+          // Delete old user and create new one with correct ID
+          // Use deleteMany to handle cascade more reliably
+          const deleteResult = await tx.user.deleteMany({ where: { email } });
+          log.info('[Clerk Webhook] Deleted old user', { deletedCount: deleteResult.count });
+          await tx.user.create({
+            data: {
+              id,
+              email,
+              name: `${first_name || ''} ${last_name || ''}`.trim() || email.split('@')[0],
+              emailVerified: new Date(),
+              widgetConfig: {
+                create: {
+                  primaryColor: '#3b82f6',
+                  backgroundColor: '#ffffff',
+                  textColor: '#1f2937',
+                  borderRadius: 'medium',
+                  fontFamily: 'system',
+                  position: 'bottom-right',
+                  offsetX: 20,
+                  offsetY: 20,
+                  showOnMobile: true,
+                  delaySeconds: 0,
+                },
               },
             },
-          },
-        });
-
-        log.info('[Clerk Webhook] User created', { userId: user.id });
+          });
+        } else {
+          // Create new user
+          const user = await tx.user.create({
+            data: {
+              id,
+              email,
+              name: `${first_name || ''} ${last_name || ''}`.trim() || email.split('@')[0],
+              emailVerified: new Date(),
+              widgetConfig: {
+                create: {
+                  primaryColor: '#3b82f6',
+                  backgroundColor: '#ffffff',
+                  textColor: '#1f2937',
+                  borderRadius: 'medium',
+                  fontFamily: 'system',
+                  position: 'bottom-right',
+                  offsetX: 20,
+                  offsetY: 20,
+                  showOnMobile: true,
+                  delaySeconds: 0,
+                },
+              },
+            },
+          });
+          log.info('[Clerk Webhook] User created', { userId: user.id });
+        }
       }
 
       if (eventType === 'user.updated') {
@@ -117,25 +168,35 @@ export async function POST(req: Request) {
 
         const email = email_addresses[0]?.email_address;
 
-        await tx.user.update({
-          where: { id },
-          data: {
-            email: email || undefined,
-            name: `${first_name || ''} ${last_name || ''}`.trim() || undefined,
-          },
-        });
-
-        log.info('[Clerk Webhook] User updated', { userId: id });
+        // Check if user exists before updating
+        const existing = await tx.user.findUnique({ where: { id } });
+        if (existing) {
+          await tx.user.update({
+            where: { id },
+            data: {
+              email: email || undefined,
+              name: `${first_name || ''} ${last_name || ''}`.trim() || undefined,
+            },
+          });
+          log.info('[Clerk Webhook] User updated', { userId: id });
+        } else {
+          log.warn('[Clerk Webhook] User not found for update, skipping', { userId: id });
+        }
       }
 
       if (eventType === 'user.deleted') {
         const { id } = evt.data;
 
-        await tx.user.delete({
+        // Use deleteMany to avoid error if user doesn't exist
+        const result = await tx.user.deleteMany({
           where: { id },
         });
 
-        log.info('[Clerk Webhook] User deleted', { userId: id });
+        if (result.count > 0) {
+          log.info('[Clerk Webhook] User deleted', { userId: id });
+        } else {
+          log.warn('[Clerk Webhook] User not found for deletion, skipping', { userId: id });
+        }
       }
 
       // Mark as processed within transaction

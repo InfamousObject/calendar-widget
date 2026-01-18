@@ -1,13 +1,52 @@
 'use client';
 
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { useClerk } from '@clerk/nextjs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import { Settings, Moon, Sun, Monitor } from 'lucide-react';
+import { Settings, Moon, Sun, Monitor, Trash2, AlertTriangle, Loader2 } from 'lucide-react';
 import { useTheme } from '@/components/theme-provider';
+import { toast } from 'sonner';
 
 export default function SettingsPage() {
   const { theme, setTheme, resolvedTheme } = useTheme();
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [confirmText, setConfirmText] = useState('');
+  const router = useRouter();
+  const { signOut } = useClerk();
+
+  const handleDeleteAccount = async () => {
+    if (confirmText !== 'DELETE') {
+      toast.error('Please type DELETE to confirm');
+      return;
+    }
+
+    setDeleting(true);
+    try {
+      const response = await fetch('/api/account/delete', {
+        method: 'DELETE',
+      });
+
+      if (response.ok) {
+        toast.success('Account deleted successfully');
+        // Sign out and redirect to home
+        await signOut();
+        router.push('/');
+      } else {
+        const data = await response.json();
+        toast.error(data.error || 'Failed to delete account');
+      }
+    } catch (error) {
+      console.error('Error deleting account:', error);
+      toast.error('Failed to delete account');
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   return (
     <div className="p-8">
@@ -122,6 +161,98 @@ export default function SettingsPage() {
                 onCheckedChange={(checked) => setTheme(checked ? 'dark' : 'light')}
               />
             </div>
+          </CardContent>
+        </Card>
+
+        {/* Danger Zone */}
+        <Card className="border-destructive/50 shadow-md">
+          <CardHeader>
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-destructive/10">
+                <AlertTriangle className="h-5 w-5 text-destructive" />
+              </div>
+              <div>
+                <CardTitle className="font-display text-xl text-destructive">Danger Zone</CardTitle>
+                <CardDescription className="text-base">Irreversible actions for your account</CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {!showDeleteConfirm ? (
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label className="text-sm font-medium">Delete Account</Label>
+                  <p className="text-sm text-muted-foreground">
+                    Permanently delete your account and all associated data
+                  </p>
+                </div>
+                <Button
+                  variant="destructive"
+                  onClick={() => setShowDeleteConfirm(true)}
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Delete Account
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-4 p-4 rounded-lg border border-destructive/30 bg-destructive/5">
+                <div className="flex items-start gap-3">
+                  <AlertTriangle className="h-5 w-5 text-destructive mt-0.5" />
+                  <div className="space-y-2">
+                    <p className="font-medium text-destructive">Are you sure you want to delete your account?</p>
+                    <p className="text-sm text-muted-foreground">
+                      This action cannot be undone. This will permanently delete your account,
+                      all your data, calendar connections, appointments, and remove your access
+                      to connected services.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="confirm-delete" className="text-sm">
+                    Type <span className="font-mono font-bold">DELETE</span> to confirm
+                  </Label>
+                  <input
+                    id="confirm-delete"
+                    type="text"
+                    value={confirmText}
+                    onChange={(e) => setConfirmText(e.target.value)}
+                    placeholder="DELETE"
+                    className="w-full px-3 py-2 border border-border rounded-md bg-background text-sm focus:outline-none focus:ring-2 focus:ring-destructive/50"
+                  />
+                </div>
+
+                <div className="flex gap-3">
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setShowDeleteConfirm(false);
+                      setConfirmText('');
+                    }}
+                    disabled={deleting}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    onClick={handleDeleteAccount}
+                    disabled={deleting || confirmText !== 'DELETE'}
+                  >
+                    {deleting ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Deleting...
+                      </>
+                    ) : (
+                      <>
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        Delete My Account
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
