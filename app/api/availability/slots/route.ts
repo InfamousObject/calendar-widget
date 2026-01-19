@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getCalendarEvents, checkSlotsAgainstEvents } from '@/lib/google/calendar';
 import { addDays, format, parse, startOfDay, endOfDay, addMinutes, isBefore, isAfter, parseISO } from 'date-fns';
+import { fromZonedTime } from 'date-fns-tz';
 import { availabilityCache } from '@/lib/cache/availability-cache';
 import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
 import { log } from '@/lib/logger';
@@ -238,11 +239,20 @@ async function generateSlotsForDay(
   const [startHour, startMinute] = startTime.split(':').map(Number);
   const [endHour, endMinute] = endTime.split(':').map(Number);
 
-  let currentSlotStart = new Date(date);
-  currentSlotStart.setHours(startHour, startMinute, 0, 0);
+  // Create dates in the user's timezone, then convert to UTC
+  // We need to interpret the availability times (e.g., "09:00") as being in the user's timezone
+  const year = date.getFullYear();
+  const month = date.getMonth();
+  const day = date.getDate();
 
-  const dayEnd = new Date(date);
-  dayEnd.setHours(endHour, endMinute, 0, 0);
+  // Create a date with the wall-clock time we want
+  const startWallClock = new Date(year, month, day, startHour, startMinute, 0, 0);
+  const endWallClock = new Date(year, month, day, endHour, endMinute, 0, 0);
+
+  // Convert from user's timezone to UTC - fromZonedTime interprets the date's
+  // hour/minute values as being in the specified timezone and returns the UTC equivalent
+  let currentSlotStart = fromZonedTime(startWallClock, timezone);
+  const dayEnd = fromZonedTime(endWallClock, timezone);
 
   // First, generate all possible slots
   const allSlots: { start: Date; end: Date; bufferedStart: Date; bufferedEnd: Date }[] = [];
