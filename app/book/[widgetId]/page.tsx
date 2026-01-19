@@ -91,6 +91,9 @@ export default function BookingPage() {
   const [captchaToken, setCaptchaToken] = useState('');
   const captchaRef = useRef<HCaptcha>(null);
 
+  // CSRF token state
+  const [csrfToken, setCsrfToken] = useState('');
+
   // Step 4: Confirmation
   const [booking, setBooking] = useState(false);
   const [confirmationData, setConfirmationData] = useState<any>(null);
@@ -98,7 +101,23 @@ export default function BookingPage() {
   useEffect(() => {
     fetchWidgetInfo();
     fetchCustomFields();
+    fetchCsrfToken();
   }, [widgetId]);
+
+  const fetchCsrfToken = async () => {
+    try {
+      const response = await fetch('/api/csrf/token');
+      if (response.ok) {
+        const data = await response.json();
+        setCsrfToken(data.token);
+      } else {
+        // CSRF might be disabled - that's ok, the API will skip validation
+        console.log('[Booking] CSRF token not available (may be disabled)');
+      }
+    } catch (error) {
+      console.error('Error fetching CSRF token:', error);
+    }
+  };
 
   const fetchWidgetInfo = async () => {
     try {
@@ -376,6 +395,7 @@ export default function BookingPage() {
           timezone: widgetInfo?.timezone || 'UTC',
           formResponses: Object.keys(formResponses).length > 0 ? formResponses : undefined,
           captchaToken: captchaToken || undefined,
+          csrfToken: csrfToken || undefined,
         }),
       });
 
@@ -386,20 +406,22 @@ export default function BookingPage() {
       } else {
         const error = await response.json();
         alert(error.error || 'Failed to book appointment');
-        // Reset CAPTCHA on error
+        // Reset CAPTCHA and fetch new CSRF token on error
         if (captchaRef.current) {
           captchaRef.current.resetCaptcha();
           setCaptchaToken('');
         }
+        fetchCsrfToken(); // CSRF tokens are one-time use
       }
     } catch (error) {
       console.error('Error booking appointment:', error);
       alert('Failed to book appointment');
-      // Reset CAPTCHA on error
+      // Reset CAPTCHA and fetch new CSRF token on error
       if (captchaRef.current) {
         captchaRef.current.resetCaptcha();
         setCaptchaToken('');
       }
+      fetchCsrfToken(); // CSRF tokens are one-time use
     } finally {
       setBooking(false);
     }
