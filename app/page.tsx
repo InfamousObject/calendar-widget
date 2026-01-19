@@ -613,16 +613,12 @@ export default function Home() {
                   icon: Calendar,
                   title: 'Appointment Scheduling',
                   description: 'Syncs with Google Calendar. Shows your real-time availability. Handles timezones automatically.',
-                  badge: 'From $9/mo',
-                  badgeColor: 'primary',
                   color: 'primary'
                 },
                 {
                   icon: MessageSquare,
                   title: 'AI Chat Assistant',
                   description: 'Powered by Claude AI. Answers questions 24/7. Qualifies leads and books appointments.',
-                  badge: 'From $19/mo',
-                  badgeColor: 'accent',
                   color: 'accent'
                 }
               ].map((feature, index) => (
@@ -640,15 +636,17 @@ export default function Home() {
                     >
                       <feature.icon className="w-7 h-7" style={{ color: `hsl(var(--${feature.color}))` }} />
                     </div>
-                    <span
-                      className="px-3 py-1 rounded-full text-xs font-medium"
-                      style={{
-                        backgroundColor: `hsl(var(--${feature.badgeColor}) / 0.1)`,
-                        color: `hsl(var(--${feature.badgeColor}))`
-                      }}
-                    >
-                      {feature.badge}
-                    </span>
+                    {feature.badge && (
+                      <span
+                        className="px-3 py-1 rounded-full text-xs font-medium"
+                        style={{
+                          backgroundColor: `hsl(var(--${feature.badgeColor}) / 0.1)`,
+                          color: `hsl(var(--${feature.badgeColor}))`
+                        }}
+                      >
+                        {feature.badge}
+                      </span>
+                    )}
                   </div>
                   <h3 className="text-xl font-semibold mb-3">{feature.title}</h3>
                   <p className="text-foreground-secondary leading-relaxed">{feature.description}</p>
