@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { ClerkProvider } from '@clerk/nextjs';
 import { ErrorBoundary } from '@/components/error-boundary';
 import { ThemeProvider } from '@/components/theme-provider';
+import { OrganizationSchema, SoftwareApplicationSchema } from '@/components/seo/schemas';
 
 const sansFont = Manrope({
   variable: "--font-sans",
@@ -14,20 +15,59 @@ const sansFont = Manrope({
 });
 
 export const metadata: Metadata = {
-  title: "Kentroi - Smart Scheduling & AI Chat Widget",
-  description: "One embed, endless possibilities. Appointment scheduling, contact forms, and AI chat in a single embeddable widget.",
-  metadataBase: new URL('https://kentroi.com'),
+  title: {
+    default: "Kentroi - All-in-One Scheduling Widget with AI Chatbot",
+    template: "%s | Kentroi",
+  },
+  description: "Free scheduling widget with appointment booking, contact forms, and AI chatbot. One embed, endless possibilities. Calendly alternative with better support and more features.",
+  keywords: [
+    "scheduling widget",
+    "appointment booking",
+    "calendly alternative",
+    "contact form builder",
+    "ai chatbot",
+    "embeddable widget",
+    "booking software",
+    "scheduling software",
+    "appointment scheduling",
+    "google calendar integration",
+  ],
+  metadataBase: new URL('https://www.kentroi.com'),
+  alternates: {
+    canonical: 'https://www.kentroi.com',
+  },
   openGraph: {
-    title: "Kentroi",
-    description: "One embed, endless possibilities",
-    images: ["/og-image.png"],
+    title: "Kentroi - All-in-One Scheduling Widget",
+    description: "Free scheduling widget with appointment booking, contact forms, and AI chatbot. One embed, endless possibilities.",
+    url: 'https://www.kentroi.com',
     siteName: "Kentroi",
+    images: [
+      {
+        url: "/og-image.png",
+        width: 1200,
+        height: 630,
+        alt: "Kentroi - Smart Scheduling & AI Chat Widget",
+      },
+    ],
+    locale: "en_US",
+    type: "website",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Kentroi",
-    description: "One embed, endless possibilities",
+    title: "Kentroi - All-in-One Scheduling Widget",
+    description: "Free scheduling widget with appointment booking, contact forms, and AI chatbot. One embed, endless possibilities.",
     images: ["/og-image.png"],
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      'max-video-preview': -1,
+      'max-image-preview': 'large',
+      'max-snippet': -1,
+    },
   },
 };
 
@@ -51,6 +91,9 @@ export default function RootLayout({
           <link rel="manifest" href="/manifest.json" />
           <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
           <meta name="theme-color" content="#4F46E5" />
+          {/* Structured Data / Schema.org */}
+          <OrganizationSchema />
+          <SoftwareApplicationSchema />
         </head>
         <body
           className={`${sansFont.variable} antialiased`}
