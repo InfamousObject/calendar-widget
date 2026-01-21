@@ -8,8 +8,8 @@ export default function PrivacyPolicy() {
       <header className="border-b">
         <div className="container mx-auto flex h-16 items-center justify-between px-4">
           <Link href="/" className="flex items-center space-x-2">
-            <img src="/kentroi-icon.svg" alt="Kentroi" className="h-8 w-8" />
-            <span className="text-xl font-bold">Kentroi</span>
+            <img src="/kentroi-logomark.png" alt="Kentroi" className="h-8 w-8" />
+            <img src="/kentroi-wordmark.png" alt="Kentroi" className="h-6" />
           </Link>
           <nav className="flex items-center space-x-4">
             <Link href="/auth/login">

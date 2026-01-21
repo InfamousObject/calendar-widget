@@ -12,9 +12,7 @@ export default function RegisterPage() {
       <div className="relative z-10 w-full max-w-md">
         {/* Branded header */}
         <div className="text-center mb-8 animate-fadeInUp">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-accent to-primary shadow-xl shadow-accent/30 mb-4 p-3">
-            <img src="/kentroi-icon-white.svg" alt="Kentroi" className="w-full h-full" />
-          </div>
+          <img src="/kentroi-logomark.png" alt="Kentroi" className="h-14 w-14 mx-auto mb-4" />
           <h1 className="font-display text-4xl font-semibold tracking-tight mb-2">
             Get started free
           </h1>

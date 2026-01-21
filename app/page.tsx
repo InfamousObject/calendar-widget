@@ -362,12 +362,12 @@ export default function Home() {
       {/* Header */}
       <header className="fixed top-0 left-0 right-0 z-50 glass">
         <div className="container mx-auto flex h-20 items-center justify-between px-6">
-          <Link href="/" className="flex items-center space-x-3 group">
+          <Link href="/" className="flex items-center space-x-2 group">
             <div className="relative">
-              <img src="/kentroi-icon.svg" alt="Kentroi" className="h-10 w-10 transition-transform group-hover:scale-110" />
+              <img src="/kentroi-logomark.png" alt="Kentroi" className="h-9 w-9 transition-transform group-hover:scale-110" />
               <div className="absolute inset-0 bg-primary/20 blur-xl rounded-full scale-150 opacity-0 group-hover:opacity-100 transition-opacity" />
             </div>
-            <span className="font-display text-2xl font-bold tracking-tight">Kentroi</span>
+            <img src="/kentroi-wordmark.png" alt="Kentroi" className="h-7" />
           </Link>
           <nav className="hidden md:flex items-center space-x-8">
             <Link href="#features" className="text-foreground-secondary hover:text-foreground transition-colors font-medium">
@@ -795,9 +795,9 @@ export default function Home() {
         <div className="container mx-auto px-6">
           <div className="grid md:grid-cols-4 gap-12 mb-12">
             <div className="md:col-span-1">
-              <Link href="/" className="flex items-center space-x-3 mb-6">
-                <img src="/kentroi-icon.svg" alt="Kentroi" className="h-10 w-10" />
-                <span className="font-display text-2xl font-bold">Kentroi</span>
+              <Link href="/" className="flex items-center space-x-2 mb-6">
+                <img src="/kentroi-logomark.png" alt="Kentroi" className="h-9 w-9" />
+                <img src="/kentroi-wordmark.png" alt="Kentroi" className="h-7" />
               </Link>
               <p className="text-foreground-secondary">
                 The all-in-one widget for forms, scheduling, and AI chat.
