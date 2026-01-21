@@ -26,7 +26,7 @@ export default function PrivacyPolicy() {
       <main className="flex-1">
         <div className="container mx-auto max-w-4xl px-4 py-12">
           <h1 className="mb-2 text-4xl font-bold">Privacy Policy</h1>
-          <p className="mb-8 text-muted-foreground">Last updated: January 9, 2025</p>
+          <p className="mb-8 text-muted-foreground">Last updated: January 21, 2025</p>
 
           <div className="prose prose-gray max-w-none dark:prose-invert">
             <section className="mb-8">
@@ -134,6 +134,27 @@ export default function PrivacyPolicy() {
                 <a href="https://policies.google.com/privacy" className="text-primary hover:underline" target="_blank" rel="noopener noreferrer">
                   policies.google.com/privacy
                 </a>
+              </p>
+
+              <h4 className="text-lg font-medium mb-3 mt-6">Google User Data: Sharing, Transfer, and Disclosure</h4>
+              <p className="text-muted-foreground mb-4">
+                <strong>We do not share, transfer, or disclose your Google user data to any third parties</strong> except as necessary to provide the calendar synchronization functionality you have authorized.
+              </p>
+              <p className="text-muted-foreground mb-4">
+                Specifically, regarding your Google Calendar data:
+              </p>
+              <ul className="list-disc pl-6 text-muted-foreground mb-4 space-y-2">
+                <li>We <strong>do not sell</strong> your Google user data to anyone</li>
+                <li>We <strong>do not share</strong> your Google user data with advertisers or marketing companies</li>
+                <li>We <strong>do not transfer</strong> your Google user data to third parties for purposes unrelated to the calendar functionality</li>
+                <li>We <strong>do not use</strong> your Google user data for any purpose other than checking availability and creating/managing appointments</li>
+                <li>We only access the minimum data necessary: calendar event times (to check availability) and the ability to create events (when appointments are booked)</li>
+              </ul>
+              <p className="text-muted-foreground mb-4">
+                Your Google Calendar connection can be disconnected at any time from your Kentroi dashboard settings. Upon disconnection, we immediately invalidate the stored access tokens. You can also revoke access directly from your {' '}
+                <a href="https://myaccount.google.com/permissions" className="text-primary hover:underline" target="_blank" rel="noopener noreferrer">
+                  Google Account permissions
+                </a>.
               </p>
 
               <h3 className="text-xl font-medium mb-3">4.4 Anthropic (AI Chatbot)</h3>
