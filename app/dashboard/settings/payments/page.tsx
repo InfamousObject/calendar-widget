@@ -15,6 +15,9 @@ import {
   ArrowRight,
   RefreshCw,
   Unlink,
+  Info,
+  AlertTriangle,
+  HelpCircle,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -26,12 +29,19 @@ interface ConnectStatus {
   chargesEnabled?: boolean;
 }
 
+interface ConnectError {
+  error: string;
+  code: string;
+  details: string;
+}
+
 export default function PaymentsSettingsPage() {
   const [status, setStatus] = useState<ConnectStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [connecting, setConnecting] = useState(false);
   const [disconnecting, setDisconnecting] = useState(false);
   const [openingDashboard, setOpeningDashboard] = useState(false);
+  const [connectError, setConnectError] = useState<ConnectError | null>(null);
   const searchParams = useSearchParams();
 
   useEffect(() => {
@@ -60,6 +70,7 @@ export default function PaymentsSettingsPage() {
 
   const handleConnect = async () => {
     setConnecting(true);
+    setConnectError(null);
     try {
       const response = await fetch('/api/stripe/connect', {
         method: 'POST',
@@ -75,8 +86,13 @@ export default function PaymentsSettingsPage() {
         // Redirect to Stripe onboarding
         window.location.href = data.url;
       } else {
-        const error = await response.json();
-        toast.error(error.error || 'Failed to start Stripe Connect setup');
+        const errorData = await response.json();
+        // Set detailed error for display
+        if (errorData.code) {
+          setConnectError(errorData);
+        } else {
+          toast.error(errorData.error || 'Failed to start Stripe Connect setup');
+        }
       }
     } catch (error) {
       console.error('Error connecting Stripe:', error);
@@ -204,6 +220,39 @@ export default function PaymentsSettingsPage() {
             {!status?.connected ? (
               // Not connected state
               <div className="space-y-6">
+                {/* Error Display */}
+                {connectError && (
+                  <div className="p-4 rounded-lg border border-destructive/50 bg-destructive/10">
+                    <div className="flex items-start gap-3">
+                      <AlertTriangle className="h-5 w-5 text-destructive mt-0.5 flex-shrink-0" />
+                      <div className="space-y-2">
+                        <p className="font-medium text-destructive">{connectError.error}</p>
+                        <p className="text-sm text-foreground-secondary">{connectError.details}</p>
+                        {connectError.code === 'CONNECT_NOT_ENABLED' && (
+                          <div className="mt-3 p-3 rounded-md bg-background border">
+                            <p className="text-sm font-medium mb-2">To enable Stripe Connect:</p>
+                            <ol className="text-sm text-foreground-secondary space-y-1 list-decimal list-inside">
+                              <li>Go to your <a href="https://dashboard.stripe.com/settings/connect" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">Stripe Dashboard → Settings → Connect</a></li>
+                              <li>Click "Get started with Connect"</li>
+                              <li>Complete the short onboarding process</li>
+                              <li>Return here and try connecting again</li>
+                            </ol>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="mt-3"
+                              onClick={() => window.open('https://dashboard.stripe.com/settings/connect', '_blank')}
+                            >
+                              <ExternalLink className="mr-2 h-4 w-4" />
+                              Open Stripe Connect Settings
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 <div className="p-6 rounded-xl border-2 border-dashed border-muted-foreground/25 bg-muted/20">
                   <div className="flex flex-col items-center text-center space-y-4">
                     <div className="p-4 rounded-2xl bg-primary/10">
@@ -383,6 +432,62 @@ export default function PaymentsSettingsPage() {
           </CardContent>
         </Card>
 
+        {/* Prerequisites Card - Only show if not connected */}
+        {!status?.connected && (
+          <Card className="border-border shadow-md border-l-4 border-l-info">
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <Info className="h-5 w-5 text-info" />
+                <CardTitle className="font-display text-xl">Before You Start</CardTitle>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <p className="text-foreground-secondary">
+                  To accept payments, you need a Stripe account with Connect enabled. Here's how to set it up:
+                </p>
+                <div className="space-y-3">
+                  <div className="flex items-start gap-3 p-3 rounded-lg bg-muted/50">
+                    <CheckCircle2 className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
+                    <div>
+                      <p className="font-medium">1. Create a Stripe Account</p>
+                      <p className="text-sm text-foreground-secondary">
+                        If you don't have one, <a href="https://dashboard.stripe.com/register" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">sign up for Stripe</a> (it's free).
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3 p-3 rounded-lg bg-muted/50">
+                    <CheckCircle2 className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
+                    <div>
+                      <p className="font-medium">2. Enable Stripe Connect</p>
+                      <p className="text-sm text-foreground-secondary">
+                        Go to <a href="https://dashboard.stripe.com/settings/connect" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">Stripe Dashboard → Settings → Connect</a> and complete the short setup.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3 p-3 rounded-lg bg-muted/50">
+                    <CheckCircle2 className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
+                    <div>
+                      <p className="font-medium">3. Return Here to Connect</p>
+                      <p className="text-sm text-foreground-secondary">
+                        Once Connect is enabled, click "Connect with Stripe" above to link your account.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                <div className="mt-4 p-3 rounded-lg bg-primary/5 border border-primary/20">
+                  <div className="flex items-start gap-2">
+                    <HelpCircle className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
+                    <p className="text-sm text-foreground-secondary">
+                      <span className="font-medium text-foreground">Tip:</span> Stripe Connect setup typically takes less than 5 minutes. You'll need your business details and bank account information.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Info Card */}
         <Card className="border-border shadow-md">
           <CardHeader>
@@ -426,6 +531,41 @@ export default function PaymentsSettingsPage() {
                 </div>
               </li>
             </ol>
+          </CardContent>
+        </Card>
+
+        {/* FAQ Card */}
+        <Card className="border-border shadow-md">
+          <CardHeader>
+            <CardTitle className="font-display text-xl">Frequently Asked Questions</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div>
+                <p className="font-medium">What fees will I pay?</p>
+                <p className="text-sm text-foreground-secondary">
+                  We charge 0% platform fee. You only pay standard Stripe processing fees (2.9% + 30¢ per transaction in the US).
+                </p>
+              </div>
+              <div>
+                <p className="font-medium">When do I receive my payments?</p>
+                <p className="text-sm text-foreground-secondary">
+                  Payments are deposited to your bank account on Stripe's standard payout schedule (typically 2 business days).
+                </p>
+              </div>
+              <div>
+                <p className="font-medium">Can I offer deposits instead of full payment?</p>
+                <p className="text-sm text-foreground-secondary">
+                  Yes! When setting up an appointment type, you can choose to collect a deposit percentage instead of the full amount.
+                </p>
+              </div>
+              <div>
+                <p className="font-medium">What happens if a customer cancels?</p>
+                <p className="text-sm text-foreground-secondary">
+                  You can configure refund policies per appointment type. When you cancel an appointment, we'll process the refund according to your policy.
+                </p>
+              </div>
+            </div>
           </CardContent>
         </Card>
       </div>

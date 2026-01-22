@@ -161,10 +161,54 @@ export async function POST(request: NextRequest) {
       url: accountLink.url,
       accountId,
     });
-  } catch (error) {
-    log.error('[Connect] Error creating connect account', error);
+  } catch (error: any) {
+    log.error('[Connect] Error creating connect account', { error: error.message || error });
+
+    // Handle specific Stripe errors
+    if (error.type === 'StripeInvalidRequestError') {
+      // Check for Connect not enabled error
+      if (error.message?.includes("signed up for Connect")) {
+        return NextResponse.json(
+          {
+            error: 'Stripe Connect is not enabled on your Stripe account',
+            code: 'CONNECT_NOT_ENABLED',
+            details: 'You need to enable Stripe Connect in your Stripe Dashboard before you can accept payments. Visit https://dashboard.stripe.com/settings/connect to get started.',
+          },
+          { status: 400 }
+        );
+      }
+
+      // Check for invalid API key
+      if (error.message?.includes('Invalid API Key')) {
+        return NextResponse.json(
+          {
+            error: 'Invalid Stripe API configuration',
+            code: 'INVALID_API_KEY',
+            details: 'Please contact support to resolve this issue.',
+          },
+          { status: 500 }
+        );
+      }
+    }
+
+    // Check for authentication errors
+    if (error.type === 'StripeAuthenticationError') {
+      return NextResponse.json(
+        {
+          error: 'Stripe authentication failed',
+          code: 'AUTH_ERROR',
+          details: 'There was an issue connecting to Stripe. Please try again later.',
+        },
+        { status: 500 }
+      );
+    }
+
     return NextResponse.json(
-      { error: 'Failed to create connect account' },
+      {
+        error: 'Failed to create connect account',
+        code: 'UNKNOWN_ERROR',
+        details: 'An unexpected error occurred. Please try again.',
+      },
       { status: 500 }
     );
   }
