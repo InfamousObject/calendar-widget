@@ -5,7 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Plus, Edit, Trash2, Check, X, Calendar, Clock, AlertCircle } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
+import { Plus, Edit, Trash2, Check, X, Calendar, Clock, AlertCircle, DollarSign, Video } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface AppointmentType {
@@ -17,6 +18,13 @@ interface AppointmentType {
   bufferBefore: number;
   bufferAfter: number;
   active: boolean;
+  enableGoogleMeet?: boolean;
+  // Payment fields
+  price?: number | null;
+  currency?: string;
+  requirePayment?: boolean;
+  depositPercent?: number | null;
+  refundPolicy?: string;
 }
 
 export default function AppointmentsPage() {
@@ -32,6 +40,13 @@ export default function AppointmentsPage() {
     bufferBefore: 0,
     bufferAfter: 0,
     active: true,
+    enableGoogleMeet: false,
+    // Payment settings
+    price: null as number | null,
+    currency: 'usd',
+    requirePayment: false,
+    depositPercent: null as number | null,
+    refundPolicy: 'full',
   });
 
   useEffect(() => {
@@ -89,6 +104,13 @@ export default function AppointmentsPage() {
       bufferBefore: type.bufferBefore,
       bufferAfter: type.bufferAfter,
       active: type.active,
+      enableGoogleMeet: type.enableGoogleMeet || false,
+      // Payment settings
+      price: type.price ?? null,
+      currency: type.currency || 'usd',
+      requirePayment: type.requirePayment || false,
+      depositPercent: type.depositPercent ?? null,
+      refundPolicy: type.refundPolicy || 'full',
     });
     setEditingId(type.id);
     setShowForm(true);
@@ -147,9 +169,24 @@ export default function AppointmentsPage() {
       bufferBefore: 0,
       bufferAfter: 0,
       active: true,
+      enableGoogleMeet: false,
+      price: null,
+      currency: 'usd',
+      requirePayment: false,
+      depositPercent: null,
+      refundPolicy: 'full',
     });
     setEditingId(null);
     setShowForm(false);
+  };
+
+  // Helper to format price for display (cents to dollars)
+  const formatPrice = (cents: number | null | undefined) => {
+    if (cents === null || cents === undefined) return 'Free';
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+    }).format(cents / 100);
   };
 
   if (loading) {
@@ -287,6 +324,154 @@ export default function AppointmentsPage() {
                 </div>
               </div>
 
+              {/* Google Meet Toggle */}
+              <div className="flex items-center justify-between p-4 rounded-lg border bg-muted/30">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-primary/10">
+                    <Video className="h-4 w-4 text-primary" />
+                  </div>
+                  <div>
+                    <Label htmlFor="enableGoogleMeet" className="text-sm font-medium">
+                      Google Meet
+                    </Label>
+                    <p className="text-xs text-foreground-secondary">
+                      Automatically create a Google Meet link for this appointment
+                    </p>
+                  </div>
+                </div>
+                <Switch
+                  id="enableGoogleMeet"
+                  checked={formData.enableGoogleMeet}
+                  onCheckedChange={(checked) =>
+                    setFormData({ ...formData, enableGoogleMeet: checked })
+                  }
+                />
+              </div>
+
+              {/* Payment Settings Section */}
+              <div className="space-y-4 p-4 rounded-lg border bg-muted/30">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-lg bg-primary/10">
+                      <DollarSign className="h-4 w-4 text-primary" />
+                    </div>
+                    <div>
+                      <Label htmlFor="requirePayment" className="text-sm font-medium">
+                        Require Payment
+                      </Label>
+                      <p className="text-xs text-foreground-secondary">
+                        Collect payment when customers book this appointment
+                      </p>
+                    </div>
+                  </div>
+                  <Switch
+                    id="requirePayment"
+                    checked={formData.requirePayment}
+                    onCheckedChange={(checked) =>
+                      setFormData({ ...formData, requirePayment: checked })
+                    }
+                  />
+                </div>
+
+                {formData.requirePayment && (
+                  <div className="space-y-4 pt-4 border-t">
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <div className="space-y-2">
+                        <Label htmlFor="price">Price ($)</Label>
+                        <div className="relative">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-foreground-secondary">
+                            $
+                          </span>
+                          <Input
+                            id="price"
+                            type="number"
+                            step="0.01"
+                            min="0.50"
+                            placeholder="0.00"
+                            className="pl-7"
+                            value={formData.price ? (formData.price / 100).toFixed(2) : ''}
+                            onChange={(e) => {
+                              const dollars = parseFloat(e.target.value);
+                              setFormData({
+                                ...formData,
+                                price: isNaN(dollars) ? null : Math.round(dollars * 100),
+                              });
+                            }}
+                          />
+                        </div>
+                        <p className="text-xs text-foreground-secondary">
+                          Minimum $0.50 (Stripe requirement)
+                        </p>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="currency">Currency</Label>
+                        <select
+                          id="currency"
+                          value={formData.currency}
+                          onChange={(e) =>
+                            setFormData({ ...formData, currency: e.target.value })
+                          }
+                          className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                        >
+                          <option value="usd">USD ($)</option>
+                          <option value="eur">EUR (&euro;)</option>
+                          <option value="gbp">GBP (&pound;)</option>
+                          <option value="cad">CAD ($)</option>
+                          <option value="aud">AUD ($)</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <div className="space-y-2">
+                        <Label htmlFor="depositPercent">Deposit Percentage (Optional)</Label>
+                        <div className="relative">
+                          <Input
+                            id="depositPercent"
+                            type="number"
+                            min="1"
+                            max="100"
+                            placeholder="100"
+                            value={formData.depositPercent ?? ''}
+                            onChange={(e) => {
+                              const value = e.target.value;
+                              setFormData({
+                                ...formData,
+                                depositPercent: value === '' ? null : parseInt(value),
+                              });
+                            }}
+                          />
+                          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-foreground-secondary">
+                            %
+                          </span>
+                        </div>
+                        <p className="text-xs text-foreground-secondary">
+                          Leave empty for full payment upfront
+                        </p>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="refundPolicy">Refund Policy</Label>
+                        <select
+                          id="refundPolicy"
+                          value={formData.refundPolicy}
+                          onChange={(e) =>
+                            setFormData({ ...formData, refundPolicy: e.target.value })
+                          }
+                          className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                        >
+                          <option value="full">Full Refund (100%)</option>
+                          <option value="partial">Partial Refund (50%)</option>
+                          <option value="none">No Refund</option>
+                        </select>
+                        <p className="text-xs text-foreground-secondary">
+                          Applied when customer cancels
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
               <div className="flex justify-end space-x-3 pt-2">
                 <Button type="button" variant="outline" onClick={resetForm}>
                   <X className="h-4 w-4 mr-2" />
@@ -339,7 +524,21 @@ export default function AppointmentsPage() {
                     style={{ backgroundColor: type.color }}
                   />
                   <div className="flex-1">
-                    <h3 className="font-display text-xl font-semibold mb-1">{type.name}</h3>
+                    <div className="flex items-center gap-2 mb-1">
+                      <h3 className="font-display text-xl font-semibold">{type.name}</h3>
+                      {type.enableGoogleMeet && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 text-xs font-medium dark:bg-blue-900/30 dark:text-blue-400">
+                          <Video className="h-3 w-3" />
+                          Meet
+                        </span>
+                      )}
+                      {type.requirePayment && type.price && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-100 text-green-700 text-xs font-medium dark:bg-green-900/30 dark:text-green-400">
+                          <DollarSign className="h-3 w-3" />
+                          {formatPrice(type.price)}
+                        </span>
+                      )}
+                    </div>
                     <div className="flex items-center gap-3 text-sm text-foreground-secondary">
                       <span className="flex items-center gap-1">
                         <Clock className="h-3.5 w-3.5" />
@@ -353,6 +552,11 @@ export default function AppointmentsPage() {
                       {type.bufferAfter > 0 && (
                         <span className="text-foreground-tertiary">
                           • {type.bufferAfter}m buffer after
+                        </span>
+                      )}
+                      {type.depositPercent && (
+                        <span className="text-foreground-tertiary">
+                          • {type.depositPercent}% deposit
                         </span>
                       )}
                     </div>

@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Calendar, Clock, ArrowLeft, ArrowRight, Check, AlertCircle } from 'lucide-react';
+import { Calendar, Clock, ArrowLeft, ArrowRight, Check, AlertCircle, DollarSign, Video } from 'lucide-react';
 import { format, addDays, startOfDay, parseISO, addMinutes } from 'date-fns';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -18,6 +18,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import HCaptcha from '@hcaptcha/react-hcaptcha';
+import { PaymentForm } from '@/components/booking/payment-form';
 
 interface AppointmentType {
   id: string;
@@ -25,6 +26,12 @@ interface AppointmentType {
   description?: string;
   duration: number;
   color: string;
+  enableGoogleMeet?: boolean;
+  // Payment fields
+  price?: number | null;
+  currency?: string;
+  requirePayment?: boolean;
+  depositPercent?: number | null;
 }
 
 interface WidgetInfo {
@@ -94,9 +101,25 @@ export default function BookingPage() {
   // CSRF token state
   const [csrfToken, setCsrfToken] = useState('');
 
-  // Step 4: Confirmation
+  // Step 4: Payment (if required)
+  const [paymentIntentId, setPaymentIntentId] = useState<string | null>(null);
+  const [showPayment, setShowPayment] = useState(false);
+
+  // Step 5: Confirmation
   const [booking, setBooking] = useState(false);
   const [confirmationData, setConfirmationData] = useState<any>(null);
+
+  // Helper to format price
+  const formatPrice = (cents: number | null | undefined, currency: string = 'usd') => {
+    if (cents === null || cents === undefined) return 'Free';
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: currency.toUpperCase(),
+    }).format(cents / 100);
+  };
+
+  // Check if selected appointment type requires payment
+  const requiresPayment = selectedType?.requirePayment && selectedType?.price;
 
   useEffect(() => {
     fetchWidgetInfo();
@@ -357,7 +380,7 @@ export default function BookingPage() {
     }
   };
 
-  const handleBookAppointment = async () => {
+  const handleBookAppointment = async (paymentId?: string) => {
     if (!selectedType || !selectedSlot || !contactInfo.name || !contactInfo.email) {
       alert('Please fill in all required fields');
       return;
@@ -379,6 +402,9 @@ export default function BookingPage() {
       return;
     }
 
+    // Use provided paymentId or existing state
+    const finalPaymentIntentId = paymentId || paymentIntentId;
+
     setBooking(true);
     try {
       const response = await fetch('/api/appointments/book', {
@@ -396,13 +422,15 @@ export default function BookingPage() {
           formResponses: Object.keys(formResponses).length > 0 ? formResponses : undefined,
           captchaToken: captchaToken || undefined,
           csrfToken: csrfToken || undefined,
+          paymentIntentId: finalPaymentIntentId || undefined,
         }),
       });
 
       if (response.ok) {
         const data = await response.json();
         setConfirmationData(data.appointment);
-        setStep(4);
+        // Set step to 5 if payment was required, 4 otherwise
+        setStep(requiresPayment ? 5 : 4);
       } else {
         const error = await response.json();
         alert(error.error || 'Failed to book appointment');
@@ -412,6 +440,10 @@ export default function BookingPage() {
           setCaptchaToken('');
         }
         fetchCsrfToken(); // CSRF tokens are one-time use
+        // If payment failed, stay on payment step
+        if (requiresPayment && step === 4) {
+          // Stay on step 4
+        }
       }
     } catch (error) {
       console.error('Error booking appointment:', error);
@@ -461,44 +493,56 @@ export default function BookingPage() {
 
         {/* Enhanced Progress Indicator */}
         <div className="relative mb-12">
-          <div className="absolute left-0 right-0 top-4 h-0.5 bg-border">
-            <div
-              className="h-full bg-gradient-to-r from-primary to-accent transition-all duration-500"
-              style={{ width: `${((step - 1) / 3) * 100}%` }}
-            />
-          </div>
-
-          <div className="relative flex items-center justify-between">
-            {[
+          {/* Progress steps - dynamically include payment if required */}
+          {(() => {
+            const steps = [
               { num: 1, label: 'Service' },
               { num: 2, label: 'Time' },
               { num: 3, label: 'Details' },
-              { num: 4, label: 'Confirm' },
-            ].map((s) => (
-              <div key={s.num} className="flex flex-col items-center gap-2">
-                <div
-                  className={`flex items-center justify-center w-10 h-10 rounded-full border-2 transition-all duration-300 ${
-                    step >= s.num
-                      ? 'bg-primary border-primary text-primary-foreground shadow-lg shadow-primary/30'
-                      : step === s.num - 1
-                      ? 'bg-background border-primary/50 text-primary scale-110'
-                      : 'bg-background border-border text-foreground-tertiary'
-                  }`}
-                >
-                  {step > s.num ? (
-                    <Check className="h-5 w-5" />
-                  ) : (
-                    <span className="text-sm font-semibold">{s.num}</span>
-                  )}
+              ...(requiresPayment ? [{ num: 4, label: 'Payment' }] : []),
+              { num: requiresPayment ? 5 : 4, label: 'Confirm' },
+            ];
+            const totalSteps = steps.length;
+            const currentStepIndex = steps.findIndex(s => s.num === step);
+            const progressPercent = currentStepIndex >= 0 ? (currentStepIndex / (totalSteps - 1)) * 100 : 0;
+
+            return (
+              <>
+                <div className="absolute left-0 right-0 top-4 h-0.5 bg-border">
+                  <div
+                    className="h-full bg-gradient-to-r from-primary to-accent transition-all duration-500"
+                    style={{ width: `${progressPercent}%` }}
+                  />
                 </div>
-                <span className={`text-xs font-medium transition-colors duration-300 ${
-                  step >= s.num ? 'text-primary' : 'text-foreground-tertiary'
-                }`}>
-                  {s.label}
-                </span>
-              </div>
-            ))}
-          </div>
+                <div className="relative flex items-center justify-between">
+                  {steps.map((s) => (
+                    <div key={s.num} className="flex flex-col items-center gap-2">
+                      <div
+                        className={`flex items-center justify-center w-10 h-10 rounded-full border-2 transition-all duration-300 ${
+                          step >= s.num
+                            ? 'bg-primary border-primary text-primary-foreground shadow-lg shadow-primary/30'
+                            : step === s.num - 1
+                            ? 'bg-background border-primary/50 text-primary scale-110'
+                            : 'bg-background border-border text-foreground-tertiary'
+                        }`}
+                      >
+                        {step > s.num ? (
+                          <Check className="h-5 w-5" />
+                        ) : (
+                          <span className="text-sm font-semibold">{steps.indexOf(s) + 1}</span>
+                        )}
+                      </div>
+                      <span className={`text-xs font-medium transition-colors duration-300 ${
+                        step >= s.num ? 'text-primary' : 'text-foreground-tertiary'
+                      }`}>
+                        {s.label}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </>
+            );
+          })()}
         </div>
 
         {/* Step 1: Select Appointment Type */}
@@ -528,15 +572,39 @@ export default function BookingPage() {
                         style={{ backgroundColor: type.color }}
                       />
                       <div className="flex-1">
-                        <h3 className="font-semibold text-lg mb-1">{type.name}</h3>
+                        <div className="flex items-center gap-2 mb-1">
+                          <h3 className="font-semibold text-lg">{type.name}</h3>
+                          {type.enableGoogleMeet && (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 text-xs font-medium dark:bg-blue-900/30 dark:text-blue-400">
+                              <Video className="h-3 w-3" />
+                              Meet
+                            </span>
+                          )}
+                        </div>
                         {type.description && (
                           <p className="text-sm text-foreground-secondary">
                             {type.description}
                           </p>
                         )}
-                        <div className="flex items-center gap-1 mt-2 text-sm text-foreground-tertiary">
-                          <Clock className="h-4 w-4" />
-                          <span>{type.duration} minutes</span>
+                        <div className="flex items-center gap-3 mt-2 text-sm text-foreground-tertiary">
+                          <span className="flex items-center gap-1">
+                            <Clock className="h-4 w-4" />
+                            {type.duration} minutes
+                          </span>
+                          {type.requirePayment && type.price && (
+                            <span className="flex items-center gap-1 text-green-600 dark:text-green-400 font-medium">
+                              <DollarSign className="h-4 w-4" />
+                              {formatPrice(type.price, type.currency)}
+                              {type.depositPercent && (
+                                <span className="text-foreground-tertiary font-normal">
+                                  ({type.depositPercent}% deposit)
+                                </span>
+                              )}
+                            </span>
+                          )}
+                          {!type.requirePayment && (
+                            <span className="text-foreground-tertiary">Free</span>
+                          )}
                         </div>
                       </div>
                       <ArrowRight className="h-5 w-5 text-foreground-tertiary group-hover:text-primary transition-colors duration-300" />
@@ -816,9 +884,54 @@ export default function BookingPage() {
                   </div>
                 )}
 
+                {/* Payment info notice if required */}
+                {requiresPayment && (
+                  <div className="p-4 rounded-lg border border-primary/20 bg-primary/5">
+                    <div className="flex items-center gap-3">
+                      <DollarSign className="h-5 w-5 text-primary" />
+                      <div>
+                        <p className="font-medium text-foreground">Payment Required</p>
+                        <p className="text-sm text-foreground-secondary">
+                          {formatPrice(selectedType?.depositPercent
+                            ? Math.round((selectedType.price || 0) * (selectedType.depositPercent / 100))
+                            : selectedType?.price, selectedType?.currency)}
+                          {selectedType?.depositPercent && ` (${selectedType.depositPercent}% deposit)`}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 <Button
-                  className="w-full"
-                  onClick={handleBookAppointment}
+                  className="w-full bg-gradient-to-r from-primary to-accent hover:shadow-lg hover:shadow-primary/30"
+                  onClick={() => {
+                    // Validate fields first
+                    if (!contactInfo.name || !contactInfo.email) {
+                      alert('Please fill in all required fields');
+                      return;
+                    }
+
+                    const missingFields = customFormFields.filter(
+                      (field) => field.required && !formResponses[field.id]
+                    );
+                    if (missingFields.length > 0) {
+                      alert(`Please fill in required fields: ${missingFields.map((f) => f.label).join(', ')}`);
+                      return;
+                    }
+
+                    if (process.env.NEXT_PUBLIC_HCAPTCHA_SITE_KEY && !captchaToken) {
+                      alert('Please complete the CAPTCHA verification');
+                      return;
+                    }
+
+                    // If payment is required, go to payment step
+                    if (requiresPayment) {
+                      setStep(4);
+                    } else {
+                      // Otherwise, book directly
+                      handleBookAppointment();
+                    }
+                  }}
                   disabled={
                     booking ||
                     !contactInfo.name ||
@@ -826,15 +939,34 @@ export default function BookingPage() {
                     (!!process.env.NEXT_PUBLIC_HCAPTCHA_SITE_KEY && !captchaToken)
                   }
                 >
-                  {booking ? 'Booking...' : 'Confirm Booking'}
+                  {requiresPayment ? 'Continue to Payment' : booking ? 'Booking...' : 'Confirm Booking'}
+                  {requiresPayment && <ArrowRight className="ml-2 h-4 w-4" />}
                 </Button>
               </CardContent>
             </Card>
           </div>
         )}
 
-        {/* Step 4: Enhanced Confirmation */}
-        {step === 4 && confirmationData && (
+        {/* Step 4: Payment (if required) */}
+        {step === 4 && requiresPayment && selectedType && !confirmationData && (
+          <div className="space-y-4">
+            <PaymentForm
+              widgetId={widgetId}
+              appointmentTypeId={selectedType.id}
+              visitorEmail={contactInfo.email}
+              visitorName={contactInfo.name}
+              onPaymentSuccess={(paymentId) => {
+                setPaymentIntentId(paymentId);
+                // Automatically proceed to book after successful payment
+                handleBookAppointment(paymentId);
+              }}
+              onBack={() => setStep(3)}
+            />
+          </div>
+        )}
+
+        {/* Step 4/5: Enhanced Confirmation */}
+        {((step === 4 && !requiresPayment) || (step === 5 && requiresPayment) || confirmationData) && confirmationData && (
           <div className="space-y-6">
             <Card className="border-success/20 bg-gradient-to-br from-success/5 via-background to-background overflow-hidden">
               <div className="absolute inset-0 bg-gradient-to-br from-success/10 to-transparent opacity-50" />
@@ -940,6 +1072,14 @@ export default function BookingPage() {
                       setSelectedSlot(null);
                       setContactInfo({ name: '', email: '', phone: '', notes: '' });
                       setConfirmationData(null);
+                      setPaymentIntentId(null);
+                      setFormResponses({});
+                      // Reset CAPTCHA
+                      if (captchaRef.current) {
+                        captchaRef.current.resetCaptcha();
+                        setCaptchaToken('');
+                      }
+                      fetchCsrfToken();
                     }}
                   >
                     Book Another

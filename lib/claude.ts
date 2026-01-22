@@ -754,14 +754,15 @@ async function bookAppointment(widgetId: string, timezone: string, bookingData: 
     // Track usage
     await incrementUsage(user.id, 'booking');
 
-    // Create Google Calendar event
+    // Create Google Calendar event (with optional Google Meet link)
     let calendarEventId: string | undefined;
+    let meetingLink: string | undefined;
     try {
       const description = `Appointment with ${bookingData.visitorName}\nEmail: ${bookingData.visitorEmail}${
         bookingData.visitorPhone ? `\nPhone: ${bookingData.visitorPhone}` : ''
       }${bookingData.notes ? `\n\nNotes: ${bookingData.notes}` : ''}`;
 
-      calendarEventId = await createCalendarEvent({
+      const calendarResult = await createCalendarEvent({
         userId: user.id,
         summary: `${appointmentType.name} - ${bookingData.visitorName}`,
         description: description ?? undefined,
@@ -769,12 +770,20 @@ async function bookAppointment(widgetId: string, timezone: string, bookingData: 
         endTime,
         attendeeEmail: bookingData.visitorEmail ?? undefined,
         attendeeName: bookingData.visitorName ?? undefined,
+        enableGoogleMeet: appointmentType.enableGoogleMeet,
       });
 
-      if (calendarEventId) {
+      calendarEventId = calendarResult.eventId;
+      meetingLink = calendarResult.meetingLink;
+
+      if (calendarEventId || meetingLink) {
         await prisma.appointment.update({
           where: { id: appointment.id },
-          data: { calendarEventId },
+          data: {
+            calendarEventId: calendarEventId ?? undefined,
+            meetingLink: meetingLink ?? undefined,
+            meetingProvider: meetingLink ? 'google_meet' : undefined,
+          },
         });
       }
     } catch (error) {
@@ -799,6 +808,8 @@ async function bookAppointment(widgetId: string, timezone: string, bookingData: 
         visitorName: appointment.visitorName,
         visitorEmail: appointment.visitorEmail,
         cancellationToken: appointment.cancellationToken,
+        meetingLink: meetingLink ?? undefined,
+        meetingProvider: meetingLink ? 'google_meet' : undefined,
       },
     };
   } catch (error: any) {

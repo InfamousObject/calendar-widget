@@ -88,6 +88,12 @@ interface CreateEventParams {
   endTime: Date;
   attendeeEmail?: string;
   attendeeName?: string;
+  enableGoogleMeet?: boolean; // Auto-generate Google Meet link
+}
+
+interface CreateEventResult {
+  eventId?: string;
+  meetingLink?: string; // Google Meet link if enabled
 }
 
 interface UpdateEventParams {
@@ -313,8 +319,9 @@ async function getValidConnection(userId: string) {
 
 /**
  * Create a calendar event
+ * If enableGoogleMeet is true, automatically generates a Google Meet link
  */
-export async function createCalendarEvent(params: CreateEventParams): Promise<string | undefined> {
+export async function createCalendarEvent(params: CreateEventParams): Promise<CreateEventResult> {
   const connection = await getValidConnection(params.userId);
 
   const calendar = getCalendarClient(
@@ -349,6 +356,26 @@ export async function createCalendarEvent(params: CreateEventParams): Promise<st
     },
   };
 
+  // Add Google Meet video conferencing if enabled
+  if (params.enableGoogleMeet) {
+    // Generate a unique request ID for idempotency
+    const requestId = crypto.randomBytes(16).toString('hex');
+
+    event.conferenceData = {
+      createRequest: {
+        requestId,
+        conferenceSolutionKey: {
+          type: 'hangoutsMeet', // Google Meet
+        },
+      },
+    };
+
+    log.info('[Calendar] Creating event with Google Meet', {
+      userId: params.userId,
+      requestId,
+    });
+  }
+
   // Add both the visitor and the business owner as attendees
   const attendees = [];
 
@@ -381,11 +408,32 @@ export async function createCalendarEvent(params: CreateEventParams): Promise<st
       calendarId: 'primary',
       requestBody: event,
       sendUpdates: 'all', // Send email notifications to all attendees
+      // Enable conference data creation (required for Google Meet)
+      conferenceDataVersion: params.enableGoogleMeet ? 1 : undefined,
     }),
     'createCalendarEvent'
   );
 
-  return response.data.id ?? undefined;
+  // Extract Google Meet link from response if available
+  let meetingLink: string | undefined;
+  if (response.data.conferenceData?.entryPoints) {
+    const videoEntry = response.data.conferenceData.entryPoints.find(
+      (entry) => entry.entryPointType === 'video'
+    );
+    meetingLink = videoEntry?.uri ?? undefined;
+
+    if (meetingLink) {
+      log.info('[Calendar] Google Meet link generated', {
+        userId: params.userId,
+        eventId: response.data.id,
+      });
+    }
+  }
+
+  return {
+    eventId: response.data.id ?? undefined,
+    meetingLink,
+  };
 }
 
 /**

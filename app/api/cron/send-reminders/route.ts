@@ -51,6 +51,8 @@ export async function GET(request: NextRequest) {
           startTime: appointment.startTime,
           timezone: appointment.timezone,
           cancellationToken: appointment.cancellationToken,
+          meetingLink: appointment.meetingLink ?? undefined,
+          meetingProvider: appointment.meetingProvider ?? undefined,
         });
         successCount++;
       } catch (error) {

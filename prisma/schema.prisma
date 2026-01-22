@@ -19,6 +19,10 @@ model User {
   widgetId                String                  @unique @default(cuid())
   stripeCustomerId        String?                 @unique
   stripeSubscriptionId    String?                 @unique
+  // Stripe Connect fields (for receiving appointment payments)
+  stripeConnectAccountId  String?                 @unique // Connected account ID
+  stripeConnectOnboarded  Boolean                 @default(false) // Has completed onboarding
+  stripeConnectPayoutsEnabled Boolean             @default(false) // Can receive payouts
   subscriptionTier        String                  @default("free")
   subscriptionStatus      String?
   billingInterval         String?
@@ -101,19 +105,26 @@ model CalendarConnection {
 }
 
 model AppointmentType {
-  id           String        @id @default(cuid())
-  userId       String
-  name         String
-  description  String?
-  duration     Int
-  color        String        @default("#3b82f6")
-  bufferBefore Int           @default(0)
-  bufferAfter  Int           @default(0)
-  active       Boolean       @default(true)
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
-  appointments Appointment[]
-  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id               String        @id @default(cuid())
+  userId           String
+  name             String
+  description      String?
+  duration         Int
+  color            String        @default("#3b82f6")
+  bufferBefore     Int           @default(0)
+  bufferAfter      Int           @default(0)
+  active           Boolean       @default(true)
+  enableGoogleMeet Boolean       @default(false) // Auto-generate Google Meet link
+  // Payment settings
+  price            Int?          // Price in cents (null = free)
+  currency         String        @default("usd")
+  requirePayment   Boolean       @default(false) // Require payment before booking
+  depositPercent   Int?          // Percentage for deposit (null = full payment required)
+  refundPolicy     String        @default("full") // full, partial, none
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+  appointments     Appointment[]
+  user             User          @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model Availability {
@@ -159,6 +170,15 @@ model Appointment {
   formResponses     Json?
   status            String
   calendarEventId   String?
+  meetingLink       String?         // Video conferencing link (Google Meet, Zoom, etc.)
+  meetingProvider   String?         // "google_meet", "zoom", etc.
+  // Payment fields
+  paymentIntentId   String?         // Stripe Payment Intent ID
+  paymentStatus     String?         // pending, paid, refunded, failed
+  amountPaid        Int?            // Amount paid in cents
+  currency          String?         // Currency of payment
+  refundId          String?         // Stripe Refund ID if refunded
+  refundAmount      Int?            // Refund amount in cents
   cancellationToken String          @unique
   createdAt         DateTime        @default(now())
   updatedAt         DateTime        @updatedAt
@@ -169,6 +189,7 @@ model Appointment {
   @@index([appointmentTypeId, startTime])
   @@index([status, startTime])
   @@index([cancellationToken])
+  @@index([paymentIntentId])
 }
 
 model BookingFormField {

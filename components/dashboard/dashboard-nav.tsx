@@ -17,6 +17,7 @@ import {
   BookOpen,
   ClipboardList,
   Code2,
+  Wallet,
 } from 'lucide-react';
 
 const navItems = [
@@ -79,6 +80,11 @@ const navItems = [
     title: 'Billing',
     href: '/dashboard/billing',
     icon: CreditCard,
+  },
+  {
+    title: 'Payments',
+    href: '/dashboard/settings/payments',
+    icon: Wallet,
   },
   {
     title: 'Settings',

@@ -12,6 +12,13 @@ const appointmentTypeSchema = z.object({
   bufferBefore: z.number().min(0).optional(),
   bufferAfter: z.number().min(0).optional(),
   active: z.boolean().optional(),
+  enableGoogleMeet: z.boolean().optional(), // Auto-generate Google Meet link
+  // Payment settings
+  price: z.number().min(50, 'Minimum price is 50 cents').nullable().optional(), // Price in cents (null = free)
+  currency: z.string().length(3, 'Currency must be 3 characters').optional(),
+  requirePayment: z.boolean().optional(), // Require payment before booking
+  depositPercent: z.number().min(1).max(100).nullable().optional(), // Percentage for deposit (null = full payment)
+  refundPolicy: z.enum(['full', 'partial', 'none']).optional(), // full, partial (50%), none
 });
 
 /**

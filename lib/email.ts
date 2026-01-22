@@ -42,6 +42,8 @@ export async function sendBookingConfirmation(params: {
   timezone: string;
   cancellationToken: string;
   businessName?: string;
+  meetingLink?: string;
+  meetingProvider?: string;
 }) {
   const cancelUrl = `${process.env.NEXT_PUBLIC_APP_URL}/cancel/${params.cancellationToken}`;
 
@@ -58,6 +60,7 @@ export async function sendBookingConfirmation(params: {
     log.info('[Email] Booking confirmation sent', {
       appointmentId: params.appointmentId,
       to: params.visitorEmail, // Auto-redacted by logger
+      hasMeetingLink: !!params.meetingLink,
     });
 
     return data;
@@ -74,6 +77,8 @@ export async function sendBookingNotification(params: {
   startTime: Date;
   timezone: string;
   notes?: string;
+  meetingLink?: string;
+  meetingProvider?: string;
 }) {
   return sendWithRetry(async () => {
     const { data, error } = await resend.emails.send({
@@ -88,6 +93,7 @@ export async function sendBookingNotification(params: {
     log.info('[Email] Booking notification sent to owner', {
       appointmentId: params.appointmentId,
       to: params.ownerEmail,
+      hasMeetingLink: !!params.meetingLink,
     });
 
     return data;
@@ -103,6 +109,8 @@ export async function sendAppointmentReminder(params: {
   startTime: Date;
   timezone: string;
   cancellationToken: string;
+  meetingLink?: string;
+  meetingProvider?: string;
 }) {
   const cancelUrl = `${process.env.NEXT_PUBLIC_APP_URL}/cancel/${params.cancellationToken}`;
 
@@ -119,6 +127,7 @@ export async function sendAppointmentReminder(params: {
     log.info('[Email] Appointment reminder sent', {
       appointmentId: params.appointmentId,
       to: params.visitorEmail,
+      hasMeetingLink: !!params.meetingLink,
     });
 
     return data;

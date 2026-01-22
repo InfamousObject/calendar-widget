@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { createCalendarEvent } from '@/lib/google/calendar';
+import { stripe } from '@/lib/stripe';
 import { availabilityCache } from '@/lib/cache/availability-cache';
 import { incrementUsage, checkUsageLimit } from '@/lib/subscription';
 import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
@@ -23,6 +24,7 @@ const bookAppointmentSchema = z.object({
   formResponses: z.record(z.string(), z.unknown()).optional(),
   captchaToken: z.string().optional(), // hCaptcha token for bot protection
   csrfToken: z.string().optional(), // CSRF token for request validation
+  paymentIntentId: z.string().optional(), // Stripe Payment Intent ID for paid appointments
 });
 
 // POST - Book an appointment (public endpoint)
@@ -142,6 +144,98 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Payment verification for paid appointments
+    let paymentInfo: {
+      paymentIntentId: string;
+      paymentStatus: string;
+      amountPaid: number;
+      currency: string;
+    } | null = null;
+
+    if (appointmentType.requirePayment && appointmentType.price) {
+      // Payment is required - verify payment intent
+      if (!validatedData.paymentIntentId) {
+        return NextResponse.json(
+          {
+            error: 'Payment required for this appointment type',
+            requiresPayment: true,
+            price: appointmentType.price,
+            currency: appointmentType.currency,
+            depositPercent: appointmentType.depositPercent,
+          },
+          { status: 402 } // Payment Required
+        );
+      }
+
+      // Verify the payment intent with Stripe
+      try {
+        const paymentIntent = await stripe.paymentIntents.retrieve(validatedData.paymentIntentId);
+
+        // Verify payment intent is successful
+        if (paymentIntent.status !== 'succeeded') {
+          log.warn('[Book] Payment intent not succeeded', {
+            paymentIntentId: validatedData.paymentIntentId,
+            status: paymentIntent.status,
+          });
+          return NextResponse.json(
+            {
+              error: 'Payment has not been completed. Please complete payment first.',
+              paymentStatus: paymentIntent.status,
+            },
+            { status: 402 }
+          );
+        }
+
+        // Verify the payment is for this appointment type
+        if (paymentIntent.metadata.appointmentTypeId !== appointmentType.id) {
+          log.warn('[Book] Payment intent for wrong appointment type', {
+            paymentIntentId: validatedData.paymentIntentId,
+            expected: appointmentType.id,
+            got: paymentIntent.metadata.appointmentTypeId,
+          });
+          return NextResponse.json(
+            { error: 'Payment is for a different appointment type' },
+            { status: 400 }
+          );
+        }
+
+        // Check if this payment intent has already been used
+        const existingBooking = await prisma.appointment.findFirst({
+          where: { paymentIntentId: validatedData.paymentIntentId },
+        });
+
+        if (existingBooking) {
+          log.warn('[Book] Payment intent already used', {
+            paymentIntentId: validatedData.paymentIntentId,
+            existingAppointmentId: existingBooking.id,
+          });
+          return NextResponse.json(
+            { error: 'This payment has already been used for a booking' },
+            { status: 400 }
+          );
+        }
+
+        // Store payment info for the appointment
+        paymentInfo = {
+          paymentIntentId: paymentIntent.id,
+          paymentStatus: 'paid',
+          amountPaid: paymentIntent.amount,
+          currency: paymentIntent.currency,
+        };
+
+        log.info('[Book] Payment verified successfully', {
+          paymentIntentId: paymentIntent.id,
+          amount: paymentIntent.amount,
+        });
+      } catch (error) {
+        log.error('[Book] Error verifying payment intent', error);
+        return NextResponse.json(
+          { error: 'Failed to verify payment. Please try again.' },
+          { status: 400 }
+        );
+      }
+    }
+
     // Calculate end time
     const startTime = new Date(validatedData.startTime);
     const endTime = new Date(startTime.getTime() + appointmentType.duration * 60000);
@@ -208,6 +302,11 @@ export async function POST(request: NextRequest) {
             formResponses: validatedData.formResponses as Prisma.InputJsonValue,
             status: 'confirmed',
             cancellationToken,
+            // Payment info (if payment was required)
+            paymentIntentId: paymentInfo?.paymentIntentId,
+            paymentStatus: paymentInfo?.paymentStatus,
+            amountPaid: paymentInfo?.amountPaid,
+            currency: paymentInfo?.currency,
           },
           include: {
             appointmentType: true,
@@ -235,8 +334,9 @@ export async function POST(request: NextRequest) {
     // Track usage for billing and limits
     await incrementUsage(user.id, 'booking');
 
-    // Create Google Calendar event
+    // Create Google Calendar event (with optional Google Meet link)
     let calendarEventId: string | null | undefined;
+    let meetingLink: string | null | undefined;
     try {
       // Build description with form responses
       let description = `Appointment with ${validatedData.visitorName}\nEmail: ${validatedData.visitorEmail}${
@@ -259,7 +359,7 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      calendarEventId = await createCalendarEvent({
+      const calendarResult = await createCalendarEvent({
         userId: user.id,
         summary: `${appointmentType.name} - ${validatedData.visitorName}`,
         description,
@@ -267,13 +367,21 @@ export async function POST(request: NextRequest) {
         endTime,
         attendeeEmail: validatedData.visitorEmail,
         attendeeName: validatedData.visitorName,
+        enableGoogleMeet: appointmentType.enableGoogleMeet,
       });
 
-      // Update appointment with calendar event ID
-      if (calendarEventId) {
+      calendarEventId = calendarResult.eventId;
+      meetingLink = calendarResult.meetingLink;
+
+      // Update appointment with calendar event ID and meeting link
+      if (calendarEventId || meetingLink) {
         await prisma.appointment.update({
           where: { id: appointment.id },
-          data: { calendarEventId },
+          data: {
+            calendarEventId: calendarEventId ?? undefined,
+            meetingLink: meetingLink ?? undefined,
+            meetingProvider: meetingLink ? 'google_meet' : undefined,
+          },
         });
       }
     } catch (error) {
@@ -300,6 +408,8 @@ export async function POST(request: NextRequest) {
         timezone: appointment.timezone,
         cancellationToken: appointment.cancellationToken,
         businessName: user.businessName || undefined,
+        meetingLink: meetingLink ?? undefined,
+        meetingProvider: meetingLink ? 'google_meet' : undefined,
       });
 
       // Send notification to business owner
@@ -313,6 +423,8 @@ export async function POST(request: NextRequest) {
         startTime: appointment.startTime,
         timezone: appointment.timezone,
         notes: appointment.notes || undefined,
+        meetingLink: meetingLink ?? undefined,
+        meetingProvider: meetingLink ? 'google_meet' : undefined,
       });
     } catch (error) {
       // Log error but don't fail the booking
@@ -333,6 +445,8 @@ export async function POST(request: NextRequest) {
         visitorName: appointment.visitorName,
         visitorEmail: appointment.visitorEmail,
         cancellationToken: appointment.cancellationToken,
+        meetingLink: meetingLink ?? undefined,
+        meetingProvider: meetingLink ? 'google_meet' : undefined,
       },
     });
   } catch (error) {

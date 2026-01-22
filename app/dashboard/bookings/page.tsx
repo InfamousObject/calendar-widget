@@ -6,7 +6,7 @@ import { format, parse, startOfWeek, getDay, addMonths, startOfMonth, endOfMonth
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Calendar, Clock, Mail, Phone, User, X, CalendarDays, TrendingUp } from 'lucide-react';
+import { Calendar, Clock, Mail, Phone, User, X, CalendarDays, TrendingUp, DollarSign, Video } from 'lucide-react';
 import { toast } from 'sonner';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 
@@ -31,6 +31,16 @@ interface Appointment {
   visitorPhone?: string;
   notes?: string;
   status: string;
+  // Video meeting fields
+  meetingLink?: string;
+  meetingProvider?: string;
+  // Payment fields
+  paymentIntentId?: string;
+  paymentStatus?: string;
+  amountPaid?: number;
+  currency?: string;
+  refundId?: string;
+  refundAmount?: number;
   appointmentType: {
     id: string;
     name: string;
@@ -38,6 +48,25 @@ interface Appointment {
     duration: number;
   };
 }
+
+// Helper to format price
+const formatPrice = (cents: number | undefined, currency: string = 'usd') => {
+  if (!cents) return '';
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: currency.toUpperCase(),
+  }).format(cents / 100);
+};
+
+// Payment status badge helper
+const getPaymentBadgeVariant = (status?: string): 'default' | 'secondary' | 'destructive' | 'outline' => {
+  switch (status) {
+    case 'paid': return 'default';
+    case 'refunded': return 'secondary';
+    case 'failed': return 'destructive';
+    default: return 'outline';
+  }
+};
 
 interface CalendarEvent {
   id: string;
@@ -243,17 +272,31 @@ export default function BookingsPage() {
                       {selectedEvent.resource.appointmentType.name}
                     </span>
                   </div>
-                  <Badge
-                    variant={
-                      selectedEvent.resource.status === 'confirmed'
-                        ? 'default'
-                        : selectedEvent.resource.status === 'cancelled'
-                        ? 'secondary'
-                        : 'outline'
-                    }
-                  >
-                    {selectedEvent.resource.status}
-                  </Badge>
+                  <div className="flex flex-wrap gap-2">
+                    <Badge
+                      variant={
+                        selectedEvent.resource.status === 'confirmed'
+                          ? 'default'
+                          : selectedEvent.resource.status === 'cancelled'
+                          ? 'secondary'
+                          : 'outline'
+                      }
+                    >
+                      {selectedEvent.resource.status}
+                    </Badge>
+                    {selectedEvent.resource.paymentStatus && (
+                      <Badge variant={getPaymentBadgeVariant(selectedEvent.resource.paymentStatus)}>
+                        <DollarSign className="h-3 w-3 mr-1" />
+                        {selectedEvent.resource.paymentStatus}
+                      </Badge>
+                    )}
+                    {selectedEvent.resource.meetingLink && (
+                      <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800">
+                        <Video className="h-3 w-3 mr-1" />
+                        Meet
+                      </Badge>
+                    )}
+                  </div>
                 </div>
 
                 <div className="space-y-2 text-sm">
@@ -290,6 +333,42 @@ export default function BookingsPage() {
                       >
                         {selectedEvent.resource.visitorPhone}
                       </a>
+                    </div>
+                  )}
+
+                  {/* Meeting Link */}
+                  {selectedEvent.resource.meetingLink && (
+                    <div className="pt-2 border-t">
+                      <p className="font-medium mb-1 flex items-center gap-1">
+                        <Video className="h-4 w-4 text-blue-500" />
+                        Meeting Link:
+                      </p>
+                      <a
+                        href={selectedEvent.resource.meetingLink}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-primary hover:underline text-xs break-all"
+                      >
+                        {selectedEvent.resource.meetingLink}
+                      </a>
+                    </div>
+                  )}
+
+                  {/* Payment Info */}
+                  {selectedEvent.resource.paymentStatus && selectedEvent.resource.amountPaid && (
+                    <div className="pt-2 border-t">
+                      <p className="font-medium mb-1 flex items-center gap-1">
+                        <DollarSign className="h-4 w-4 text-green-500" />
+                        Payment:
+                      </p>
+                      <div className="space-y-1 text-muted-foreground">
+                        <p>Amount: {formatPrice(selectedEvent.resource.amountPaid, selectedEvent.resource.currency)}</p>
+                        {selectedEvent.resource.refundAmount && (
+                          <p className="text-amber-600">
+                            Refunded: {formatPrice(selectedEvent.resource.refundAmount, selectedEvent.resource.currency)}
+                          </p>
+                        )}
+                      </div>
                     </div>
                   )}
 

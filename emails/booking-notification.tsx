@@ -1,4 +1,4 @@
-import { Section, Text, Heading } from '@react-email/components';
+import { Section, Text, Heading, Link, Button } from '@react-email/components';
 import { EmailLayout } from './components/email-layout';
 import { formatInTimeZone } from 'date-fns-tz';
 
@@ -9,6 +9,8 @@ interface BookingNotificationProps {
   startTime: Date;
   timezone: string;
   notes?: string;
+  meetingLink?: string;
+  meetingProvider?: string;
 }
 
 export function BookingNotification({
@@ -18,9 +20,23 @@ export function BookingNotification({
   startTime,
   timezone,
   notes,
+  meetingLink,
+  meetingProvider,
 }: BookingNotificationProps) {
   const formattedDate = formatInTimeZone(startTime, timezone, 'EEEE, MMMM d, yyyy');
   const formattedTime = formatInTimeZone(startTime, timezone, 'h:mm a');
+
+  // Format meeting provider display name
+  const getMeetingProviderName = (provider?: string) => {
+    switch (provider) {
+      case 'google_meet':
+        return 'Google Meet';
+      case 'zoom':
+        return 'Zoom';
+      default:
+        return 'Video Call';
+    }
+  };
 
   return (
     <EmailLayout preview={`New booking: ${appointmentTypeName} with ${visitorName}`}>
@@ -48,6 +64,17 @@ export function BookingNotification({
           {formattedTime} ({timezone})
         </Text>
 
+        {meetingLink && (
+          <>
+            <Text style={detailLabel}>{getMeetingProviderName(meetingProvider)}:</Text>
+            <Text style={detailValue}>
+              <Link href={meetingLink} style={meetingLinkStyle}>
+                {meetingLink}
+              </Link>
+            </Text>
+          </>
+        )}
+
         {notes && (
           <>
             <Text style={detailLabel}>Notes:</Text>
@@ -55,6 +82,12 @@ export function BookingNotification({
           </>
         )}
       </Section>
+
+      {meetingLink && (
+        <Button style={joinButton} href={meetingLink}>
+          Join {getMeetingProviderName(meetingProvider)}
+        </Button>
+      )}
     </EmailLayout>
   );
 }
@@ -94,4 +127,24 @@ const detailValue = {
   color: '#1f2937',
   fontSize: '16px',
   margin: '0 0 16px 0',
+};
+
+const meetingLinkStyle = {
+  color: '#4F46E5',
+  textDecoration: 'underline',
+  wordBreak: 'break-all' as const,
+};
+
+const joinButton = {
+  backgroundColor: '#10b981', // Green for video call
+  borderRadius: '6px',
+  color: '#ffffff',
+  display: 'inline-block',
+  fontSize: '16px',
+  fontWeight: '600',
+  lineHeight: '48px',
+  textAlign: 'center' as const,
+  textDecoration: 'none',
+  padding: '0 32px',
+  margin: '16px 0',
 };

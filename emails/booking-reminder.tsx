@@ -1,4 +1,4 @@
-import { Button, Section, Text, Heading } from '@react-email/components';
+import { Button, Section, Text, Heading, Link } from '@react-email/components';
 import { EmailLayout } from './components/email-layout';
 import { formatInTimeZone } from 'date-fns-tz';
 
@@ -8,6 +8,8 @@ interface BookingReminderProps {
   startTime: Date;
   timezone: string;
   cancelUrl: string;
+  meetingLink?: string;
+  meetingProvider?: string;
 }
 
 export function BookingReminder({
@@ -16,9 +18,23 @@ export function BookingReminder({
   startTime,
   timezone,
   cancelUrl,
+  meetingLink,
+  meetingProvider,
 }: BookingReminderProps) {
   const formattedDate = formatInTimeZone(startTime, timezone, 'EEEE, MMMM d, yyyy');
   const formattedTime = formatInTimeZone(startTime, timezone, 'h:mm a');
+
+  // Format meeting provider display name
+  const getMeetingProviderName = (provider?: string) => {
+    switch (provider) {
+      case 'google_meet':
+        return 'Google Meet';
+      case 'zoom':
+        return 'Zoom';
+      default:
+        return 'Video Call';
+    }
+  };
 
   return (
     <EmailLayout preview={`Reminder: Your ${appointmentTypeName} appointment is tomorrow`}>
@@ -40,11 +56,28 @@ export function BookingReminder({
           <br />
           {formattedTime} ({timezone})
         </Text>
+
+        {meetingLink && (
+          <>
+            <Text style={detailLabel}>{getMeetingProviderName(meetingProvider)}:</Text>
+            <Text style={detailValue}>
+              <Link href={meetingLink} style={meetingLinkStyle}>
+                Join Meeting
+              </Link>
+            </Text>
+          </>
+        )}
       </Section>
 
       <Text style={text}>
         We look forward to seeing you!
       </Text>
+
+      {meetingLink && (
+        <Button style={joinButton} href={meetingLink}>
+          Join {getMeetingProviderName(meetingProvider)}
+        </Button>
+      )}
 
       <Button style={button} href={cancelUrl}>
         Cancel Appointment
@@ -113,4 +146,23 @@ const smallText = {
   fontSize: '14px',
   lineHeight: '20px',
   margin: '16px 0',
+};
+
+const meetingLinkStyle = {
+  color: '#4F46E5',
+  textDecoration: 'underline',
+};
+
+const joinButton = {
+  backgroundColor: '#10b981', // Green for video call
+  borderRadius: '6px',
+  color: '#ffffff',
+  display: 'inline-block',
+  fontSize: '16px',
+  fontWeight: '600',
+  lineHeight: '48px',
+  textAlign: 'center' as const,
+  textDecoration: 'none',
+  padding: '0 32px',
+  margin: '16px 8px 16px 0',
 };
