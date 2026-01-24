@@ -18,6 +18,7 @@ import {
   ClipboardList,
   Code2,
   Wallet,
+  Users,
 } from 'lucide-react';
 
 const navItems = [
@@ -85,6 +86,11 @@ const navItems = [
     title: 'Payments',
     href: '/dashboard/settings/payments',
     icon: Wallet,
+  },
+  {
+    title: 'Team',
+    href: '/dashboard/team',
+    icon: Users,
   },
   {
     title: 'Settings',

@@ -1,0 +1,60 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 3,
+	"name": "kentroi/booking",
+	"version": "1.0.0",
+	"title": "Kentroi Booking",
+	"category": "embed",
+	"icon": "calendar-alt",
+	"description": "Embed a Kentroi booking widget to let visitors schedule appointments.",
+	"keywords": ["booking", "calendar", "appointment", "schedule", "kentroi"],
+	"textdomain": "kentroi-for-wordpress",
+	"attributes": {
+		"mode": {
+			"type": "string",
+			"default": "inline"
+		},
+		"appointmentType": {
+			"type": "string",
+			"default": ""
+		},
+		"height": {
+			"type": "number",
+			"default": 600
+		},
+		"autoresize": {
+			"type": "boolean",
+			"default": true
+		},
+		"buttonText": {
+			"type": "string",
+			"default": "Book Appointment"
+		},
+		"buttonAlign": {
+			"type": "string",
+			"default": "left"
+		},
+		"buttonSize": {
+			"type": "string",
+			"default": "medium"
+		},
+		"buttonColor": {
+			"type": "string",
+			"default": "#3b82f6"
+		},
+		"modalSize": {
+			"type": "string",
+			"default": "medium"
+		}
+	},
+	"supports": {
+		"html": false,
+		"align": ["wide", "full"],
+		"spacing": {
+			"margin": true,
+			"padding": true
+		}
+	},
+	"editorScript": "file:./build/index.js",
+	"render": "file:./render.php"
+}

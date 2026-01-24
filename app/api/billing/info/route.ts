@@ -1,27 +1,26 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getCurrentUser, getCurrentUserId } from '@/lib/clerk-auth';
+import { NextResponse } from 'next/server';
+import { requireTeamContext } from '@/lib/team-context';
+import { hasPermission } from '@/lib/permissions';
 import { prisma } from '@/lib/prisma';
 import { log } from '@/lib/logger';
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
-    const userId = await getCurrentUserId();
-    log.debug('[Billing Info] User authentication check', { hasUserId: !!userId });
+    const context = await requireTeamContext();
 
-    if (!userId) {
-      log.info('[Billing Info] No Clerk userId - not authenticated');
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    // Only owners can view billing info
+    if (!hasPermission(context.role, 'billing:view')) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    const user = await getCurrentUser();
-    log.debug('[Billing Info] User from DB', { found: !!user });
-    if (!user) {
-      log.info('[Billing Info] User needs to be created in DB with Clerk ID');
-    }
+    // Get the account owner's info (billing is always on the owner's account)
+    const user = await prisma.user.findUnique({
+      where: { id: context.accountId },
+      include: { subscription: true },
+    });
 
     if (!user) {
-      log.info('[Billing Info] No user found - returning 401');
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
     return NextResponse.json({
@@ -35,9 +34,24 @@ export async function GET(request: NextRequest) {
         bookings: user.monthlyBookings,
         chatMessages: user.monthlyChatMessages,
       },
+      // Include seat info for team management
+      seats: user.subscription ? {
+        included: user.subscription.includedSeats,
+        additional: user.subscription.additionalSeats,
+        total: user.subscription.totalSeats,
+      } : {
+        included: 1,
+        additional: 0,
+        total: 1,
+      },
     });
   } catch (error) {
     log.error('Error fetching billing info', { error });
+
+    if (error instanceof Error && error.message === 'Unauthorized') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     return NextResponse.json(
       { error: 'Failed to fetch billing information' },
       { status: 500 }

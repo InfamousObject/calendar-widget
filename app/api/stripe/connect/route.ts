@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentUserId, getCurrentUser } from '@/lib/clerk-auth';
 import { prisma } from '@/lib/prisma';
 import { stripe } from '@/lib/stripe';
+import { canAcceptPayments } from '@/lib/subscription';
 import { log } from '@/lib/logger';
 
 /**
@@ -28,6 +29,14 @@ export async function GET() {
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
+
+    // Check if user's tier allows payments
+    const paymentCheck = await canAcceptPayments(userId);
+    const tierInfo = {
+      current: paymentCheck.tier,
+      canAcceptPayments: paymentCheck.allowed,
+      upgradeMessage: paymentCheck.message,
+    };
 
     // If user has a Connect account, check its status with Stripe
     if (user.stripeConnectAccountId) {
@@ -57,6 +66,7 @@ export async function GET() {
           onboarded: detailsSubmitted,
           payoutsEnabled: payoutsEnabled,
           chargesEnabled: account.charges_enabled ?? false,
+          tier: tierInfo,
         });
       } catch (error) {
         log.error('[Connect] Error retrieving account', error);
@@ -66,6 +76,7 @@ export async function GET() {
           accountId: null,
           onboarded: false,
           payoutsEnabled: false,
+          tier: tierInfo,
         });
       }
     }
@@ -75,6 +86,7 @@ export async function GET() {
       accountId: null,
       onboarded: false,
       payoutsEnabled: false,
+      tier: tierInfo,
     });
   } catch (error) {
     log.error('[Connect] Error getting connect status', error);
@@ -96,6 +108,19 @@ export async function POST(request: NextRequest) {
 
     if (!userId || !clerkUser) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // Check if user's tier allows payments
+    const paymentCheck = await canAcceptPayments(userId);
+    if (!paymentCheck.allowed) {
+      return NextResponse.json(
+        {
+          error: paymentCheck.message,
+          requiresUpgrade: true,
+          currentTier: paymentCheck.tier,
+        },
+        { status: 403 }
+      );
     }
 
     const user = await prisma.user.findUnique({

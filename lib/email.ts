@@ -6,6 +6,7 @@ import { BookingReminder } from '@/emails/booking-reminder';
 import { CancellationConfirmation } from '@/emails/cancellation-confirmation';
 import { FormSubmissionNotification } from '@/emails/form-submission';
 import { PaymentFailureAlert } from '@/emails/payment-failure';
+import { TeamInvitation } from '@/emails/team-invitation';
 
 // Provide fallback for build time (when env vars aren't available)
 const resend = new Resend(process.env.RESEND_API_KEY || 'dummy-key-for-build');
@@ -207,6 +208,35 @@ export async function sendPaymentFailureAlert(params: {
 
     log.info('[Email] Payment failure alert sent', {
       to: params.userEmail,
+    });
+
+    return data;
+  });
+}
+
+// Send team invitation
+export async function sendTeamInvitation(params: {
+  toEmail: string;
+  toName: string;
+  inviterName: string;
+  accountName: string;
+  role: 'admin' | 'member';
+  invitationUrl: string;
+  expiresAt: Date;
+}) {
+  return sendWithRetry(async () => {
+    const { data, error } = await resend.emails.send({
+      from: FROM_EMAIL,
+      to: params.toEmail,
+      subject: `You've been invited to join ${params.accountName} on Kentroi`,
+      react: TeamInvitation(params),
+    });
+
+    if (error) throw new Error(error.message);
+
+    log.info('[Email] Team invitation sent', {
+      to: params.toEmail,
+      role: params.role,
     });
 
     return data;

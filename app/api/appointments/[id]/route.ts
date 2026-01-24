@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getCurrentUserId } from '@/lib/clerk-auth';
+import { requireTeamContext } from '@/lib/team-context';
+import { hasPermission } from '@/lib/permissions';
 import { prisma } from '@/lib/prisma';
-import { deleteCalendarEvent, updateCalendarEvent } from '@/lib/google/calendar';
+import { deleteCalendarEvent } from '@/lib/google/calendar';
 import { availabilityCache } from '@/lib/cache/availability-cache';
 import { z } from 'zod';
 import { log } from '@/lib/logger';
@@ -14,28 +15,21 @@ const updateAppointmentSchema = z.object({
 // PATCH - Update an appointment
 export async function PATCH(
   request: NextRequest,
-  context: { params: Promise<{ id: string }> }
+  routeContext: { params: Promise<{ id: string }> }
 ) {
   try {
-    const userId = await getCurrentUserId();
+    const context = await requireTeamContext();
 
-    if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    // Check permission
+    if (!hasPermission(context.role, 'appointments:edit')) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-    });
-
-    if (!user) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 });
-    }
-
-    const { id } = await context.params;
+    const { id } = await routeContext.params;
     const body = await request.json();
     const validatedData = updateAppointmentSchema.parse(body);
 
-    // Find appointment
+    // Find appointment (must belong to team account)
     const appointment = await prisma.appointment.findUnique({
       where: { id },
       include: {
@@ -43,7 +37,7 @@ export async function PATCH(
       },
     });
 
-    if (!appointment || appointment.userId !== user.id) {
+    if (!appointment || appointment.userId !== context.accountId) {
       return NextResponse.json(
         { error: 'Appointment not found' },
         { status: 404 }
@@ -62,10 +56,10 @@ export async function PATCH(
     // Handle calendar updates
     if (validatedData.status === 'cancelled' && appointment.calendarEventId) {
       try {
-        await deleteCalendarEvent(user.id, appointment.calendarEventId);
+        await deleteCalendarEvent(context.accountId, appointment.calendarEventId);
       } catch (error) {
         log.error('[Appointment] Error deleting calendar event', {
-          userId: user.id,
+          accountId: context.accountId,
           eventId: appointment.calendarEventId,
           error: error instanceof Error ? error.message : String(error)
         });
@@ -75,8 +69,8 @@ export async function PATCH(
 
     // Invalidate cache when appointment is cancelled (frees up time slot)
     if (validatedData.status === 'cancelled') {
-      availabilityCache.invalidateUser(user.id);
-      log.info('[Appointment] Cache invalidated after cancellation', { userId: user.id });
+      availabilityCache.invalidateUser(context.accountId);
+      log.info('[Appointment] Cache invalidated after cancellation', { accountId: context.accountId });
     }
 
     return NextResponse.json(updatedAppointment);
@@ -91,6 +85,11 @@ export async function PATCH(
     log.error('[Appointment] Error updating appointment', {
       error: error instanceof Error ? error.message : String(error)
     });
+
+    if (error instanceof Error && error.message === 'Unauthorized') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     return NextResponse.json(
       { error: 'Failed to update appointment' },
       { status: 500 }
@@ -101,31 +100,24 @@ export async function PATCH(
 // DELETE - Delete an appointment
 export async function DELETE(
   request: NextRequest,
-  context: { params: Promise<{ id: string }> }
+  routeContext: { params: Promise<{ id: string }> }
 ) {
   try {
-    const userId = await getCurrentUserId();
+    const context = await requireTeamContext();
 
-    if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    // Check permission
+    if (!hasPermission(context.role, 'appointments:delete')) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-    });
+    const { id } = await routeContext.params;
 
-    if (!user) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 });
-    }
-
-    const { id } = await context.params;
-
-    // Find appointment
+    // Find appointment (must belong to team account)
     const appointment = await prisma.appointment.findUnique({
       where: { id },
     });
 
-    if (!appointment || appointment.userId !== user.id) {
+    if (!appointment || appointment.userId !== context.accountId) {
       return NextResponse.json(
         { error: 'Appointment not found' },
         { status: 404 }
@@ -135,10 +127,10 @@ export async function DELETE(
     // Delete calendar event
     if (appointment.calendarEventId) {
       try {
-        await deleteCalendarEvent(user.id, appointment.calendarEventId);
+        await deleteCalendarEvent(context.accountId, appointment.calendarEventId);
       } catch (error) {
         log.error('[Appointment] Error deleting calendar event', {
-          userId: user.id,
+          accountId: context.accountId,
           eventId: appointment.calendarEventId,
           error: error instanceof Error ? error.message : String(error)
         });
@@ -152,14 +144,19 @@ export async function DELETE(
     });
 
     // Invalidate cache (frees up time slot)
-    availabilityCache.invalidateUser(user.id);
-    log.info('[Appointment] Cache invalidated after deletion', { userId: user.id });
+    availabilityCache.invalidateUser(context.accountId);
+    log.info('[Appointment] Cache invalidated after deletion', { accountId: context.accountId });
 
     return NextResponse.json({ success: true });
   } catch (error) {
     log.error('[Appointment] Error deleting appointment', {
       error: error instanceof Error ? error.message : String(error)
     });
+
+    if (error instanceof Error && error.message === 'Unauthorized') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     return NextResponse.json(
       { error: 'Failed to delete appointment' },
       { status: 500 }

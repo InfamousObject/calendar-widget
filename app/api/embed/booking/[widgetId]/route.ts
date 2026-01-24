@@ -43,6 +43,7 @@ export async function GET(
         timeFormat: user.widgetConfig?.timeFormat || '12h',
         requirePhone: user.widgetConfig?.requirePhone || false,
         showNotes: user.widgetConfig?.showNotes ?? true,
+        daysToDisplay: user.widgetConfig?.daysToDisplay || 7,
       },
       customFields: user.bookingFormFields,
     };

@@ -1,0 +1,285 @@
+# Copyright (C) 2024 Kentroi
+# This file is distributed under the GPL v2 or later.
+msgid ""
+msgstr ""
+"Project-Id-Version: Kentroi for WordPress 1.0.0\n"
+"Report-Msgid-Bugs-To: https://kentroi.com/support\n"
+"POT-Creation-Date: 2024-01-01T00:00:00+00:00\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"PO-Revision-Date: 2024-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+
+#: includes/class-kentroi-privacy.php
+msgid "Kentroi Booking & Forms"
+msgstr ""
+
+#: includes/class-kentroi-privacy.php
+msgid "This website uses Kentroi, a third-party service, to provide booking widgets, contact forms, and chat functionality."
+msgstr ""
+
+#: includes/class-kentroi-privacy.php
+msgid "What data is collected"
+msgstr ""
+
+#: includes/class-kentroi-privacy.php
+msgid "Name and contact information you provide"
+msgstr ""
+
+#: includes/class-kentroi-privacy.php
+msgid "Appointment or booking details"
+msgstr ""
+
+#: includes/class-kentroi-privacy.php
+msgid "Messages sent through contact forms or chat"
+msgstr ""
+
+#: includes/class-kentroi-privacy.php
+msgid "IP address and browser information"
+msgstr ""
+
+#: includes/class-kentroi-privacy.php
+msgid "Click to load the booking widget. By loading, you agree to our privacy policy."
+msgstr ""
+
+#: includes/class-kentroi-privacy.php
+msgid "Load Widget"
+msgstr ""
+
+#: includes/class-kentroi-privacy.php
+msgid "Load Booking Widget"
+msgstr ""
+
+#: includes/class-kentroi-privacy.php
+msgid "Load Form"
+msgstr ""
+
+#: includes/class-kentroi-privacy.php
+msgid "Load Chat"
+msgstr ""
+
+#: includes/class-kentroi-privacy.php
+msgid "Privacy Policy"
+msgstr ""
+
+#: includes/class-kentroi-privacy.php
+msgid "Terms of Service"
+msgstr ""
+
+#: admin/class-kentroi-admin.php
+msgid "Kentroi"
+msgstr ""
+
+#: admin/class-kentroi-admin.php
+msgid "Dashboard"
+msgstr ""
+
+#: admin/class-kentroi-admin.php
+msgid "Booking Widget"
+msgstr ""
+
+#: admin/class-kentroi-admin.php
+msgid "Booking"
+msgstr ""
+
+#: admin/class-kentroi-admin.php
+msgid "Contact Forms"
+msgstr ""
+
+#: admin/class-kentroi-admin.php
+msgid "Forms"
+msgstr ""
+
+#: admin/class-kentroi-admin.php
+msgid "AI Chatbot"
+msgstr ""
+
+#: admin/class-kentroi-admin.php
+msgid "Chatbot"
+msgstr ""
+
+#: admin/class-kentroi-admin.php
+msgid "Settings"
+msgstr ""
+
+#: admin/class-kentroi-admin.php
+msgid "Connection Settings"
+msgstr ""
+
+#: admin/class-kentroi-admin.php
+msgid "Widget ID"
+msgstr ""
+
+#: admin/class-kentroi-admin.php
+msgid "Enter your Widget ID"
+msgstr ""
+
+#: admin/class-kentroi-admin.php
+msgid "Privacy / GDPR Settings"
+msgstr ""
+
+#: admin/class-kentroi-admin.php
+msgid "Require Consent"
+msgstr ""
+
+#: admin/class-kentroi-admin.php
+msgid "Show consent placeholder before loading widgets"
+msgstr ""
+
+#: admin/class-kentroi-admin.php
+msgid "Consent Message"
+msgstr ""
+
+#: admin/class-kentroi-admin.php
+msgid "Settings saved."
+msgstr ""
+
+#: public/class-kentroi-shortcodes.php
+msgid "Kentroi Widget ID not configured."
+msgstr ""
+
+#: public/class-kentroi-shortcodes.php
+msgid "Form ID is required."
+msgstr ""
+
+#: public/class-kentroi-shortcodes.php
+msgid "Invalid form configuration."
+msgstr ""
+
+#: admin/partials/kentroi-dashboard-display.php
+msgid "Connection Status"
+msgstr ""
+
+#: admin/partials/kentroi-dashboard-display.php
+msgid "Connected"
+msgstr ""
+
+#: admin/partials/kentroi-dashboard-display.php
+msgid "Not Connected"
+msgstr ""
+
+#: admin/partials/kentroi-dashboard-display.php
+msgid "Quick Actions"
+msgstr ""
+
+#: admin/partials/kentroi-dashboard-display.php
+msgid "Add Booking Widget"
+msgstr ""
+
+#: admin/partials/kentroi-dashboard-display.php
+msgid "Add Contact Form"
+msgstr ""
+
+#: admin/partials/kentroi-dashboard-display.php
+msgid "Add AI Chatbot"
+msgstr ""
+
+#: admin/partials/kentroi-dashboard-display.php
+msgid "Configure Settings"
+msgstr ""
+
+#: admin/partials/kentroi-dashboard-display.php
+msgid "Resources"
+msgstr ""
+
+#: admin/partials/kentroi-dashboard-display.php
+msgid "Kentroi Dashboard"
+msgstr ""
+
+#: admin/partials/kentroi-dashboard-display.php
+msgid "Documentation"
+msgstr ""
+
+#: admin/partials/kentroi-dashboard-display.php
+msgid "Get Support"
+msgstr ""
+
+#: admin/partials/kentroi-booking-display.php
+msgid "Booking Widget Shortcode"
+msgstr ""
+
+#: admin/partials/kentroi-booking-display.php
+msgid "Appointment Type"
+msgstr ""
+
+#: admin/partials/kentroi-booking-display.php
+msgid "-- All Types --"
+msgstr ""
+
+#: admin/partials/kentroi-booking-display.php
+msgid "Height (pixels)"
+msgstr ""
+
+#: admin/partials/kentroi-booking-display.php
+msgid "Generated Shortcode"
+msgstr ""
+
+#: admin/partials/kentroi-booking-display.php
+msgid "Copy"
+msgstr ""
+
+#: admin/partials/kentroi-booking-display.php
+msgid "Gutenberg Block"
+msgstr ""
+
+#: admin/partials/kentroi-booking-display.php
+msgid "Shortcode Reference"
+msgstr ""
+
+#: blocks/kentroi-booking/index.js
+msgid "Kentroi Booking"
+msgstr ""
+
+#: blocks/kentroi-booking/index.js
+msgid "Booking Settings"
+msgstr ""
+
+#: blocks/kentroi-booking/index.js
+msgid "All Types"
+msgstr ""
+
+#: blocks/kentroi-form/index.js
+msgid "Kentroi Form"
+msgstr ""
+
+#: blocks/kentroi-form/index.js
+msgid "Form Settings"
+msgstr ""
+
+#: blocks/kentroi-form/index.js
+msgid "Select a form..."
+msgstr ""
+
+#: blocks/kentroi-chat/index.js
+msgid "Kentroi Chat"
+msgstr ""
+
+#: blocks/kentroi-chat/index.js
+msgid "Chat Settings"
+msgstr ""
+
+#: blocks/kentroi-chat/index.js
+msgid "Display Mode"
+msgstr ""
+
+#: blocks/kentroi-chat/index.js
+msgid "Inline (embedded in page)"
+msgstr ""
+
+#: blocks/kentroi-chat/index.js
+msgid "Floating (chat bubble)"
+msgstr ""
+
+#: blocks/kentroi-chat/index.js
+msgid "Position"
+msgstr ""
+
+#: blocks/kentroi-chat/index.js
+msgid "Bottom Right"
+msgstr ""
+
+#: blocks/kentroi-chat/index.js
+msgid "Bottom Left"
+msgstr ""

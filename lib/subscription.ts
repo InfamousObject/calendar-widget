@@ -10,7 +10,7 @@ export const TIER_LIMITS = {
     knowledgeBaseArticles: 0,
     chatbotMessages: 0,
     customization: 'basic' as const,
-    teamSeats: 1,
+    teamSeats: 0, // Free users cannot have team members
     hasBooking: true,
     hasChatbot: false,
     removeBranding: false,
@@ -34,7 +34,7 @@ export const TIER_LIMITS = {
     knowledgeBaseArticles: Infinity,
     chatbotMessages: Infinity, // Pay per use
     customization: 'basic' as const,
-    teamSeats: 1, // No additional seats on chatbot tier
+    teamSeats: 0, // Chatbot users cannot have team members
     hasBooking: false,
     hasChatbot: true,
     removeBranding: false,
@@ -254,5 +254,47 @@ export async function canAddTeamMember(userId: string): Promise<{
     current,
     limit,
     message: allowed ? undefined : `You've reached your team seat limit. Add more seats for $5/month each.`,
+  };
+}
+
+// Check if user's tier allows accepting payments
+export async function canAcceptPayments(userId: string): Promise<{
+  allowed: boolean;
+  tier: string;
+  message?: string;
+}> {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { subscriptionTier: true },
+  });
+
+  const tier = user?.subscriptionTier || 'free';
+  const allowed = ['booking', 'bundle'].includes(tier);
+
+  return {
+    allowed,
+    tier,
+    message: allowed ? undefined : 'Paid appointments require a Booking or Bundle plan',
+  };
+}
+
+// Check if user's tier allows inviting team members
+export async function canInviteTeamMembers(userId: string): Promise<{
+  allowed: boolean;
+  tier: string;
+  message?: string;
+}> {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { subscriptionTier: true },
+  });
+
+  const tier = user?.subscriptionTier || 'free';
+  const allowed = ['booking', 'bundle'].includes(tier);
+
+  return {
+    allowed,
+    tier,
+    message: allowed ? undefined : 'Team members require a Booking or Bundle plan',
   };
 }

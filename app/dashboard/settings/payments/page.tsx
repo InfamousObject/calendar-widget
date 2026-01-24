@@ -18,8 +18,11 @@ import {
   Info,
   AlertTriangle,
   HelpCircle,
+  Lock,
+  Sparkles,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import Link from 'next/link';
 
 interface ConnectStatus {
   connected: boolean;
@@ -27,6 +30,11 @@ interface ConnectStatus {
   onboarded: boolean;
   payoutsEnabled: boolean;
   chargesEnabled?: boolean;
+  tier?: {
+    current: string;
+    canAcceptPayments: boolean;
+    upgradeMessage?: string;
+  };
 }
 
 interface ConnectError {
@@ -87,6 +95,13 @@ export default function PaymentsSettingsPage() {
         window.location.href = data.url;
       } else {
         const errorData = await response.json();
+        // Handle upgrade required
+        if (errorData.requiresUpgrade) {
+          toast.error('Please upgrade to a Booking or Bundle plan to accept payments');
+          // Refresh status to update tier info
+          await fetchConnectStatus();
+          return;
+        }
         // Set detailed error for display
         if (errorData.code) {
           setConnectError(errorData);
@@ -160,6 +175,7 @@ export default function PaymentsSettingsPage() {
   }
 
   const isFullySetup = status?.connected && status?.onboarded && status?.payoutsEnabled;
+  const requiresUpgrade = status?.tier && !status.tier.canAcceptPayments;
 
   return (
     <div className="p-8">
@@ -180,6 +196,36 @@ export default function PaymentsSettingsPage() {
             </p>
           </div>
         </div>
+
+        {/* Upgrade Banner for Free/Chatbot Users */}
+        {requiresUpgrade && (
+          <Card className="border-primary/50 bg-gradient-to-br from-primary/5 via-background to-accent/5 shadow-lg">
+            <CardContent className="py-8">
+              <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+                <div className="flex items-center gap-4">
+                  <div className="p-4 rounded-xl bg-gradient-to-br from-primary to-accent shadow-lg shadow-primary/30">
+                    <Lock className="h-6 w-6 text-white" />
+                  </div>
+                  <div>
+                    <h2 className="font-display text-xl font-semibold mb-1 flex items-center gap-2">
+                      <Sparkles className="h-5 w-5 text-primary" />
+                      Paid Appointments - Premium Feature
+                    </h2>
+                    <p className="text-muted-foreground">
+                      Accept payments for appointments with Booking and Bundle plans. Upgrade to start collecting payments from your clients.
+                    </p>
+                  </div>
+                </div>
+                <Link href="/dashboard/billing">
+                  <Button className="bg-gradient-to-r from-primary to-accent hover:opacity-90 shadow-lg shadow-primary/20">
+                    <Sparkles className="h-4 w-4 mr-2" />
+                    Upgrade Now
+                  </Button>
+                </Link>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Status Card */}
         <Card className="border-border shadow-md">
@@ -284,24 +330,36 @@ export default function PaymentsSettingsPage() {
                   </div>
                 </div>
 
-                <Button
-                  onClick={handleConnect}
-                  disabled={connecting}
-                  className="w-full bg-gradient-to-r from-primary to-accent hover:shadow-lg hover:shadow-primary/30 transition-all duration-300"
-                  size="lg"
-                >
-                  {connecting ? (
-                    <>
-                      <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                      Connecting...
-                    </>
-                  ) : (
-                    <>
-                      Connect with Stripe
-                      <ArrowRight className="ml-2 h-5 w-5" />
-                    </>
-                  )}
-                </Button>
+                {requiresUpgrade ? (
+                  <Link href="/dashboard/billing" className="w-full">
+                    <Button
+                      className="w-full bg-gradient-to-r from-primary to-accent hover:shadow-lg hover:shadow-primary/30 transition-all duration-300"
+                      size="lg"
+                    >
+                      <Lock className="mr-2 h-5 w-5" />
+                      Upgrade to Accept Payments
+                    </Button>
+                  </Link>
+                ) : (
+                  <Button
+                    onClick={handleConnect}
+                    disabled={connecting}
+                    className="w-full bg-gradient-to-r from-primary to-accent hover:shadow-lg hover:shadow-primary/30 transition-all duration-300"
+                    size="lg"
+                  >
+                    {connecting ? (
+                      <>
+                        <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                        Connecting...
+                      </>
+                    ) : (
+                      <>
+                        Connect with Stripe
+                        <ArrowRight className="ml-2 h-5 w-5" />
+                      </>
+                    )}
+                  </Button>
+                )}
               </div>
             ) : !status.onboarded ? (
               // Connected but not onboarded

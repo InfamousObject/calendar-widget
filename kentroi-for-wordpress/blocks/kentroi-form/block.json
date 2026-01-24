@@ -1,0 +1,28 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 3,
+	"name": "kentroi/form",
+	"version": "1.0.0",
+	"title": "Kentroi Form",
+	"category": "embed",
+	"icon": "feedback",
+	"description": "Embed a Kentroi contact form.",
+	"keywords": ["form", "contact", "kentroi"],
+	"textdomain": "kentroi-for-wordpress",
+	"attributes": {
+		"formId": {
+			"type": "string",
+			"default": ""
+		},
+		"height": {
+			"type": "number",
+			"default": 500
+		}
+	},
+	"supports": {
+		"html": false,
+		"align": ["wide", "full"]
+	},
+	"editorScript": "file:./build/index.js",
+	"render": "file:./render.php"
+}

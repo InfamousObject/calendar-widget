@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getCurrentUserId } from '@/lib/clerk-auth';
+import { requireTeamContext } from '@/lib/team-context';
+import { hasPermission } from '@/lib/permissions';
 import { prisma } from '@/lib/prisma';
+import { canAcceptPayments } from '@/lib/subscription';
 import { z } from 'zod';
 import { log } from '@/lib/logger';
 
@@ -30,19 +32,20 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const userId = await getCurrentUserId();
+    const context = await requireTeamContext();
     const { id } = await params;
 
-    if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    // Check permission
+    if (!hasPermission(context.role, 'appointment-types:manage')) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    // Check if appointment type exists and belongs to user
+    // Check if appointment type exists and belongs to team account
     const existing = await prisma.appointmentType.findUnique({
       where: { id },
     });
 
-    if (!existing || existing.userId !== userId) {
+    if (!existing || existing.userId !== context.accountId) {
       return NextResponse.json(
         { error: 'Appointment type not found' },
         { status: 404 }
@@ -51,6 +54,21 @@ export async function PATCH(
 
     const body = await req.json();
     const validatedData = appointmentTypeSchema.parse(body);
+
+    // Check if payment fields are being set
+    if (validatedData.requirePayment || validatedData.price) {
+      const paymentCheck = await canAcceptPayments(context.accountId);
+      if (!paymentCheck.allowed) {
+        return NextResponse.json(
+          {
+            error: paymentCheck.message,
+            requiresUpgrade: true,
+            currentTier: paymentCheck.tier,
+          },
+          { status: 403 }
+        );
+      }
+    }
 
     const updated = await prisma.appointmentType.update({
       where: { id },
@@ -69,6 +87,11 @@ export async function PATCH(
     log.error('[AppointmentType] Error updating appointment type', {
       error: error instanceof Error ? error.message : String(error)
     });
+
+    if (error instanceof Error && error.message === 'Unauthorized') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
@@ -85,19 +108,20 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const userId = await getCurrentUserId();
+    const context = await requireTeamContext();
     const { id } = await params;
 
-    if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    // Check permission
+    if (!hasPermission(context.role, 'appointment-types:manage')) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    // Check if appointment type exists and belongs to user
+    // Check if appointment type exists and belongs to team account
     const existing = await prisma.appointmentType.findUnique({
       where: { id },
     });
 
-    if (!existing || existing.userId !== userId) {
+    if (!existing || existing.userId !== context.accountId) {
       return NextResponse.json(
         { error: 'Appointment type not found' },
         { status: 404 }
@@ -113,6 +137,11 @@ export async function DELETE(
     log.error('[AppointmentType] Error deleting appointment type', {
       error: error instanceof Error ? error.message : String(error)
     });
+
+    if (error instanceof Error && error.message === 'Unauthorized') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

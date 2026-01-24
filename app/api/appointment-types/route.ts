@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getCurrentUserId } from '@/lib/clerk-auth';
+import { getTeamContext } from '@/lib/team-context';
+import { hasPermission } from '@/lib/permissions';
 import { prisma } from '@/lib/prisma';
-import { checkUsageLimit } from '@/lib/subscription';
+import { checkUsageLimit, canAcceptPayments } from '@/lib/subscription';
 import { z } from 'zod';
 import { log } from '@/lib/logger';
 
@@ -34,7 +35,7 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const widgetId = searchParams.get('widgetId');
 
-    let userId: string | undefined;
+    let accountId: string | undefined;
 
     if (widgetId) {
       // Public access via widgetId
@@ -47,21 +48,25 @@ export async function GET(req: NextRequest) {
         return NextResponse.json({ error: 'Widget not found' }, { status: 404 });
       }
 
-      userId = user.id;
+      accountId = user.id;
     } else {
-      // Authenticated access
-      const authUserId = await getCurrentUserId();
+      // Authenticated access - use team context
+      const context = await getTeamContext();
 
-      if (!authUserId) {
+      if (!context) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
       }
 
-      userId = authUserId;
+      if (!hasPermission(context.role, 'appointment-types:view')) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+      }
+
+      accountId = context.accountId;
     }
 
     const appointmentTypes = await prisma.appointmentType.findMany({
       where: {
-        userId,
+        userId: accountId,
         active: true, // Only return active appointment types for public access
       },
       orderBy: {
@@ -87,14 +92,19 @@ export async function GET(req: NextRequest) {
  */
 export async function POST(req: NextRequest) {
   try {
-    const userId = await getCurrentUserId();
+    const context = await getTeamContext();
 
-    if (!userId) {
+    if (!context) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    // Check permission
+    if (!hasPermission(context.role, 'appointment-types:manage')) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
     // Check appointment type limit for user's subscription tier
-    const usageCheck = await checkUsageLimit(userId, 'appointmentTypes');
+    const usageCheck = await checkUsageLimit(context.accountId, 'appointmentTypes');
     if (!usageCheck.allowed) {
       return NextResponse.json(
         {
@@ -109,10 +119,25 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const validatedData = appointmentTypeSchema.parse(body);
 
+    // Check if payment fields are being set
+    if (validatedData.requirePayment || validatedData.price) {
+      const paymentCheck = await canAcceptPayments(context.accountId);
+      if (!paymentCheck.allowed) {
+        return NextResponse.json(
+          {
+            error: paymentCheck.message,
+            requiresUpgrade: true,
+            currentTier: paymentCheck.tier,
+          },
+          { status: 403 }
+        );
+      }
+    }
+
     const appointmentType = await prisma.appointmentType.create({
       data: {
         ...validatedData,
-        userId,
+        userId: context.accountId,
       },
     });
 

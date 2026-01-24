@@ -32,6 +32,7 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+stripe-production-env.txt
 
 # vercel
 .vercel
@@ -47,3 +48,4 @@ build.log
 
 
 .mcp.json
+kentroi-for-wordpress/node_modules/

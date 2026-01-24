@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { stripe } from '@/lib/stripe';
+import { stripe, STRIPE_PRICES } from '@/lib/stripe';
 import { prisma } from '@/lib/prisma';
 import Stripe from 'stripe';
 import { log } from '@/lib/logger';
@@ -155,6 +155,15 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session, 
   const subscriptionItems = stripeSubscription.items.data;
   const baseItem = subscriptionItems.find((item: any) => !item.price.recurring?.usage_type);
 
+  // Check for seat items and calculate seat counts
+  const seatPriceIds = [STRIPE_PRICES.seat.monthly, STRIPE_PRICES.seat.annual];
+  const seatItem = subscriptionItems.find((item: any) => seatPriceIds.includes(item.price.id));
+  const additionalSeats = seatItem?.quantity || 0;
+
+  // Included seats based on tier (1 for all paid tiers)
+  const includedSeats = 1;
+  const totalSeats = includedSeats + additionalSeats;
+
   await tx.subscription.upsert({
     where: { userId: metadata.userId },
     create: {
@@ -173,6 +182,10 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session, 
         : new Date(),
       cancelAtPeriodEnd: stripeSubscription.cancel_at_period_end || false,
       trialEnd: stripeSubscription.trial_end ? new Date(stripeSubscription.trial_end * 1000) : null,
+      // Initialize seat counts
+      includedSeats,
+      additionalSeats,
+      totalSeats,
     },
     update: {
       stripeSubscriptionId: subscriptionId,
@@ -188,6 +201,10 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session, 
         : new Date(),
       cancelAtPeriodEnd: stripeSubscription.cancel_at_period_end || false,
       trialEnd: stripeSubscription.trial_end ? new Date(stripeSubscription.trial_end * 1000) : null,
+      // Update seat counts
+      includedSeats,
+      additionalSeats,
+      totalSeats,
     },
   });
 
@@ -201,6 +218,7 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription, tx: 
   // Find user by Stripe customer ID
   const user = await tx.user.findUnique({
     where: { stripeCustomerId: customerId },
+    include: { subscription: true },
   });
 
   if (!user) {
@@ -209,6 +227,24 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription, tx: 
   }
 
   log.info('[Webhook] Subscription updated', { status: subscription.status });
+
+  // Check for seat quantity changes
+  const seatPriceIds = [STRIPE_PRICES.seat.monthly, STRIPE_PRICES.seat.annual];
+  const seatItem = subscription.items.data.find(
+    (item) => seatPriceIds.includes(item.price.id)
+  );
+
+  // Calculate additional seats (0 if no seat item found)
+  const additionalSeats = seatItem?.quantity || 0;
+  const includedSeats = user.subscription?.includedSeats || 1;
+  const totalSeats = includedSeats + additionalSeats;
+
+  log.info('[Webhook] Seat info from subscription', {
+    additionalSeats,
+    includedSeats,
+    totalSeats,
+    hasSeatItem: !!seatItem,
+  });
 
   // Update user's subscription status
   const sub: any = subscription;
@@ -223,7 +259,7 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription, tx: 
     },
   });
 
-  // Update subscription record
+  // Update subscription record with seat changes
   await tx.subscription.update({
     where: { userId: user.id },
     data: {
@@ -236,6 +272,9 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription, tx: 
         : new Date(),
       cancelAtPeriodEnd: sub.cancel_at_period_end || false,
       canceledAt: sub.canceled_at ? new Date(sub.canceled_at * 1000) : null,
+      // Sync seat quantities from Stripe
+      additionalSeats,
+      totalSeats,
     },
   });
 }

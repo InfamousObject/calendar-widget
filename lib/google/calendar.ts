@@ -612,3 +612,60 @@ export function checkSlotsAgainstEvents(
     return hasConflict;
   });
 }
+
+/**
+ * Get calendar events for the account owner and all active team members.
+ * This merges busy times from all connected calendars for the team.
+ */
+export async function getTeamCalendarEvents(
+  accountId: string,
+  startDate: Date,
+  endDate: Date
+): Promise<any[]> {
+  try {
+    // Get all user IDs to check (owner + active team members with calendars)
+    const userIds = [accountId];
+
+    // Get active team members with userIds
+    const teamMembers = await prisma.teamMember.findMany({
+      where: {
+        accountId,
+        status: 'active',
+        userId: { not: null },
+      },
+      select: { userId: true },
+    });
+
+    userIds.push(...teamMembers.map(m => m.userId!).filter(Boolean));
+
+    // Fetch events from all calendars in parallel
+    const allEventsPromises = userIds.map(async (userId) => {
+      try {
+        return await getCalendarEvents(userId, startDate, endDate);
+      } catch (error) {
+        // Log but don't fail - some users may not have calendars connected
+        log.debug('[Calendar] Could not fetch events for team member', {
+          userId,
+          error: error instanceof Error ? error.message : String(error),
+        });
+        return [];
+      }
+    });
+
+    const allEventsArrays = await Promise.all(allEventsPromises);
+
+    // Merge all events into a single array
+    const mergedEvents = allEventsArrays.flat();
+
+    log.debug('[Calendar] Fetched team calendar events', {
+      accountId,
+      teamMemberCount: userIds.length,
+      totalEvents: mergedEvents.length,
+    });
+
+    return mergedEvents;
+  } catch (error) {
+    log.error('[Calendar] Error fetching team calendar events', error);
+    return [];
+  }
+}

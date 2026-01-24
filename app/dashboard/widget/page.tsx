@@ -35,6 +35,7 @@ interface WidgetSettings {
   timeFormat: string;
   requirePhone: boolean;
   showNotes: boolean;
+  daysToDisplay: number;
 }
 
 export default function WidgetSettingsPage() {
@@ -324,22 +325,49 @@ export default function WidgetSettingsPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="timeFormat">Time Format</Label>
-                <Select
-                  value={settings.timeFormat}
-                  onValueChange={(value) =>
-                    setSettings({ ...settings, timeFormat: value })
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="12h">12-hour (2:30 PM)</SelectItem>
-                    <SelectItem value="24h">24-hour (14:30)</SelectItem>
-                  </SelectContent>
-                </Select>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="timeFormat">Time Format</Label>
+                  <Select
+                    value={settings.timeFormat}
+                    onValueChange={(value) =>
+                      setSettings({ ...settings, timeFormat: value })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="12h">12-hour (2:30 PM)</SelectItem>
+                      <SelectItem value="24h">24-hour (14:30)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="daysToDisplay">Days to Display</Label>
+                  <Select
+                    value={String(settings.daysToDisplay || 7)}
+                    onValueChange={(value) =>
+                      setSettings({ ...settings, daysToDisplay: parseInt(value) })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="7">7 days (1 week)</SelectItem>
+                      <SelectItem value="14">14 days (2 weeks)</SelectItem>
+                      <SelectItem value="21">21 days (3 weeks)</SelectItem>
+                      <SelectItem value="30">30 days (1 month)</SelectItem>
+                      <SelectItem value="60">60 days (2 months)</SelectItem>
+                      <SelectItem value="90">90 days (3 months)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-sm text-muted-foreground">
+                    How many days to show in the booking calendar
+                  </p>
+                </div>
               </div>
 
               <div className="space-y-3">

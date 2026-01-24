@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getCalendarEvents, checkSlotsAgainstEvents } from '@/lib/google/calendar';
+import { getCalendarEvents, getTeamCalendarEvents, checkSlotsAgainstEvents } from '@/lib/google/calendar';
 import { addDays, format, parse, startOfDay, endOfDay, addMinutes, isBefore, isAfter, parseISO } from 'date-fns';
 import { fromZonedTime } from 'date-fns-tz';
 import { availabilityCache } from '@/lib/cache/availability-cache';
@@ -279,28 +279,31 @@ async function generateSlotsForDay(
     tempSlotStart = addMinutes(tempSlotStart, appointmentType.duration);
   }
 
-  // Check cache for calendar events
-  let calendarEvents = availabilityCache.getCalendarEvents(user.id, dateStr);
+  // Check cache for calendar events (use accountId for team-wide caching)
+  // Cache key uses 'team:' prefix to differentiate from individual calendar cache
+  let calendarEvents = availabilityCache.getCalendarEvents(`team:${user.id}`, dateStr);
 
   if (!calendarEvents) {
-    // Fetch calendar events for the ENTIRE day in ONE API call
+    // Fetch calendar events for the ENTIRE day from ALL team members' calendars
     const dayStart = startOfDay(date);
     const dayEnd = endOfDay(date);
 
     try {
-      calendarEvents = await getCalendarEvents(user.id, dayStart, dayEnd);
+      // Use team-aware calendar fetch that includes owner + all active team member calendars
+      calendarEvents = await getTeamCalendarEvents(user.id, dayStart, dayEnd);
       // Cache for 15 minutes
-      availabilityCache.setCalendarEvents(user.id, dateStr, calendarEvents);
-      log.info('Fetched calendar events for slots', {
+      availabilityCache.setCalendarEvents(`team:${user.id}`, dateStr, calendarEvents);
+      log.info('Fetched team calendar events for slots', {
         eventCount: calendarEvents.length,
-        date: dateStr
+        date: dateStr,
+        accountId: user.id,
       });
     } catch (error) {
-      log.error('Error fetching calendar events', { error, date: dateStr });
+      log.error('Error fetching team calendar events', { error, date: dateStr });
       calendarEvents = [];
     }
   } else {
-    log.debug('Using cached calendar events for slots', { date: dateStr });
+    log.debug('Using cached team calendar events for slots', { date: dateStr });
   }
 
   // Batch check all slots against calendar events

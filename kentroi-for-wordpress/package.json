@@ -1,0 +1,18 @@
+{
+	"name": "kentroi-for-wordpress",
+	"version": "1.0.0",
+	"description": "Embed Kentroi booking widgets, contact forms, and AI chatbots on your WordPress site.",
+	"author": "Kentroi",
+	"license": "GPL-2.0-or-later",
+	"scripts": {
+		"build": "npm run build:booking && npm run build:form && npm run build:chat",
+		"build:booking": "wp-scripts build blocks/kentroi-booking/src/index.js --output-path=blocks/kentroi-booking/build",
+		"build:form": "wp-scripts build blocks/kentroi-form/src/index.js --output-path=blocks/kentroi-form/build",
+		"build:chat": "wp-scripts build blocks/kentroi-chat/src/index.js --output-path=blocks/kentroi-chat/build",
+		"start": "wp-scripts start",
+		"packages-update": "wp-scripts packages-update"
+	},
+	"devDependencies": {
+		"@wordpress/scripts": "^28.0.0"
+	}
+}

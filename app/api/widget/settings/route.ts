@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getCurrentUserId } from '@/lib/clerk-auth';
+import { requireTeamContext, getTeamContext } from '@/lib/team-context';
+import { hasPermission } from '@/lib/permissions';
 import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
 import { log } from '@/lib/logger';
@@ -21,19 +22,25 @@ const widgetSettingsSchema = z.object({
   timeFormat: z.enum(['12h', '24h']).optional(),
   requirePhone: z.boolean().optional(),
   showNotes: z.boolean().optional(),
+  daysToDisplay: z.number().min(7).max(90).optional(),
 });
 
-// GET - Get widget settings for the user
-export async function GET(request: NextRequest) {
+// GET - Get widget settings for the team account
+export async function GET() {
   try {
-    const userId = await getCurrentUserId();
+    const context = await getTeamContext();
 
-    if (!userId) {
+    if (!context) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    // Check permission
+    if (!hasPermission(context.role, 'widget:view')) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
     const user = await prisma.user.findUnique({
-      where: { id: userId },
+      where: { id: context.accountId },
       include: { widgetConfig: true },
     });
 
@@ -70,14 +77,15 @@ export async function GET(request: NextRequest) {
 // PATCH - Update widget settings
 export async function PATCH(request: NextRequest) {
   try {
-    const userId = await getCurrentUserId();
+    const context = await requireTeamContext();
 
-    if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    // Check permission
+    if (!hasPermission(context.role, 'widget:edit')) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
     const user = await prisma.user.findUnique({
-      where: { id: userId },
+      where: { id: context.accountId },
       include: { widgetConfig: true },
     });
 
@@ -108,6 +116,11 @@ export async function PATCH(request: NextRequest) {
     }
 
     log.error('Error updating widget settings', error);
+
+    if (error instanceof Error && error.message === 'Unauthorized') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     return NextResponse.json(
       { error: 'Failed to update widget settings' },
       { status: 500 }

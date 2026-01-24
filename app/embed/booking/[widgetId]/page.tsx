@@ -32,6 +32,14 @@ interface BookingFormField {
   options?: string[];
 }
 
+interface TimeSlot {
+  start: string;
+  end: string;
+  startLocal: string;
+  endLocal: string;
+  available: boolean;
+}
+
 interface WidgetConfig {
   widgetId: string;
   businessName: string;
@@ -40,6 +48,7 @@ interface WidgetConfig {
     timeFormat: string;
     requirePhone: boolean;
     showNotes: boolean;
+    daysToDisplay: number;
   };
   customFields: BookingFormField[];
 }
@@ -57,8 +66,8 @@ function EmbedBookingContent() {
   const [step, setStep] = useState<Step>('select-type');
   const [selectedType, setSelectedType] = useState<AppointmentType | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
-  const [selectedTime, setSelectedTime] = useState<string | null>(null);
-  const [availableSlots, setAvailableSlots] = useState<string[]>([]);
+  const [selectedSlot, setSelectedSlot] = useState<TimeSlot | null>(null);
+  const [availableSlots, setAvailableSlots] = useState<TimeSlot[]>([]);
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
@@ -72,6 +81,43 @@ function EmbedBookingContent() {
   // CAPTCHA state
   const [captchaToken, setCaptchaToken] = useState('');
   const captchaRef = useRef<HCaptcha>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Auto-resize: Report height to parent window for iframe resizing
+  useEffect(() => {
+    const reportHeight = () => {
+      if (containerRef.current) {
+        const height = containerRef.current.scrollHeight;
+        window.parent.postMessage({ type: 'kentroi-resize', height }, '*');
+      }
+    };
+
+    // Report initial height
+    reportHeight();
+
+    // Watch for size changes
+    const resizeObserver = new ResizeObserver(() => {
+      reportHeight();
+    });
+
+    if (containerRef.current) {
+      resizeObserver.observe(containerRef.current);
+    }
+
+    // Also report on step changes (content changes)
+    const observer = new MutationObserver(() => {
+      setTimeout(reportHeight, 100); // Small delay for DOM to settle
+    });
+
+    if (containerRef.current) {
+      observer.observe(containerRef.current, { childList: true, subtree: true });
+    }
+
+    return () => {
+      resizeObserver.disconnect();
+      observer.disconnect();
+    };
+  }, [step, loading, loadingSlots]);
 
   useEffect(() => {
     fetchConfig();
@@ -112,12 +158,23 @@ function EmbedBookingContent() {
 
     setLoadingSlots(true);
     try {
+      const dateStr = format(selectedDate, 'yyyy-MM-dd');
+      const startDate = startOfDay(selectedDate).toISOString();
+      const endDate = addDays(selectedDate, 1).toISOString();
+
       const response = await fetch(
-        `/api/appointments/available-slots?widgetId=${widgetId}&appointmentTypeId=${selectedType.id}&date=${format(selectedDate, 'yyyy-MM-dd')}`
+        `/api/availability/slots?widgetId=${widgetId}&appointmentTypeId=${selectedType.id}&startDate=${startDate}&endDate=${endDate}`
       );
       if (response.ok) {
         const data = await response.json();
-        setAvailableSlots(data.slots);
+        // Find slots for the selected date and filter to only available ones
+        const daySlots = data.slots?.find((s: { date: string; slots: TimeSlot[] }) => s.date === dateStr);
+        if (daySlots) {
+          const available = daySlots.slots.filter((s: TimeSlot) => s.available);
+          setAvailableSlots(available);
+        } else {
+          setAvailableSlots([]);
+        }
       }
     } catch (error) {
       console.error('Error fetching slots:', error);
@@ -127,7 +184,7 @@ function EmbedBookingContent() {
   };
 
   const handleSubmit = async () => {
-    if (!selectedDate || !selectedTime || !selectedType || !config) return;
+    if (!selectedDate || !selectedSlot || !selectedType || !config) return;
 
     // Validate required fields
     if (!formData.name.trim()) {
@@ -170,7 +227,7 @@ function EmbedBookingContent() {
 
     setSubmitting(true);
     try {
-      const startTime = parseISO(`${format(selectedDate, 'yyyy-MM-dd')}T${selectedTime}`);
+      const startTime = parseISO(selectedSlot.start);
 
       const response = await fetch('/api/appointments/book', {
         method: 'POST',
@@ -307,10 +364,11 @@ function EmbedBookingContent() {
     );
   }
 
-  const next30Days = Array.from({ length: 30 }, (_, i) => addDays(startOfDay(new Date()), i));
+  const daysToDisplay = config.bookingSettings.daysToDisplay || 7;
+  const availableDays = Array.from({ length: daysToDisplay }, (_, i) => addDays(startOfDay(new Date()), i));
 
   return (
-    <div className="max-w-2xl mx-auto p-4">
+    <div ref={containerRef} className="max-w-2xl mx-auto p-4">
       <Card>
         <CardHeader>
           <div className="flex items-center gap-3">
@@ -328,7 +386,7 @@ function EmbedBookingContent() {
                     }
                   } else if (step === 'select-time') {
                     setStep('select-date');
-                    setSelectedTime(null);
+                    setSelectedSlot(null);
                   } else if (step === 'details') {
                     setStep('select-time');
                   }
@@ -383,13 +441,13 @@ function EmbedBookingContent() {
             <div className="space-y-4">
               <h3 className="font-medium">Select a date</h3>
               <div className="grid grid-cols-4 gap-2">
-                {next30Days.map((date) => (
+                {availableDays.map((date) => (
                   <Button
                     key={date.toISOString()}
                     variant={selectedDate && format(date, 'yyyy-MM-dd') === format(selectedDate, 'yyyy-MM-dd') ? 'default' : 'outline'}
                     onClick={() => {
                       setSelectedDate(date);
-                      setSelectedTime(null);
+                      setSelectedSlot(null);
                       setStep('select-time');
                     }}
                     className="flex flex-col h-auto py-3"
@@ -415,16 +473,16 @@ function EmbedBookingContent() {
                 <p className="text-sm text-muted-foreground">No available times for this date</p>
               ) : (
                 <div className="grid grid-cols-3 gap-2">
-                  {availableSlots.map((time) => (
+                  {availableSlots.map((slot) => (
                     <Button
-                      key={time}
-                      variant={selectedTime === time ? 'default' : 'outline'}
+                      key={slot.start}
+                      variant={selectedSlot?.start === slot.start ? 'default' : 'outline'}
                       onClick={() => {
-                        setSelectedTime(time);
+                        setSelectedSlot(slot);
                         setStep('details');
                       }}
                     >
-                      {time}
+                      {slot.startLocal}
                     </Button>
                   ))}
                 </div>
@@ -521,7 +579,7 @@ function EmbedBookingContent() {
                 <h3 className="text-xl font-bold mb-2">Appointment Confirmed!</h3>
                 <p className="text-muted-foreground">
                   Your {selectedType?.name} appointment is scheduled for{' '}
-                  {selectedDate && format(selectedDate, 'MMMM d, yyyy')} at {selectedTime}.
+                  {selectedDate && format(selectedDate, 'MMMM d, yyyy')} at {selectedSlot?.startLocal}.
                 </p>
                 <p className="text-sm text-muted-foreground mt-2">
                   A confirmation email has been sent to {formData.email}.

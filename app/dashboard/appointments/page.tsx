@@ -6,8 +6,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
-import { Plus, Edit, Trash2, Check, X, Calendar, Clock, AlertCircle, DollarSign, Video } from 'lucide-react';
+import { Plus, Edit, Trash2, Check, X, Calendar, Clock, AlertCircle, DollarSign, Video, Lock, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
+import Link from 'next/link';
 
 interface AppointmentType {
   id: string;
@@ -27,11 +28,18 @@ interface AppointmentType {
   refundPolicy?: string;
 }
 
+interface TierInfo {
+  current: string;
+  canAcceptPayments: boolean;
+  upgradeMessage?: string;
+}
+
 export default function AppointmentsPage() {
   const [appointmentTypes, setAppointmentTypes] = useState<AppointmentType[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [tierInfo, setTierInfo] = useState<TierInfo | null>(null);
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -51,6 +59,7 @@ export default function AppointmentsPage() {
 
   useEffect(() => {
     fetchAppointmentTypes();
+    fetchTierInfo();
   }, []);
 
   const fetchAppointmentTypes = async () => {
@@ -64,6 +73,20 @@ export default function AppointmentsPage() {
       console.error('Error fetching appointment types:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchTierInfo = async () => {
+    try {
+      const response = await fetch('/api/stripe/connect');
+      if (response.ok) {
+        const data = await response.json();
+        if (data.tier) {
+          setTierInfo(data.tier);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching tier info:', error);
     }
   };
 
@@ -87,7 +110,14 @@ export default function AppointmentsPage() {
         await fetchAppointmentTypes();
         resetForm();
       } else {
-        toast.error('Failed to save appointment type');
+        const errorData = await response.json();
+        if (errorData.requiresUpgrade) {
+          toast.error('Please upgrade to a Booking or Bundle plan to accept payments');
+          // Refresh tier info
+          await fetchTierInfo();
+        } else {
+          toast.error(errorData.error || 'Failed to save appointment type');
+        }
       }
     } catch (error) {
       console.error('Error saving appointment type:', error);
@@ -350,125 +380,157 @@ export default function AppointmentsPage() {
 
               {/* Payment Settings Section */}
               <div className="space-y-4 p-4 rounded-lg border bg-muted/30">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-lg bg-primary/10">
-                      <DollarSign className="h-4 w-4 text-primary" />
-                    </div>
-                    <div>
-                      <Label htmlFor="requirePayment" className="text-sm font-medium">
-                        Require Payment
-                      </Label>
-                      <p className="text-xs text-foreground-secondary">
-                        Collect payment when customers book this appointment
-                      </p>
-                    </div>
-                  </div>
-                  <Switch
-                    id="requirePayment"
-                    checked={formData.requirePayment}
-                    onCheckedChange={(checked) =>
-                      setFormData({ ...formData, requirePayment: checked })
-                    }
-                  />
-                </div>
-
-                {formData.requirePayment && (
-                  <div className="space-y-4 pt-4 border-t">
-                    <div className="grid gap-4 md:grid-cols-2">
-                      <div className="space-y-2">
-                        <Label htmlFor="price">Price ($)</Label>
-                        <div className="relative">
-                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-foreground-secondary">
-                            $
-                          </span>
-                          <Input
-                            id="price"
-                            type="number"
-                            step="0.01"
-                            min="0.50"
-                            placeholder="0.00"
-                            className="pl-7"
-                            value={formData.price ? (formData.price / 100).toFixed(2) : ''}
-                            onChange={(e) => {
-                              const dollars = parseFloat(e.target.value);
-                              setFormData({
-                                ...formData,
-                                price: isNaN(dollars) ? null : Math.round(dollars * 100),
-                              });
-                            }}
-                          />
-                        </div>
-                        <p className="text-xs text-foreground-secondary">
-                          Minimum $0.50 (Stripe requirement)
-                        </p>
+                {tierInfo && !tierInfo.canAcceptPayments ? (
+                  // Upgrade prompt for free/chatbot users
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 rounded-lg bg-primary/10">
+                        <Lock className="h-4 w-4 text-primary" />
                       </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="currency">Currency</Label>
-                        <select
-                          id="currency"
-                          value={formData.currency}
-                          onChange={(e) =>
-                            setFormData({ ...formData, currency: e.target.value })
-                          }
-                          className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                        >
-                          <option value="usd">USD ($)</option>
-                          <option value="eur">EUR (&euro;)</option>
-                          <option value="gbp">GBP (&pound;)</option>
-                          <option value="cad">CAD ($)</option>
-                          <option value="aud">AUD ($)</option>
-                        </select>
-                      </div>
-                    </div>
-
-                    <div className="grid gap-4 md:grid-cols-2">
-                      <div className="space-y-2">
-                        <Label htmlFor="depositPercent">Deposit Percentage (Optional)</Label>
-                        <div className="relative">
-                          <Input
-                            id="depositPercent"
-                            type="number"
-                            min="1"
-                            max="100"
-                            placeholder="100"
-                            value={formData.depositPercent ?? ''}
-                            onChange={(e) => {
-                              const value = e.target.value;
-                              setFormData({
-                                ...formData,
-                                depositPercent: value === '' ? null : parseInt(value),
-                              });
-                            }}
-                          />
-                          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-foreground-secondary">
-                            %
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <Label className="text-sm font-medium">Payment Settings</Label>
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary/10 text-primary text-xs font-medium">
+                            <Sparkles className="h-3 w-3" />
+                            Premium
                           </span>
                         </div>
                         <p className="text-xs text-foreground-secondary">
-                          Leave empty for full payment upfront
-                        </p>
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="refundPolicy">Refund Policy</Label>
-                        <select
-                          id="refundPolicy"
-                          value={formData.refundPolicy}
-                          onChange={(e) =>
-                            setFormData({ ...formData, refundPolicy: e.target.value })
-                          }
-                          className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                        >
-                          <option value="full">Full Refund (100%)</option>
-                          <option value="partial">Partial Refund (50%)</option>
-                          <option value="none">No Refund</option>
-                        </select>
-                        <p className="text-xs text-foreground-secondary">
-                          Applied when customer cancels
+                          Accept payments for appointments with Booking and Bundle plans
                         </p>
                       </div>
                     </div>
+                    <Link href="/dashboard/billing">
+                      <Button variant="outline" size="sm" className="gap-2">
+                        <Sparkles className="h-4 w-4" />
+                        Upgrade to Enable
+                      </Button>
+                    </Link>
                   </div>
+                ) : (
+                  // Payment settings for booking/bundle users
+                  <>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 rounded-lg bg-primary/10">
+                          <DollarSign className="h-4 w-4 text-primary" />
+                        </div>
+                        <div>
+                          <Label htmlFor="requirePayment" className="text-sm font-medium">
+                            Require Payment
+                          </Label>
+                          <p className="text-xs text-foreground-secondary">
+                            Collect payment when customers book this appointment
+                          </p>
+                        </div>
+                      </div>
+                      <Switch
+                        id="requirePayment"
+                        checked={formData.requirePayment}
+                        onCheckedChange={(checked) =>
+                          setFormData({ ...formData, requirePayment: checked })
+                        }
+                      />
+                    </div>
+
+                    {formData.requirePayment && (
+                      <div className="space-y-4 pt-4 border-t">
+                        <div className="grid gap-4 md:grid-cols-2">
+                          <div className="space-y-2">
+                            <Label htmlFor="price">Price ($)</Label>
+                            <div className="relative">
+                              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-foreground-secondary">
+                                $
+                              </span>
+                              <Input
+                                id="price"
+                                type="number"
+                                step="0.01"
+                                min="0.50"
+                                placeholder="0.00"
+                                className="pl-7"
+                                value={formData.price ? (formData.price / 100).toFixed(2) : ''}
+                                onChange={(e) => {
+                                  const dollars = parseFloat(e.target.value);
+                                  setFormData({
+                                    ...formData,
+                                    price: isNaN(dollars) ? null : Math.round(dollars * 100),
+                                  });
+                                }}
+                              />
+                            </div>
+                            <p className="text-xs text-foreground-secondary">
+                              Minimum $0.50 (Stripe requirement)
+                            </p>
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="currency">Currency</Label>
+                            <select
+                              id="currency"
+                              value={formData.currency}
+                              onChange={(e) =>
+                                setFormData({ ...formData, currency: e.target.value })
+                              }
+                              className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                            >
+                              <option value="usd">USD ($)</option>
+                              <option value="eur">EUR (&euro;)</option>
+                              <option value="gbp">GBP (&pound;)</option>
+                              <option value="cad">CAD ($)</option>
+                              <option value="aud">AUD ($)</option>
+                            </select>
+                          </div>
+                        </div>
+
+                        <div className="grid gap-4 md:grid-cols-2">
+                          <div className="space-y-2">
+                            <Label htmlFor="depositPercent">Deposit Percentage (Optional)</Label>
+                            <div className="relative">
+                              <Input
+                                id="depositPercent"
+                                type="number"
+                                min="1"
+                                max="100"
+                                placeholder="100"
+                                value={formData.depositPercent ?? ''}
+                                onChange={(e) => {
+                                  const value = e.target.value;
+                                  setFormData({
+                                    ...formData,
+                                    depositPercent: value === '' ? null : parseInt(value),
+                                  });
+                                }}
+                              />
+                              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-foreground-secondary">
+                                %
+                              </span>
+                            </div>
+                            <p className="text-xs text-foreground-secondary">
+                              Leave empty for full payment upfront
+                            </p>
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="refundPolicy">Refund Policy</Label>
+                            <select
+                              id="refundPolicy"
+                              value={formData.refundPolicy}
+                              onChange={(e) =>
+                                setFormData({ ...formData, refundPolicy: e.target.value })
+                              }
+                              className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                            >
+                              <option value="full">Full Refund (100%)</option>
+                              <option value="partial">Partial Refund (50%)</option>
+                              <option value="none">No Refund</option>
+                            </select>
+                            <p className="text-xs text-foreground-secondary">
+                              Applied when customer cancels
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
 

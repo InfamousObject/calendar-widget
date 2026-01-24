@@ -6,12 +6,16 @@ const isPublicRoute = createRouteMatcher([
   '/privacy',
   '/terms',
   '/pricing',
+  '/alternatives',
+  '/alternatives/(.*)',
   '/auth/(.*)',
   '/sign-in(.*)',
   '/sign-up(.*)',
+  '/invite/(.*)',
   '/api/appointments/book(.*)',
-  '/api/appointments/available-slots(.*)',
   '/api/appointments/cancel(.*)',
+  '/api/availability/slots(.*)',
+  '/api/availability/dates(.*)',
   '/api/forms/submit(.*)',
   '/api/chatbot/chat(.*)',
   '/api/embed/(.*)',
@@ -20,6 +24,8 @@ const isPublicRoute = createRouteMatcher([
   '/api/stripe/webhook(.*)',
   '/api/webhooks/clerk(.*)',
   '/api/sync-user(.*)',
+  '/api/team/accept(.*)',
+  '/api/wordpress/(.*)',
 ]);
 
 export default clerkMiddleware(async (auth, req) => {

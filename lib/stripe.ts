@@ -192,3 +192,80 @@ export async function getSubscription(subscriptionId: string): Promise<Stripe.Su
 export async function getCustomer(customerId: string): Promise<Stripe.Customer> {
   return await stripe.customers.retrieve(customerId) as Stripe.Customer;
 }
+
+// Get seat price ID based on billing interval
+export function getSeatPriceId(interval: BillingInterval): string {
+  const priceKey = interval === 'month' ? 'monthly' : 'annual';
+  return STRIPE_PRICES.seat[priceKey];
+}
+
+// Update subscription with additional seats
+export async function updateSubscriptionSeats(
+  subscriptionId: string,
+  additionalSeats: number,
+  interval: BillingInterval
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+
+    // Find existing seat item or prepare to add new one
+    const seatPriceId = getSeatPriceId(interval);
+    const seatItem = subscription.items.data.find(
+      (item) => item.price.id === seatPriceId
+    );
+
+    if (additionalSeats === 0) {
+      // Remove seat item if exists and quantity is 0
+      if (seatItem) {
+        await stripe.subscriptions.update(subscriptionId, {
+          items: [
+            {
+              id: seatItem.id,
+              deleted: true,
+            },
+          ],
+        });
+      }
+    } else if (seatItem) {
+      // Update existing seat item
+      await stripe.subscriptions.update(subscriptionId, {
+        items: [
+          {
+            id: seatItem.id,
+            quantity: additionalSeats,
+          },
+        ],
+        proration_behavior: 'create_prorations',
+      });
+    } else {
+      // Add new seat item
+      await stripe.subscriptions.update(subscriptionId, {
+        items: [
+          {
+            price: seatPriceId,
+            quantity: additionalSeats,
+          },
+        ],
+        proration_behavior: 'create_prorations',
+      });
+    }
+
+    log.info('[Stripe] Subscription seats updated', {
+      subscriptionId,
+      additionalSeats,
+    });
+
+    return { success: true };
+  } catch (error: any) {
+    log.error('[Stripe] Error updating subscription seats', {
+      error: error?.message,
+      subscriptionId,
+      additionalSeats,
+    });
+
+    return {
+      success: false,
+      error: error?.message || 'Failed to update subscription',
+    };
+  }
+}
