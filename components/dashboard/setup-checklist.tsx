@@ -9,6 +9,7 @@ import {
   Circle,
   X,
   Calendar,
+  CalendarClock,
   Clock,
   FileText,
   ArrowRight,
@@ -24,6 +25,7 @@ interface SetupTask {
   completed: boolean;
   link: string;
   icon: React.ElementType;
+  required: boolean;
 }
 
 interface SetupChecklistProps {
@@ -58,6 +60,11 @@ export function SetupChecklist({ onComplete }: SetupChecklistProps) {
       const appointmentTypesData = await appointmentTypesResponse.json();
       const hasAppointmentTypes = appointmentTypesData.appointmentTypes?.length > 0;
 
+      // Fetch availability
+      const availabilityResponse = await fetch('/api/availability');
+      const availabilityData = await availabilityResponse.json();
+      const hasAvailability = Array.isArray(availabilityData) ? availabilityData.length > 0 : false;
+
       // Fetch contact forms
       const formsResponse = await fetch('/api/forms');
       const formsData = await formsResponse.json();
@@ -71,6 +78,16 @@ export function SetupChecklist({ onComplete }: SetupChecklistProps) {
           completed: hasCalendar,
           link: '/dashboard/calendar',
           icon: Calendar,
+          required: true,
+        },
+        {
+          id: 'availability',
+          title: 'Set Your Availability',
+          description: 'Define your weekly schedule so customers can book',
+          completed: hasAvailability,
+          link: '/dashboard/availability',
+          icon: CalendarClock,
+          required: true,
         },
         {
           id: 'appointment-type',
@@ -79,6 +96,7 @@ export function SetupChecklist({ onComplete }: SetupChecklistProps) {
           completed: hasAppointmentTypes,
           link: '/dashboard/appointments',
           icon: Clock,
+          required: true,
         },
         {
           id: 'contact-form',
@@ -87,13 +105,14 @@ export function SetupChecklist({ onComplete }: SetupChecklistProps) {
           completed: hasForms,
           link: '/dashboard/forms',
           icon: FileText,
+          required: false,
         },
       ];
 
       setTasks(setupTasks);
 
-      // If all tasks completed, call onComplete callback
-      const allCompleted = setupTasks.every((task) => task.completed);
+      // If all required tasks completed, call onComplete callback
+      const allCompleted = setupTasks.filter((t) => t.required).every((t) => t.completed);
       if (allCompleted && onComplete) {
         onComplete();
       }
@@ -118,9 +137,10 @@ export function SetupChecklist({ onComplete }: SetupChecklistProps) {
     return null; // Don't show anything while loading
   }
 
-  const completedCount = tasks.filter((task) => task.completed).length;
-  const totalCount = tasks.length;
-  const progressPercentage = (completedCount / totalCount) * 100;
+  const requiredTasks = tasks.filter((task) => task.required);
+  const completedCount = requiredTasks.filter((task) => task.completed).length;
+  const totalCount = requiredTasks.length;
+  const progressPercentage = totalCount > 0 ? (completedCount / totalCount) * 100 : 0;
   const allCompleted = completedCount === totalCount;
 
   // Don't show if all tasks are completed
@@ -247,6 +267,13 @@ export function SetupChecklist({ onComplete }: SetupChecklistProps) {
                     }`}>
                       {task.title}
                     </h3>
+                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+                      task.required
+                        ? 'bg-primary/10 text-primary'
+                        : 'bg-muted text-muted-foreground'
+                    }`}>
+                      {task.required ? 'Required' : 'Optional'}
+                    </span>
                   </div>
                   <p className="text-sm text-foreground-secondary">
                     {task.description}
@@ -288,7 +315,7 @@ export function SetupChecklist({ onComplete }: SetupChecklistProps) {
                   Great progress!
                 </p>
                 <p className="text-sm text-foreground-secondary">
-                  Complete the remaining {totalCount - completedCount} task{totalCount - completedCount !== 1 ? 's' : ''} to unlock the full potential of Kentroi.
+                  Complete the remaining {totalCount - completedCount} essential task{totalCount - completedCount !== 1 ? 's' : ''} to unlock the full potential of Kentroi.
                 </p>
               </div>
             </div>
