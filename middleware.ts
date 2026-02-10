@@ -32,6 +32,7 @@ const isPublicRoute = createRouteMatcher([
   '/api/team/accept(.*)',
   '/api/wordpress/(.*)',
   '/api/cron/(.*)',
+  '/api/calendar/callback(.*)',  // Google OAuth callback - uses Redis state tokens
 ]);
 
 export default clerkMiddleware(async (auth, req) => {
