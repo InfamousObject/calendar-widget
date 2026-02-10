@@ -6,7 +6,6 @@ import { availabilityCache } from '@/lib/cache/availability-cache';
 import { incrementUsage, checkUsageLimit } from '@/lib/subscription';
 import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
 import { verifyCaptcha } from '@/lib/captcha';
-import { validateCsrfToken, isCsrfEnabled } from '@/lib/csrf';
 import { log } from '@/lib/logger';
 import { z } from 'zod';
 import crypto from 'crypto';
@@ -32,28 +31,8 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
 
-    // Get client IP for rate limiting, CSRF, and CAPTCHA verification
+    // Get client IP for rate limiting and CAPTCHA verification
     const clientIp = getClientIp(request);
-
-    // Verify CSRF token if enabled (before other validations to fail fast on forged requests)
-    if (isCsrfEnabled()) {
-      if (!body.csrfToken) {
-        return NextResponse.json(
-          { error: 'CSRF token required. Please refresh the page and try again.' },
-          { status: 403 }
-        );
-      }
-
-      const csrfValid = await validateCsrfToken(body.csrfToken, clientIp);
-      if (!csrfValid) {
-        return NextResponse.json(
-          { error: 'Invalid or expired CSRF token. Please refresh the page and try again.' },
-          { status: 403 }
-        );
-      }
-
-      log.info('[Book] CSRF validation successful', { ip: clientIp });
-    }
 
     // Verify CAPTCHA if configured (before rate limiting to prevent CAPTCHA bypass)
     if (process.env.HCAPTCHA_SECRET_KEY) {
