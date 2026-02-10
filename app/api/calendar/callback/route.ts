@@ -27,14 +27,14 @@ export async function GET(request: NextRequest) {
     if (error) {
       log.error('[Calendar] OAuth error', { error });
       return NextResponse.redirect(
-        `${process.env.NEXTAUTH_URL}/dashboard/calendar?error=access_denied`
+        `${process.env.NEXT_PUBLIC_APP_URL}/dashboard/calendar?error=access_denied`
       );
     }
 
     if (!code || !state) {
       log.warn('[Calendar] Missing code or state parameter');
       return NextResponse.redirect(
-        `${process.env.NEXTAUTH_URL}/dashboard/calendar?error=missing_params`
+        `${process.env.NEXT_PUBLIC_APP_URL}/dashboard/calendar?error=missing_params`
       );
     }
 
@@ -42,7 +42,7 @@ export async function GET(request: NextRequest) {
     if (!redis) {
       log.error('[Calendar] Redis unavailable - cannot validate OAuth state');
       return NextResponse.redirect(
-        `${process.env.NEXTAUTH_URL}/dashboard/calendar?error=server_error`
+        `${process.env.NEXT_PUBLIC_APP_URL}/dashboard/calendar?error=server_error`
       );
     }
 
@@ -53,7 +53,7 @@ export async function GET(request: NextRequest) {
         stateLength: state.length
       });
       return NextResponse.redirect(
-        `${process.env.NEXTAUTH_URL}/dashboard/calendar?error=invalid_state`
+        `${process.env.NEXT_PUBLIC_APP_URL}/dashboard/calendar?error=invalid_state`
       );
     }
 
@@ -73,7 +73,7 @@ export async function GET(request: NextRequest) {
 
     if (!user) {
       return NextResponse.redirect(
-        `${process.env.NEXTAUTH_URL}/dashboard/calendar?error=user_not_found`
+        `${process.env.NEXT_PUBLIC_APP_URL}/dashboard/calendar?error=user_not_found`
       );
     }
 
@@ -82,7 +82,7 @@ export async function GET(request: NextRequest) {
 
     if (!tokens.access_token || !tokens.refresh_token) {
       return NextResponse.redirect(
-        `${process.env.NEXTAUTH_URL}/dashboard/calendar?error=no_tokens`
+        `${process.env.NEXT_PUBLIC_APP_URL}/dashboard/calendar?error=no_tokens`
       );
     }
 
@@ -96,7 +96,7 @@ export async function GET(request: NextRequest) {
 
     if (!primaryCalendar?.id) {
       return NextResponse.redirect(
-        `${process.env.NEXTAUTH_URL}/dashboard/calendar?error=no_calendar`
+        `${process.env.NEXT_PUBLIC_APP_URL}/dashboard/calendar?error=no_calendar`
       );
     }
 
@@ -171,12 +171,12 @@ export async function GET(request: NextRequest) {
     }
 
     return NextResponse.redirect(
-      `${process.env.NEXTAUTH_URL}/dashboard/calendar?success=true`
+      `${process.env.NEXT_PUBLIC_APP_URL}/dashboard/calendar?success=true`
     );
   } catch (error) {
     log.error('[Calendar] Error handling OAuth callback', error);
     return NextResponse.redirect(
-      `${process.env.NEXTAUTH_URL}/dashboard/calendar?error=callback_failed`
+      `${process.env.NEXT_PUBLIC_APP_URL}/dashboard/calendar?error=callback_failed`
     );
   }
 }

@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Create portal session
-    const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000';
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
     const portalSession = await createPortalSession(
       user.stripeCustomerId,
       `${baseUrl}/dashboard/billing`

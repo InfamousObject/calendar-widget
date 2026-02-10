@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
     diagnostics.checks.envVars = {
       googleClientId: !!process.env.GOOGLE_CLIENT_ID,
       googleClientSecret: !!process.env.GOOGLE_CLIENT_SECRET,
-      nextAuthUrl: !!process.env.NEXTAUTH_URL,
+      appUrl: !!process.env.NEXT_PUBLIC_APP_URL,
     };
 
     if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {

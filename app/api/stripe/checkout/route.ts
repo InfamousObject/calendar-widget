@@ -94,7 +94,7 @@ export async function POST(request: NextRequest) {
         hadPromoCode: !!promotionCode,
       });
 
-      const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000';
+      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
       return NextResponse.json({ url: `${baseUrl}/dashboard/billing?success=true` });
     }
 
@@ -116,7 +116,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Create checkout session
-    const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000';
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
     const checkoutSession = await createCheckoutSession({
       userId: user.id,
       email: user.email,
