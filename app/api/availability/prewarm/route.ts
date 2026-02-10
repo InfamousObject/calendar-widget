@@ -100,29 +100,45 @@ async function prewarmAvailability(
       dates: datesToPrewarm
     });
 
-    // Fetch calendar events for all dates in parallel
-    const prewarmPromises = datesToPrewarm.map(async (dateStr) => {
+    // Check which dates still need fetching
+    const uncachedDates: string[] = [];
+    for (const dateStr of datesToPrewarm) {
+      const cached = await availabilityCache.getCalendarEvents(`team:${userId}`, dateStr);
+      if (cached) {
+        log.debug('Date already cached, skipping prewarm', { date: dateStr });
+      } else {
+        uncachedDates.push(dateStr);
+      }
+    }
+
+    if (uncachedDates.length > 0) {
+      // Fetch ALL events for the full range in ONE API call
+      const rangeStart = startOfDay(new Date(uncachedDates[0]));
+      const rangeEnd = endOfDay(new Date(uncachedDates[uncachedDates.length - 1]));
+
       try {
-        // Check if already cached (use team: prefix to match slots endpoint)
-        const cached = await availabilityCache.getCalendarEvents(`team:${userId}`, dateStr);
-        if (cached) {
-          log.debug('Date already cached, skipping prewarm', { date: dateStr });
-          return;
+        const allEvents = await getTeamCalendarEvents(userId, rangeStart, rangeEnd);
+
+        // Distribute events to per-day cache entries
+        for (const dateStr of uncachedDates) {
+          const dayStart = startOfDay(new Date(dateStr));
+          const dayEnd = endOfDay(new Date(dateStr));
+          const dayEvents = allEvents.filter((event: any) => {
+            const es = new Date(event.start?.dateTime || event.start?.date);
+            const ee = new Date(event.end?.dateTime || event.end?.date);
+            return es < dayEnd && ee > dayStart;
+          });
+          availabilityCache.setCalendarEvents(`team:${userId}`, dateStr, dayEvents);
         }
 
-        const date = new Date(dateStr);
-        const dayStart = startOfDay(date);
-        const dayEnd = endOfDay(date);
-
-        const events = await getTeamCalendarEvents(userId, dayStart, dayEnd);
-        availabilityCache.setCalendarEvents(`team:${userId}`, dateStr, events);
-        log.info('Cached events for date', { eventCount: events.length, date: dateStr });
+        log.info('Batch-fetched events for prewarm', {
+          totalEvents: allEvents.length,
+          datesWarmed: uncachedDates.length,
+        });
       } catch (error) {
-        log.error('Failed to cache date during prewarm', { error, date: dateStr });
+        log.error('Failed to batch-fetch during prewarm', { error });
       }
-    });
-
-    await Promise.all(prewarmPromises);
+    }
 
     const duration = Date.now() - startTime;
     log.info('Prewarm completed', { durationMs: duration });

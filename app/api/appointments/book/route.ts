@@ -302,6 +302,7 @@ export async function POST(request: NextRequest) {
     // Create Google Calendar event (with optional Google Meet link)
     let calendarEventId: string | null | undefined;
     let meetingLink: string | null | undefined;
+    let calendarError: string | undefined;
     try {
       // Build description with form responses
       let description = `Appointment with ${validatedData.visitorName}\nEmail: ${validatedData.visitorEmail}${
@@ -350,7 +351,7 @@ export async function POST(request: NextRequest) {
         });
       }
     } catch (error) {
-      const calendarError = error instanceof Error ? error.message : String(error);
+      calendarError = error instanceof Error ? error.message : String(error);
       log.error('[Book] Error creating calendar event', { calendarError, userId: user.id });
       // Don't fail the appointment if calendar creation fails
     }
@@ -417,6 +418,7 @@ export async function POST(request: NextRequest) {
         meetingProvider: meetingLink ? 'google_meet' : undefined,
       },
       calendarCreated: !!calendarEventId,
+      calendarError: calendarError || undefined,
     });
   } catch (error) {
     if (error instanceof z.ZodError) {

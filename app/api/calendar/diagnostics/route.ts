@@ -3,6 +3,7 @@ import { getCurrentUserId } from '@/lib/clerk-auth';
 import { prisma } from '@/lib/prisma';
 import { getCalendarClient } from '@/lib/google/oauth';
 import { decrypt } from '@/lib/encryption';
+import { getClerkGoogleToken, hasCalendarScopes } from '@/lib/clerk/oauth-tokens';
 import { log } from '@/lib/logger';
 
 export async function GET(request: NextRequest) {
@@ -71,6 +72,7 @@ export async function GET(request: NextRequest) {
       select: {
         id: true,
         provider: true,
+        source: true,
         email: true,
         emailIv: true,
         emailAuth: true,
@@ -94,10 +96,11 @@ export async function GET(request: NextRequest) {
         return {
           id: conn.id,
           provider: conn.provider,
+          source: (conn as any).source || 'manual',
           email: decryptedEmail,
           isPrimary: conn.isPrimary,
           expiresAt: conn.expiresAt,
-          isExpired: new Date() >= new Date(conn.expiresAt),
+          isExpired: (conn as any).source === 'clerk' ? false : new Date() >= new Date(conn.expiresAt),
           createdAt: conn.createdAt,
           updatedAt: conn.updatedAt,
         };
@@ -157,23 +160,58 @@ export async function GET(request: NextRequest) {
         });
 
         if (conn) {
-          const calendar = getCalendarClient(
-            conn.accessToken,
-            conn.refreshToken
-          );
+          let calendar;
 
-          const calendarList = await calendar.calendarList.list();
+          if (conn.source === 'clerk') {
+            // For Clerk connections, fetch the real token from Clerk
+            diagnostics.info.push('Connection is Clerk-managed, fetching live token...');
 
-          diagnostics.checks.apiTest = {
-            success: true,
-            calendarsFound: calendarList.data.items?.length || 0,
-            primaryCalendar: calendarList.data.items?.find((cal) => cal.primary)
-              ?.summary,
-          };
+            const clerkToken = await getClerkGoogleToken(user.id);
 
-          diagnostics.info.push(
-            `Successfully connected to Google Calendar API`
-          );
+            if (!clerkToken) {
+              diagnostics.errors.push('Clerk returned no Google token - user may need to reconnect Google in Clerk');
+              diagnostics.checks.clerkToken = { available: false };
+            } else {
+              const scopesOk = hasCalendarScopes(clerkToken.scopes);
+              diagnostics.checks.clerkToken = {
+                available: true,
+                scopes: clerkToken.scopes,
+                hasCalendarScopes: scopesOk,
+                tokenLength: clerkToken.token.length,
+              };
+
+              if (!scopesOk) {
+                diagnostics.errors.push(
+                  `Clerk token missing calendar scopes. Has: [${clerkToken.scopes.join(', ')}]. ` +
+                  'Required: calendar.readonly + calendar.events. ' +
+                  'Update Google OAuth scopes in Clerk Dashboard.'
+                );
+              }
+
+              // Test with bare OAuth2 client (Clerk token)
+              calendar = getCalendarClient(clerkToken.token, '', false);
+            }
+          } else {
+            // Manual OAuth connection - decrypt and use stored tokens
+            const decryptedAccessToken = decrypt(conn.accessToken, conn.accessTokenIv, conn.accessTokenAuth);
+            const decryptedRefreshToken = decrypt(conn.refreshToken, conn.refreshTokenIv, conn.refreshTokenAuth);
+            calendar = getCalendarClient(decryptedAccessToken, decryptedRefreshToken);
+          }
+
+          if (calendar) {
+            const calendarList = await calendar.calendarList.list();
+
+            diagnostics.checks.apiTest = {
+              success: true,
+              calendarsFound: calendarList.data.items?.length || 0,
+              primaryCalendar: calendarList.data.items?.find((cal: any) => cal.primary)
+                ?.summary,
+            };
+
+            diagnostics.info.push(
+              `Successfully connected to Google Calendar API`
+            );
+          }
         } else {
           diagnostics.warnings.push(
             'Could not retrieve connection for API test'
@@ -183,6 +221,7 @@ export async function GET(request: NextRequest) {
         diagnostics.checks.apiTest = {
           success: false,
           error: error.message,
+          code: error.code || error.status || undefined,
         };
 
         diagnostics.errors.push(`Calendar API test failed: ${error.message}`);
@@ -190,6 +229,10 @@ export async function GET(request: NextRequest) {
         if (error.message?.includes('invalid_grant')) {
           diagnostics.errors.push(
             'Access token is invalid - please reconnect your calendar'
+          );
+        } else if (error.message?.includes('insufficient')) {
+          diagnostics.errors.push(
+            'Token has insufficient scopes - update Google OAuth scopes in Clerk Dashboard'
           );
         }
       }

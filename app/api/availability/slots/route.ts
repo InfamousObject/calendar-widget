@@ -176,6 +176,58 @@ export async function GET(request: NextRequest) {
 
     // Generate slots for each day
     try {
+      // --- Pre-fetch calendar events for the ENTIRE date range ---
+      const dateStrings: string[] = [];
+      {
+        let d = new Date(startDate);
+        while (isBefore(d, endDate) || d.getTime() === startDate.getTime()) {
+          dateStrings.push(format(d, 'yyyy-MM-dd'));
+          d = addDays(d, 1);
+        }
+      }
+
+      // Check per-day cache, collect misses
+      const cachedEventsByDate = new Map<string, any[]>();
+      const uncachedDates: string[] = [];
+      for (const ds of dateStrings) {
+        const cached = await availabilityCache.getCalendarEvents(`team:${user.id}`, ds);
+        if (cached) {
+          cachedEventsByDate.set(ds, cached);
+        } else {
+          uncachedDates.push(ds);
+        }
+      }
+
+      // If any dates missed cache, fetch full range in ONE API call
+      if (uncachedDates.length > 0) {
+        try {
+          const fetchedEvents = await getTeamCalendarEvents(user.id, startDate, endDate);
+          for (const ds of uncachedDates) {
+            const dayStart = startOfDay(parseISO(ds));
+            const dayEnd = endOfDay(parseISO(ds));
+            const dayEvents = fetchedEvents.filter((event: any) => {
+              const es = new Date(event.start?.dateTime || event.start?.date);
+              const ee = new Date(event.end?.dateTime || event.end?.date);
+              return es < dayEnd && ee > dayStart;
+            });
+            cachedEventsByDate.set(ds, dayEvents);
+            availabilityCache.setCalendarEvents(`team:${user.id}`, ds, dayEvents);
+          }
+          log.info('Pre-fetched calendar events for range', {
+            eventCount: fetchedEvents.length,
+            cachedDays: dateStrings.length - uncachedDates.length,
+            fetchedDays: uncachedDates.length,
+          });
+        } catch (error) {
+          log.error('Error pre-fetching calendar events', error instanceof Error ? error : new Error(String(error)));
+          for (const ds of uncachedDates) {
+            if (!cachedEventsByDate.has(ds)) {
+              cachedEventsByDate.set(ds, []);
+            }
+          }
+        }
+      }
+
       const allSlots: { date: string; slots: TimeSlot[] }[] = [];
       let currentDate = new Date(startDate);
 
@@ -200,7 +252,8 @@ export async function GET(request: NextRequest) {
               appointmentType,
               user,
               existingAppointments,
-              user.timezone
+              user.timezone,
+              cachedEventsByDate.get(dateStr) || []
             );
           }
           // If override is not available, daySlots stays empty
@@ -215,7 +268,8 @@ export async function GET(request: NextRequest) {
               appointmentType,
               user,
               existingAppointments,
-              user.timezone
+              user.timezone,
+              cachedEventsByDate.get(dateStr) || []
             );
           }
         }
@@ -263,7 +317,8 @@ async function generateSlotsForDay(
   appointmentType: any,
   user: any,
   existingAppointments: any[],
-  timezone: string
+  timezone: string,
+  calendarEvents: any[] = []
 ): Promise<TimeSlot[]> {
   const dateStr = format(date, 'yyyy-MM-dd');
 
@@ -311,34 +366,7 @@ async function generateSlotsForDay(
     tempSlotStart = addMinutes(tempSlotStart, appointmentType.duration);
   }
 
-  // Check cache for calendar events (use accountId for team-wide caching)
-  // Cache key uses 'team:' prefix to differentiate from individual calendar cache
-  let calendarEvents = await availabilityCache.getCalendarEvents(`team:${user.id}`, dateStr);
-
-  if (!calendarEvents) {
-    // Fetch calendar events for the ENTIRE day from ALL team members' calendars
-    const dayStart = startOfDay(date);
-    const dayEnd = endOfDay(date);
-
-    try {
-      // Use team-aware calendar fetch that includes owner + all active team member calendars
-      calendarEvents = await getTeamCalendarEvents(user.id, dayStart, dayEnd);
-      // Cache for 15 minutes
-      availabilityCache.setCalendarEvents(`team:${user.id}`, dateStr, calendarEvents);
-      log.info('Fetched team calendar events for slots', {
-        eventCount: calendarEvents.length,
-        date: dateStr,
-        accountId: user.id,
-      });
-    } catch (error) {
-      log.error('Error fetching team calendar events', error instanceof Error ? error : new Error(String(error)));
-      calendarEvents = [];
-    }
-  } else {
-    log.debug('Using cached team calendar events for slots', { date: dateStr });
-  }
-
-  // Batch check all slots against calendar events
+  // Batch check all slots against calendar events (pre-fetched by caller)
   const calendarConflicts = checkSlotsAgainstEvents(
     allSlots.map(s => ({ start: s.bufferedStart, end: s.bufferedEnd })),
     calendarEvents
