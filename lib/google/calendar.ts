@@ -5,7 +5,7 @@ import { log } from '@/lib/logger';
 import { Redis } from '@upstash/redis';
 import crypto from 'crypto';
 import type { calendar_v3 } from 'googleapis';
-import { getClerkGoogleToken, hasCalendarScopes } from '@/lib/clerk/oauth-tokens';
+
 
 // Initialize Redis client for distributed locking
 let redis: Redis | null = null;
@@ -107,7 +107,7 @@ interface UpdateEventParams {
 
 /**
  * Get user's primary calendar connection with valid tokens
- * Supports both Clerk-managed tokens (source="clerk") and manual OAuth tokens (source="manual")
+ * All connections use manual OAuth tokens with persistent refresh tokens
  */
 async function getValidConnection(userId: string) {
   const connection = await prisma.calendarConnection.findFirst({
@@ -122,32 +122,10 @@ async function getValidConnection(userId: string) {
     throw new Error('No Google Calendar connection found');
   }
 
-  // Handle Clerk-managed tokens (source="clerk")
-  // Clerk handles token refresh automatically, so we just fetch the current token
+  // Legacy Clerk connections are no longer supported — users must reconnect manually
   if (connection.source === 'clerk') {
-    const clerkToken = await getClerkGoogleToken(userId);
-
-    if (!clerkToken) {
-      log.warn('[Calendar] Clerk token no longer available, connection may need to be re-established', { userId });
-      throw new Error('Google Calendar token unavailable - please reconnect your calendar');
-    }
-
-    if (!hasCalendarScopes(clerkToken.scopes)) {
-      log.warn('[Calendar] Clerk token missing required calendar scopes', {
-        userId,
-        scopes: clerkToken.scopes,
-      });
-      throw new Error('Calendar access not granted - please reconnect with calendar permissions');
-    }
-
-    log.info('[Calendar] Using Clerk-managed token', { userId });
-
-    // Return connection with Clerk token (no refresh token needed as Clerk handles refresh)
-    return {
-      ...connection,
-      accessToken: clerkToken.token,
-      refreshToken: '', // Not used for Clerk-managed connections
-    };
+    log.warn('[Calendar] Clerk connection encountered, user must reconnect', { userId });
+    throw new Error('Please reconnect your Google Calendar from the settings page');
   }
 
   // Handle manual OAuth tokens (source="manual" or legacy connections without source)
@@ -215,7 +193,7 @@ async function getValidConnection(userId: string) {
         },
       });
 
-      if (freshConnection && freshConnection.source !== 'clerk') {
+      if (freshConnection) {
         const freshExpiresAt = new Date(freshConnection.expiresAt);
         if (new Date() < freshExpiresAt) {
           // Token was already refreshed by another request
@@ -324,9 +302,7 @@ async function getValidConnection(userId: string) {
 export async function createCalendarEvent(params: CreateEventParams): Promise<CreateEventResult> {
   const connection = await getValidConnection(params.userId);
 
-  const calendar = connection.source === 'clerk'
-    ? getCalendarClient(connection.accessToken, '', false)
-    : getCalendarClient(connection.accessToken, connection.refreshToken);
+  const calendar = getCalendarClient(connection.accessToken, connection.refreshToken);
 
   // Get user email for notification
   const user = await prisma.user.findUnique({
@@ -441,9 +417,7 @@ export async function createCalendarEvent(params: CreateEventParams): Promise<Cr
 export async function updateCalendarEvent(params: UpdateEventParams) {
   const connection = await getValidConnection(params.userId);
 
-  const calendar = connection.source === 'clerk'
-    ? getCalendarClient(connection.accessToken, '', false)
-    : getCalendarClient(connection.accessToken, connection.refreshToken);
+  const calendar = getCalendarClient(connection.accessToken, connection.refreshToken);
 
   const event: calendar_v3.Schema$Event = {};
 
@@ -480,9 +454,7 @@ export async function updateCalendarEvent(params: UpdateEventParams) {
 export async function deleteCalendarEvent(userId: string, eventId: string) {
   const connection = await getValidConnection(userId);
 
-  const calendar = connection.source === 'clerk'
-    ? getCalendarClient(connection.accessToken, '', false)
-    : getCalendarClient(connection.accessToken, connection.refreshToken);
+  const calendar = getCalendarClient(connection.accessToken, connection.refreshToken);
 
   // Use retry logic to handle rate limits and transient errors
   await withRetry(
@@ -507,9 +479,7 @@ export async function checkForConflicts(
   try {
     const connection = await getValidConnection(userId);
 
-    const calendar = connection.source === 'clerk'
-      ? getCalendarClient(connection.accessToken, '', false)
-      : getCalendarClient(connection.accessToken, connection.refreshToken);
+    const calendar = getCalendarClient(connection.accessToken, connection.refreshToken);
 
     // Use retry logic to handle rate limits and transient errors
     const response = await withRetry(
@@ -551,9 +521,7 @@ export async function getCalendarEvents(
   try {
     const connection = await getValidConnection(userId);
 
-    const calendar = connection.source === 'clerk'
-      ? getCalendarClient(connection.accessToken, '', false)
-      : getCalendarClient(connection.accessToken, connection.refreshToken);
+    const calendar = getCalendarClient(connection.accessToken, connection.refreshToken);
 
     // Use retry logic to handle rate limits and transient errors
     const response = await withRetry(

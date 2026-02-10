@@ -3,7 +3,6 @@ import { getCurrentUserId } from '@/lib/clerk-auth';
 import { prisma } from '@/lib/prisma';
 import { getCalendarClient } from '@/lib/google/oauth';
 import { decrypt } from '@/lib/encryption';
-import { getClerkGoogleToken, hasCalendarScopes } from '@/lib/clerk/oauth-tokens';
 import { log } from '@/lib/logger';
 
 export async function GET(request: NextRequest) {
@@ -93,6 +92,8 @@ export async function GET(request: NextRequest) {
           log.error('[Calendar] Failed to decrypt email for connection', { error, connectionId: conn.id });
         }
 
+        const isClerk = (conn as any).source === 'clerk';
+
         return {
           id: conn.id,
           provider: conn.provider,
@@ -100,7 +101,8 @@ export async function GET(request: NextRequest) {
           email: decryptedEmail,
           isPrimary: conn.isPrimary,
           expiresAt: conn.expiresAt,
-          isExpired: (conn as any).source === 'clerk' ? false : new Date() >= new Date(conn.expiresAt),
+          isExpired: isClerk ? false : new Date() >= new Date(conn.expiresAt),
+          needsReconnect: isClerk,
           createdAt: conn.createdAt,
           updatedAt: conn.updatedAt,
         };
@@ -117,6 +119,15 @@ export async function GET(request: NextRequest) {
 
     diagnostics.info.push(`Found ${connections.length} calendar connection(s)`);
 
+    // Flag Clerk connections as needing reconnection
+    const clerkConnections = connections.filter((c) => (c as any).source === 'clerk');
+    if (clerkConnections.length > 0) {
+      diagnostics.warnings.push(
+        `${clerkConnections.length} connection(s) use Clerk-managed tokens which are no longer supported. ` +
+        'Please disconnect and reconnect via the manual OAuth flow from the calendar settings page.'
+      );
+    }
+
     // Check 4: Primary connection
     const primaryConnection = connections.find((c) => c.isPrimary);
 
@@ -128,22 +139,29 @@ export async function GET(request: NextRequest) {
         `Primary connection: ${primaryConnection.provider} (${primaryConnection.email})`
       );
 
-      // Check if token is expired
-      const now = new Date();
-      const expiresAt = new Date(primaryConnection.expiresAt);
-
-      if (now >= expiresAt) {
-        diagnostics.warnings.push(
-          `Access token expired at ${expiresAt.toISOString()}`
+      if ((primaryConnection as any).source === 'clerk') {
+        diagnostics.errors.push(
+          'Primary connection uses Clerk-managed tokens which are no longer supported. ' +
+          'Please disconnect and reconnect via the manual OAuth flow.'
         );
-        diagnostics.info.push('Token will be refreshed automatically on next use');
       } else {
-        const minutesUntilExpiry = Math.floor(
-          (expiresAt.getTime() - now.getTime()) / 60000
-        );
-        diagnostics.info.push(
-          `Access token valid for ${minutesUntilExpiry} more minutes`
-        );
+        // Check if token is expired
+        const now = new Date();
+        const expiresAt = new Date(primaryConnection.expiresAt);
+
+        if (now >= expiresAt) {
+          diagnostics.warnings.push(
+            `Access token expired at ${expiresAt.toISOString()}`
+          );
+          diagnostics.info.push('Token will be refreshed automatically on next use');
+        } else {
+          const minutesUntilExpiry = Math.floor(
+            (expiresAt.getTime() - now.getTime()) / 60000
+          );
+          diagnostics.info.push(
+            `Access token valid for ${minutesUntilExpiry} more minutes`
+          );
+        }
       }
     }
 
@@ -151,54 +169,26 @@ export async function GET(request: NextRequest) {
     const testApi = request.nextUrl.searchParams.get('testApi') === 'true';
 
     if (testApi && primaryConnection) {
-      try {
-        const conn = await prisma.calendarConnection.findFirst({
-          where: {
-            userId: user.id,
-            isPrimary: true,
-          },
-        });
+      if ((primaryConnection as any).source === 'clerk') {
+        diagnostics.checks.apiTest = {
+          success: false,
+          error: 'Clerk connections are no longer supported. Please reconnect via the manual OAuth flow.',
+        };
+        diagnostics.errors.push('Cannot test API with Clerk connection — please reconnect manually');
+      } else {
+        try {
+          const conn = await prisma.calendarConnection.findFirst({
+            where: {
+              userId: user.id,
+              isPrimary: true,
+            },
+          });
 
-        if (conn) {
-          let calendar;
-
-          if (conn.source === 'clerk') {
-            // For Clerk connections, fetch the real token from Clerk
-            diagnostics.info.push('Connection is Clerk-managed, fetching live token...');
-
-            const clerkToken = await getClerkGoogleToken(user.id);
-
-            if (!clerkToken) {
-              diagnostics.errors.push('Clerk returned no Google token - user may need to reconnect Google in Clerk');
-              diagnostics.checks.clerkToken = { available: false };
-            } else {
-              const scopesOk = hasCalendarScopes(clerkToken.scopes);
-              diagnostics.checks.clerkToken = {
-                available: true,
-                scopes: clerkToken.scopes,
-                hasCalendarScopes: scopesOk,
-                tokenLength: clerkToken.token.length,
-              };
-
-              if (!scopesOk) {
-                diagnostics.errors.push(
-                  `Clerk token missing calendar scopes. Has: [${clerkToken.scopes.join(', ')}]. ` +
-                  'Required: calendar.readonly + calendar.events. ' +
-                  'Update Google OAuth scopes in Clerk Dashboard.'
-                );
-              }
-
-              // Test with bare OAuth2 client (Clerk token)
-              calendar = getCalendarClient(clerkToken.token, '', false);
-            }
-          } else {
-            // Manual OAuth connection - decrypt and use stored tokens
+          if (conn) {
             const decryptedAccessToken = decrypt(conn.accessToken, conn.accessTokenIv, conn.accessTokenAuth);
             const decryptedRefreshToken = decrypt(conn.refreshToken, conn.refreshTokenIv, conn.refreshTokenAuth);
-            calendar = getCalendarClient(decryptedAccessToken, decryptedRefreshToken);
-          }
+            const calendar = getCalendarClient(decryptedAccessToken, decryptedRefreshToken);
 
-          if (calendar) {
             const calendarList = await calendar.calendarList.list();
 
             diagnostics.checks.apiTest = {
@@ -211,29 +201,25 @@ export async function GET(request: NextRequest) {
             diagnostics.info.push(
               `Successfully connected to Google Calendar API`
             );
+          } else {
+            diagnostics.warnings.push(
+              'Could not retrieve connection for API test'
+            );
           }
-        } else {
-          diagnostics.warnings.push(
-            'Could not retrieve connection for API test'
-          );
-        }
-      } catch (error: any) {
-        diagnostics.checks.apiTest = {
-          success: false,
-          error: error.message,
-          code: error.code || error.status || undefined,
-        };
+        } catch (error: any) {
+          diagnostics.checks.apiTest = {
+            success: false,
+            error: error.message,
+            code: error.code || error.status || undefined,
+          };
 
-        diagnostics.errors.push(`Calendar API test failed: ${error.message}`);
+          diagnostics.errors.push(`Calendar API test failed: ${error.message}`);
 
-        if (error.message?.includes('invalid_grant')) {
-          diagnostics.errors.push(
-            'Access token is invalid - please reconnect your calendar'
-          );
-        } else if (error.message?.includes('insufficient')) {
-          diagnostics.errors.push(
-            'Token has insufficient scopes - update Google OAuth scopes in Clerk Dashboard'
-          );
+          if (error.message?.includes('invalid_grant')) {
+            diagnostics.errors.push(
+              'Access token is invalid - please reconnect your calendar'
+            );
+          }
         }
       }
     } else if (!testApi) {

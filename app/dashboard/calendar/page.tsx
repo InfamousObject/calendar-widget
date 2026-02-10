@@ -6,7 +6,7 @@ import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Calendar, Check, Trash2, CalendarCheck, AlertCircle, Zap, Link2, Loader2 } from 'lucide-react';
+import { Calendar, Check, Trash2, CalendarCheck, AlertCircle, Zap, Loader2, AlertTriangle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 
@@ -26,14 +26,12 @@ interface CalendarStatus {
   email?: string;
   hasGoogleSignIn: boolean;
   hasCalendarScopes: boolean;
-  canAutoConnect: boolean;
 }
 
 function CalendarContent() {
   const [connections, setConnections] = useState<CalendarConnection[]>([]);
   const [status, setStatus] = useState<CalendarStatus | null>(null);
   const [loading, setLoading] = useState(true);
-  const [autoConnecting, setAutoConnecting] = useState(false);
   const searchParams = useSearchParams();
 
   useEffect(() => {
@@ -88,28 +86,6 @@ function CalendarContent() {
   const handleConnect = () => {
     // Redirect to Google OAuth flow
     window.location.href = '/api/calendar/connect';
-  };
-
-  const handleAutoConnect = async () => {
-    setAutoConnecting(true);
-    try {
-      const response = await fetch('/api/calendar/auto-connect', {
-        method: 'POST',
-      });
-
-      if (response.ok) {
-        toast.success('Google Calendar connected using your Google sign-in!');
-        await fetchData();
-      } else {
-        const data = await response.json();
-        toast.error(data.message || 'Failed to auto-connect calendar');
-      }
-    } catch (error) {
-      console.error('Error auto-connecting:', error);
-      toast.error('Failed to auto-connect calendar');
-    } finally {
-      setAutoConnecting(false);
-    }
   };
 
   const handleDisconnect = async (connectionId: string) => {
@@ -183,35 +159,14 @@ function CalendarContent() {
               </div>
             </div>
             {!hasGoogleConnection && (
-              <div className="flex items-center gap-3">
-                {status?.canAutoConnect && (
-                  <Button
-                    onClick={handleAutoConnect}
-                    disabled={autoConnecting}
-                    className="bg-gradient-to-r from-green-500 to-green-600 hover:shadow-lg hover:shadow-green-500/30 transition-all duration-300"
-                    size="lg"
-                  >
-                    {autoConnecting ? (
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    ) : (
-                      <Link2 className="h-4 w-4 mr-2" />
-                    )}
-                    Auto-connect
-                  </Button>
-                )}
-                <Button
-                  onClick={handleConnect}
-                  variant={status?.canAutoConnect ? 'outline' : 'default'}
-                  className={status?.canAutoConnect
-                    ? 'hover:border-blue-500 hover:text-blue-500 transition-all duration-300'
-                    : 'bg-gradient-to-r from-blue-500 to-blue-600 hover:shadow-lg hover:shadow-blue-500/30 transition-all duration-300'
-                  }
-                  size="lg"
-                >
-                  <Zap className="h-4 w-4 mr-2" />
-                  {status?.canAutoConnect ? 'Manual Connect' : 'Connect Google Calendar'}
-                </Button>
-              </div>
+              <Button
+                onClick={handleConnect}
+                className="bg-gradient-to-r from-blue-500 to-blue-600 hover:shadow-lg hover:shadow-blue-500/30 transition-all duration-300"
+                size="lg"
+              >
+                <Zap className="h-4 w-4 mr-2" />
+                Connect Google Calendar
+              </Button>
             )}
           </div>
         </CardHeader>
@@ -227,6 +182,18 @@ function CalendarContent() {
             </div>
           ) : (
             <div className="space-y-3">
+              {connections.some((c) => c.source === 'clerk') && (
+                <div className="flex items-start gap-3 rounded-xl border border-amber-500/50 bg-amber-50 dark:bg-amber-950/30 p-4 mb-3">
+                  <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
+                  <div>
+                    <p className="font-medium text-amber-800 dark:text-amber-300">Reconnection recommended</p>
+                    <p className="text-sm text-amber-700 dark:text-amber-400 mt-1">
+                      Your calendar is connected via Google Sign-in, which can lose access after periods of inactivity.
+                      Please disconnect and reconnect using the manual flow for reliable calendar sync.
+                    </p>
+                  </div>
+                </div>
+              )}
               {connections.map((connection, index) => (
                 <div
                   key={connection.id}
@@ -249,9 +216,9 @@ function CalendarContent() {
                           </Badge>
                         )}
                         {connection.source === 'clerk' ? (
-                          <Badge variant="secondary" className="text-xs bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300">
-                            <Link2 className="h-3 w-3 mr-1" />
-                            Google Sign-in
+                          <Badge variant="secondary" className="text-xs bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300">
+                            <AlertTriangle className="h-3 w-3 mr-1" />
+                            Needs Reconnect
                           </Badge>
                         ) : (
                           <Badge variant="outline" className="text-xs">
@@ -261,15 +228,27 @@ function CalendarContent() {
                       </div>
                     </div>
                   </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleDisconnect(connection.id)}
-                    className="hover:border-destructive hover:text-destructive hover:bg-destructive/10 transition-all duration-200"
-                  >
-                    <Trash2 className="h-4 w-4 mr-2" />
-                    Disconnect
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    {connection.source === 'clerk' && (
+                      <Button
+                        onClick={handleConnect}
+                        size="sm"
+                        className="bg-gradient-to-r from-blue-500 to-blue-600 hover:shadow-lg hover:shadow-blue-500/30 transition-all duration-300"
+                      >
+                        <Zap className="h-4 w-4 mr-2" />
+                        Reconnect
+                      </Button>
+                    )}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleDisconnect(connection.id)}
+                      className="hover:border-destructive hover:text-destructive hover:bg-destructive/10 transition-all duration-200"
+                    >
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Disconnect
+                    </Button>
+                  </div>
                 </div>
               ))}
             </div>
