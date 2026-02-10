@@ -294,7 +294,6 @@ export async function POST(request: NextRequest) {
 
         return newAppointment;
       }, {
-        isolationLevel: 'Serializable', // Highest isolation level to prevent race conditions
         timeout: 5000, // 5 second timeout to prevent long-running locks
       });
     } catch (error: any) {

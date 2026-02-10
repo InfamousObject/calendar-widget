@@ -19,6 +19,8 @@ const isPublicRoute = createRouteMatcher([
   '/docs/(.*)',
   '/api/availability/slots(.*)',
   '/api/availability/dates(.*)',
+  '/api/availability/prewarm(.*)',
+  '/api/booking-form/public(.*)',
   '/api/forms/submit(.*)',
   '/api/chatbot/chat(.*)',
   '/api/embed/(.*)',
