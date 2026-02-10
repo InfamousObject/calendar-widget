@@ -324,10 +324,9 @@ async function getValidConnection(userId: string) {
 export async function createCalendarEvent(params: CreateEventParams): Promise<CreateEventResult> {
   const connection = await getValidConnection(params.userId);
 
-  const calendar = getCalendarClient(
-    connection.accessToken,
-    connection.refreshToken
-  );
+  const calendar = connection.source === 'clerk'
+    ? getCalendarClient(connection.accessToken, '', false)
+    : getCalendarClient(connection.accessToken, connection.refreshToken);
 
   // Get user email for notification
   const user = await prisma.user.findUnique({
@@ -442,10 +441,9 @@ export async function createCalendarEvent(params: CreateEventParams): Promise<Cr
 export async function updateCalendarEvent(params: UpdateEventParams) {
   const connection = await getValidConnection(params.userId);
 
-  const calendar = getCalendarClient(
-    connection.accessToken,
-    connection.refreshToken
-  );
+  const calendar = connection.source === 'clerk'
+    ? getCalendarClient(connection.accessToken, '', false)
+    : getCalendarClient(connection.accessToken, connection.refreshToken);
 
   const event: calendar_v3.Schema$Event = {};
 
@@ -482,10 +480,9 @@ export async function updateCalendarEvent(params: UpdateEventParams) {
 export async function deleteCalendarEvent(userId: string, eventId: string) {
   const connection = await getValidConnection(userId);
 
-  const calendar = getCalendarClient(
-    connection.accessToken,
-    connection.refreshToken
-  );
+  const calendar = connection.source === 'clerk'
+    ? getCalendarClient(connection.accessToken, '', false)
+    : getCalendarClient(connection.accessToken, connection.refreshToken);
 
   // Use retry logic to handle rate limits and transient errors
   await withRetry(
@@ -510,10 +507,9 @@ export async function checkForConflicts(
   try {
     const connection = await getValidConnection(userId);
 
-    const calendar = getCalendarClient(
-      connection.accessToken,
-      connection.refreshToken
-    );
+    const calendar = connection.source === 'clerk'
+      ? getCalendarClient(connection.accessToken, '', false)
+      : getCalendarClient(connection.accessToken, connection.refreshToken);
 
     // Use retry logic to handle rate limits and transient errors
     const response = await withRetry(
@@ -555,10 +551,9 @@ export async function getCalendarEvents(
   try {
     const connection = await getValidConnection(userId);
 
-    const calendar = getCalendarClient(
-      connection.accessToken,
-      connection.refreshToken
-    );
+    const calendar = connection.source === 'clerk'
+      ? getCalendarClient(connection.accessToken, '', false)
+      : getCalendarClient(connection.accessToken, connection.refreshToken);
 
     // Use retry logic to handle rate limits and transient errors
     const response = await withRetry(

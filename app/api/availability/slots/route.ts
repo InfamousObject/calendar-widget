@@ -113,7 +113,7 @@ export async function GET(request: NextRequest) {
     const isSingleDay = format(startDate, 'yyyy-MM-dd') === format(endDate, 'yyyy-MM-dd');
     if (isSingleDay) {
       const dateStr = format(startDate, 'yyyy-MM-dd');
-      const cachedSlots = availabilityCache.getSlots(user.id, appointmentTypeId, dateStr);
+      const cachedSlots = await availabilityCache.getSlots(user.id, appointmentTypeId, dateStr);
 
       if (cachedSlots) {
         return NextResponse.json({
@@ -313,7 +313,7 @@ async function generateSlotsForDay(
 
   // Check cache for calendar events (use accountId for team-wide caching)
   // Cache key uses 'team:' prefix to differentiate from individual calendar cache
-  let calendarEvents = availabilityCache.getCalendarEvents(`team:${user.id}`, dateStr);
+  let calendarEvents = await availabilityCache.getCalendarEvents(`team:${user.id}`, dateStr);
 
   if (!calendarEvents) {
     // Fetch calendar events for the ENTIRE day from ALL team members' calendars

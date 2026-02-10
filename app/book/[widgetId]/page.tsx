@@ -415,7 +415,7 @@ export default function BookingPage() {
 
       if (response.ok) {
         const data = await response.json();
-        setConfirmationData(data.appointment);
+        setConfirmationData({ ...data.appointment, calendarCreated: data.calendarCreated });
         // Set step to 5 if payment was required, 4 otherwise
         setStep(requiresPayment ? 5 : 4);
       } else if (response.status === 409) {
@@ -1083,7 +1083,9 @@ export default function BookingPage() {
                   <ul className="space-y-2 text-sm text-foreground-secondary">
                     <li className="flex items-start gap-2">
                       <span className="text-primary mt-1">✓</span>
-                      <span>Calendar invitation sent to {confirmationData.visitorEmail}</span>
+                      <span>{confirmationData.calendarCreated
+                        ? `Calendar invitation sent to ${confirmationData.visitorEmail}`
+                        : 'Check your email for appointment details'}</span>
                     </li>
                     <li className="flex items-start gap-2">
                       <span className="text-primary mt-1">✓</span>

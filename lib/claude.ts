@@ -584,7 +584,7 @@ async function generateSlots(
   }
 
   // Get calendar events
-  let calendarEvents = availabilityCache.getCalendarEvents(user.id, dateStr);
+  let calendarEvents = await availabilityCache.getCalendarEvents(user.id, dateStr);
 
   if (!calendarEvents) {
     const dayStart = startOfDay(date);

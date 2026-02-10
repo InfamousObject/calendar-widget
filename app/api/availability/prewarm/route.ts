@@ -104,7 +104,7 @@ async function prewarmAvailability(
     const prewarmPromises = datesToPrewarm.map(async (dateStr) => {
       try {
         // Check if already cached (use team: prefix to match slots endpoint)
-        const cached = availabilityCache.getCalendarEvents(`team:${userId}`, dateStr);
+        const cached = await availabilityCache.getCalendarEvents(`team:${userId}`, dateStr);
         if (cached) {
           log.debug('Date already cached, skipping prewarm', { date: dateStr });
           return;

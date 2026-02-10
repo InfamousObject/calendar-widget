@@ -77,11 +77,11 @@ export async function refreshAccessToken(refreshToken: string) {
   return credentials;
 }
 
-export function getCalendarClient(accessToken: string, refreshToken: string) {
-  const oauth2Client = getOAuth2Client();
+export function getCalendarClient(accessToken: string, refreshToken: string, useAppCredentials = true) {
+  const oauth2Client = useAppCredentials ? getOAuth2Client() : new google.auth.OAuth2();
   oauth2Client.setCredentials({
     access_token: accessToken,
-    refresh_token: refreshToken,
+    refresh_token: refreshToken || undefined,
   });
 
   return google.calendar({ version: 'v3', auth: oauth2Client });

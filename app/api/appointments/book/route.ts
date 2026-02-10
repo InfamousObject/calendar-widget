@@ -350,7 +350,8 @@ export async function POST(request: NextRequest) {
         });
       }
     } catch (error) {
-      log.error('[Book] Error creating calendar event', error);
+      const calendarError = error instanceof Error ? error.message : String(error);
+      log.error('[Book] Error creating calendar event', { calendarError, userId: user.id });
       // Don't fail the appointment if calendar creation fails
     }
 
@@ -415,6 +416,7 @@ export async function POST(request: NextRequest) {
         meetingLink: meetingLink ?? undefined,
         meetingProvider: meetingLink ? 'google_meet' : undefined,
       },
+      calendarCreated: !!calendarEventId,
     });
   } catch (error) {
     if (error instanceof z.ZodError) {
