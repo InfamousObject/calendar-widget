@@ -174,7 +174,7 @@ export default function BookingPage() {
             appointmentTypeId,
             daysToPrewarm: 5,
           }),
-        }).catch(err => console.log('Pre-warm request failed:', err));
+        }).catch(() => {});
       }
     } catch (error) {
       console.error('Error fetching dates:', error);

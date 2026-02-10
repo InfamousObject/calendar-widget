@@ -1,7 +1,23 @@
+import { Metadata } from 'next';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 import { CodeBlock } from '@/components/docs/code-block';
 import { StepList, Tip } from '@/components/docs/step-list';
+
+export const metadata: Metadata = {
+  title: 'Squarespace Installation Guide',
+  description:
+    'How to embed the Kentroi booking widget on your Squarespace website. Quick setup with code injection.',
+  alternates: {
+    canonical: 'https://www.kentroi.com/docs/squarespace',
+  },
+  openGraph: {
+    title: 'Squarespace Installation Guide | Kentroi',
+    description:
+      'Step-by-step guide to embed Kentroi booking widget on Squarespace.',
+    url: 'https://www.kentroi.com/docs/squarespace',
+  },
+};
 
 export default function SquarespaceDocsPage() {
   const iframeCode = `<iframe

@@ -1,9 +1,8 @@
 import Stripe from 'stripe';
 import { log } from '@/lib/logger';
 
-// Provide fallback for build time (when env vars aren't available)
-// At runtime, the actual key must be set for Stripe to work
-const stripeKey = process.env.STRIPE_SECRET_KEY || 'sk_test_dummy_key_for_build';
+// Stripe key is required at runtime; use a placeholder only during build
+const stripeKey = process.env.STRIPE_SECRET_KEY || 'sk_placeholder_build_only';
 
 // Initialize Stripe client
 export const stripe = new Stripe(stripeKey, {

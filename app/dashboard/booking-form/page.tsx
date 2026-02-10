@@ -71,8 +71,6 @@ export default function BookingFormPage() {
   };
 
   const handleAddField = async () => {
-    console.log('Adding field:', newField);
-
     // Validate select fields have at least one option
     if (newField.fieldType === 'select' && newField.options.length === 0) {
       alert('Dropdown fields must have at least one option');
@@ -93,10 +91,7 @@ export default function BookingFormPage() {
         body: JSON.stringify(fieldData),
       });
 
-      console.log('Response status:', response.status);
-
       if (response.ok) {
-        console.log('Field added successfully');
         await fetchFields();
         setShowAddDialog(false);
         // Reset form

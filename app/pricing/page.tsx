@@ -384,7 +384,7 @@ function PricingContent() {
             <Link href="/privacy" className="hover:text-primary">Privacy Policy</Link>
             <Link href="/terms" className="hover:text-primary">Terms of Service</Link>
           </div>
-          <p>&copy; 2025 Kentroi. All rights reserved.</p>
+          <p>&copy; 2026 Kentroi. All rights reserved.</p>
         </footer>
       </div>
     </div>

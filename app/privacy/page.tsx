@@ -1,5 +1,21 @@
+import { Metadata } from 'next';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
+
+export const metadata: Metadata = {
+  title: 'Privacy Policy',
+  description:
+    'Kentroi privacy policy. Learn how we collect, use, and protect your personal information when you use our scheduling widget and services.',
+  alternates: {
+    canonical: 'https://www.kentroi.com/privacy',
+  },
+  openGraph: {
+    title: 'Privacy Policy | Kentroi',
+    description:
+      'Learn how Kentroi collects, uses, and protects your personal information.',
+    url: 'https://www.kentroi.com/privacy',
+  },
+};
 
 export default function PrivacyPolicy() {
   return (
@@ -268,7 +284,7 @@ export default function PrivacyPolicy() {
             <Link href="/privacy" className="hover:text-primary">Privacy Policy</Link>
             <Link href="/terms" className="hover:text-primary">Terms of Service</Link>
           </div>
-          <p>&copy; 2025 Kentroi. All rights reserved.</p>
+          <p>&copy; 2026 Kentroi. All rights reserved.</p>
         </div>
       </footer>
     </div>

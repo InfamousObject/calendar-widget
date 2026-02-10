@@ -376,8 +376,11 @@ export default function Home() {
             <Link href="/pricing" className="text-foreground-secondary hover:text-foreground transition-colors font-medium">
               Pricing
             </Link>
-            <Link href="#demo" className="text-foreground-secondary hover:text-foreground transition-colors font-medium">
-              Demo
+            <Link href="/docs" className="text-foreground-secondary hover:text-foreground transition-colors font-medium">
+              Docs
+            </Link>
+            <Link href="/alternatives" className="text-foreground-secondary hover:text-foreground transition-colors font-medium">
+              Alternatives
             </Link>
           </nav>
           <div className="flex items-center space-x-4">
@@ -810,14 +813,15 @@ export default function Home() {
                 links: [
                   { label: 'Features', href: '#features' },
                   { label: 'Pricing', href: '/pricing' },
-                  { label: 'Demo', href: '#demo' },
+                  { label: 'Alternatives', href: '/alternatives' },
                 ]
               },
               {
-                title: 'Company',
+                title: 'Resources',
                 links: [
-                  { label: 'About', href: '#' },
-                  { label: 'Contact', href: '#' },
+                  { label: 'Documentation', href: '/docs' },
+                  { label: 'Sign In', href: '/auth/login' },
+                  { label: 'Get Started', href: '/auth/register' },
                 ]
               },
               {
@@ -844,7 +848,7 @@ export default function Home() {
           </div>
 
           <div className="pt-8 border-t border-border flex flex-col md:flex-row items-center justify-between gap-4 text-foreground-secondary text-sm">
-            <p>&copy; 2025 Kentroi. All rights reserved.</p>
+            <p>&copy; 2026 Kentroi. All rights reserved.</p>
           </div>
         </div>
       </footer>

@@ -1,5 +1,21 @@
+import { Metadata } from 'next';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
+
+export const metadata: Metadata = {
+  title: 'Terms of Service',
+  description:
+    'Kentroi terms of service. Read the terms and conditions that govern your use of Kentroi scheduling widgets and related services.',
+  alternates: {
+    canonical: 'https://www.kentroi.com/terms',
+  },
+  openGraph: {
+    title: 'Terms of Service | Kentroi',
+    description:
+      'Terms and conditions governing your use of Kentroi scheduling widgets and services.',
+    url: 'https://www.kentroi.com/terms',
+  },
+};
 
 export default function TermsOfService() {
   return (
@@ -307,7 +323,7 @@ export default function TermsOfService() {
             <Link href="/privacy" className="hover:text-primary">Privacy Policy</Link>
             <Link href="/terms" className="hover:text-primary">Terms of Service</Link>
           </div>
-          <p>&copy; 2025 Kentroi. All rights reserved.</p>
+          <p>&copy; 2026 Kentroi. All rights reserved.</p>
         </div>
       </footer>
     </div>

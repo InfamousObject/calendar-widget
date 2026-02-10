@@ -4,11 +4,11 @@ import { sendAppointmentReminder } from '@/lib/email';
 import { log } from '@/lib/logger';
 
 export async function GET(request: NextRequest) {
-  // Verify request is from Vercel Cron or has valid CRON_SECRET
+  // Verify request has valid CRON_SECRET (x-vercel-cron header is not used
+  // because it can be spoofed by external callers)
   const authHeader = request.headers.get('authorization');
-  const isVercelCron = request.headers.get('x-vercel-cron') === '1';
 
-  if (!isVercelCron && authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
     log.warn('[Cron] Unauthorized attempt to trigger reminders');
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }

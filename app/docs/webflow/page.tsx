@@ -1,7 +1,23 @@
+import { Metadata } from 'next';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 import { CodeBlock } from '@/components/docs/code-block';
 import { StepList, Tip } from '@/components/docs/step-list';
+
+export const metadata: Metadata = {
+  title: 'Webflow Installation Guide',
+  description:
+    'How to integrate the Kentroi booking widget with your Webflow site. Embed scheduling using custom code.',
+  alternates: {
+    canonical: 'https://www.kentroi.com/docs/webflow',
+  },
+  openGraph: {
+    title: 'Webflow Installation Guide | Kentroi',
+    description:
+      'Step-by-step guide to integrate Kentroi booking widget with Webflow.',
+    url: 'https://www.kentroi.com/docs/webflow',
+  },
+};
 
 export default function WebflowDocsPage() {
   const iframeCode = `<iframe

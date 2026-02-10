@@ -395,7 +395,7 @@ export default function CalendlyAlternativePage() {
             <Link href="/terms" className="hover:text-primary">Terms of Service</Link>
             <Link href="/pricing" className="hover:text-primary">Pricing</Link>
           </div>
-          <p>© 2025 Kentroi. All rights reserved.</p>
+          <p>© 2026 Kentroi. All rights reserved.</p>
         </div>
       </footer>
     </div>

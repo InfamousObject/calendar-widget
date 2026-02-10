@@ -1,7 +1,23 @@
+import { Metadata } from 'next';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 import { CodeBlock } from '@/components/docs/code-block';
 import { StepList, Tip } from '@/components/docs/step-list';
+
+export const metadata: Metadata = {
+  title: 'Shopify Installation Guide',
+  description:
+    'How to add the Kentroi booking widget to your Shopify store. Embed scheduling directly into your store theme.',
+  alternates: {
+    canonical: 'https://www.kentroi.com/docs/shopify',
+  },
+  openGraph: {
+    title: 'Shopify Installation Guide | Kentroi',
+    description:
+      'Step-by-step guide to add Kentroi booking widget to your Shopify store.',
+    url: 'https://www.kentroi.com/docs/shopify',
+  },
+};
 
 export default function ShopifyDocsPage() {
   const iframeCode = `<!-- Kentroi Booking Widget -->

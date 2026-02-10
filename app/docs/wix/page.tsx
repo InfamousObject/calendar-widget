@@ -1,7 +1,23 @@
+import { Metadata } from 'next';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 import { CodeBlock } from '@/components/docs/code-block';
 import { StepList, Tip } from '@/components/docs/step-list';
+
+export const metadata: Metadata = {
+  title: 'Wix Installation Guide',
+  description:
+    'How to add the Kentroi booking widget to your Wix website. Simple embed setup using the Wix HTML widget.',
+  alternates: {
+    canonical: 'https://www.kentroi.com/docs/wix',
+  },
+  openGraph: {
+    title: 'Wix Installation Guide | Kentroi',
+    description:
+      'Step-by-step guide to add Kentroi booking widget to your Wix website.',
+    url: 'https://www.kentroi.com/docs/wix',
+  },
+};
 
 export default function WixDocsPage() {
   const iframeCode = `<iframe

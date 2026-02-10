@@ -1,7 +1,23 @@
+import { Metadata } from 'next';
 import Link from 'next/link';
 import { ArrowLeft, Download } from 'lucide-react';
 import { CodeBlock } from '@/components/docs/code-block';
 import { StepList, Tip } from '@/components/docs/step-list';
+
+export const metadata: Metadata = {
+  title: 'WordPress Installation Guide',
+  description:
+    'How to install the Kentroi scheduling widget on your WordPress site. Use our official plugin or embed code for easy setup.',
+  alternates: {
+    canonical: 'https://www.kentroi.com/docs/wordpress',
+  },
+  openGraph: {
+    title: 'WordPress Installation Guide | Kentroi',
+    description:
+      'Step-by-step guide to install Kentroi scheduling widget on WordPress.',
+    url: 'https://www.kentroi.com/docs/wordpress',
+  },
+};
 
 export default function WordPressDocsPage() {
   const iframeCode = `<!-- Kentroi Booking Widget -->

@@ -131,14 +131,3 @@ export const log = {
     }
   },
 };
-
-// Helper for API route logging
-export function logAPIRequest(method: string, path: string, userId?: string) {
-  log.info(`[API] ${method} ${path}`, {
-    userId: userId ? maskId(userId) : 'anonymous'
-  });
-}
-
-export function logAPIError(method: string, path: string, error: Error) {
-  log.error(`[API] ${method} ${path} failed`, error);
-}

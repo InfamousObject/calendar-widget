@@ -252,7 +252,6 @@ export async function GET(request: NextRequest) {
       {
         error: 'Diagnostics failed',
         message: error.message,
-        stack: error.stack,
       },
       { status: 500 }
     );

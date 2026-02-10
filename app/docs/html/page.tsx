@@ -1,7 +1,23 @@
+import { Metadata } from 'next';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 import { CodeBlock } from '@/components/docs/code-block';
 import { StepList, Tip } from '@/components/docs/step-list';
+
+export const metadata: Metadata = {
+  title: 'HTML/JavaScript Installation Guide',
+  description:
+    'How to embed the Kentroi booking widget on any HTML website using iframe or JavaScript. Works with any platform.',
+  alternates: {
+    canonical: 'https://www.kentroi.com/docs/html',
+  },
+  openGraph: {
+    title: 'HTML/JavaScript Installation Guide | Kentroi',
+    description:
+      'Embed Kentroi scheduling widget on any website using HTML iframe or JavaScript.',
+    url: 'https://www.kentroi.com/docs/html',
+  },
+};
 
 export default function HtmlDocsPage() {
   const basicIframe = `<!-- Kentroi Booking Widget -->

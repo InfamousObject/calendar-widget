@@ -45,7 +45,14 @@ next-env.d.ts
 /docs/planning
 /completed-plans
 build.log
+pre-launch-testing.md
+.claude/plans/
 
+# development remnants
+*.json.bak
+stripe_items.json
+nul
+scripts/debug-*.ts
 
 .mcp.json
 kentroi-for-wordpress/node_modules/

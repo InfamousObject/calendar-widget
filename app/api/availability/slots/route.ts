@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getCalendarEvents, getTeamCalendarEvents, checkSlotsAgainstEvents } from '@/lib/google/calendar';
-import { addDays, format, parse, startOfDay, endOfDay, addMinutes, isBefore, isAfter, parseISO } from 'date-fns';
+import { getTeamCalendarEvents, checkSlotsAgainstEvents } from '@/lib/google/calendar';
+import { addDays, format, startOfDay, endOfDay, addMinutes, isBefore, isAfter, parseISO } from 'date-fns';
 import { fromZonedTime } from 'date-fns-tz';
 import { availabilityCache } from '@/lib/cache/availability-cache';
 import { checkRateLimit, getClientIp } from '@/lib/rate-limit';

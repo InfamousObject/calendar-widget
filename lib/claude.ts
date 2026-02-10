@@ -1,6 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { prisma } from '@/lib/prisma';
-import { addDays, format, parse, startOfDay, endOfDay, addMinutes, isBefore, isAfter, parseISO } from 'date-fns';
+import { format, startOfDay, endOfDay, addMinutes, isBefore, isAfter, parseISO } from 'date-fns';
 import { getCalendarEvents, checkSlotsAgainstEvents } from '@/lib/google/calendar';
 import { availabilityCache } from '@/lib/cache/availability-cache';
 import { log } from '@/lib/logger';

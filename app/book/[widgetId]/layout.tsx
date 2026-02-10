@@ -7,8 +7,17 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { widgetId } = await params;
   return {
+    title: 'Book an Appointment',
+    description:
+      'Schedule an appointment online. Choose a time that works for you and book instantly with Kentroi.',
     alternates: {
       canonical: `https://www.kentroi.com/book/${widgetId}`,
+    },
+    openGraph: {
+      title: 'Book an Appointment | Kentroi',
+      description:
+        'Schedule an appointment online. Choose a time that works for you and book instantly.',
+      url: `https://www.kentroi.com/book/${widgetId}`,
     },
   };
 }

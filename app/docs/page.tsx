@@ -1,6 +1,22 @@
+import { Metadata } from 'next';
 import Link from 'next/link';
 import { Puzzle, Globe, Layout, Code, Layers, FileCode, ArrowRight } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+
+export const metadata: Metadata = {
+  title: 'Documentation - Installation Guides',
+  description:
+    'Learn how to install and embed Kentroi scheduling widgets on WordPress, Shopify, Squarespace, Wix, Webflow, or any HTML website.',
+  alternates: {
+    canonical: 'https://www.kentroi.com/docs',
+  },
+  openGraph: {
+    title: 'Documentation | Kentroi',
+    description:
+      'Step-by-step guides to install Kentroi on WordPress, Shopify, Squarespace, Wix, Webflow, and more.',
+    url: 'https://www.kentroi.com/docs',
+  },
+};
 
 const platforms = [
   {
