@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { addDays, format, startOfDay, endOfDay } from 'date-fns';
 import { availabilityCache } from '@/lib/cache/availability-cache';
-import { getCalendarEvents } from '@/lib/google/calendar';
+import { getTeamCalendarEvents } from '@/lib/google/calendar';
 import { log } from '@/lib/logger';
 
 // POST - Pre-warm cache for next N days (background process)
@@ -103,8 +103,8 @@ async function prewarmAvailability(
     // Fetch calendar events for all dates in parallel
     const prewarmPromises = datesToPrewarm.map(async (dateStr) => {
       try {
-        // Check if already cached
-        const cached = availabilityCache.getCalendarEvents(userId, dateStr);
+        // Check if already cached (use team: prefix to match slots endpoint)
+        const cached = availabilityCache.getCalendarEvents(`team:${userId}`, dateStr);
         if (cached) {
           log.debug('Date already cached, skipping prewarm', { date: dateStr });
           return;
@@ -114,8 +114,8 @@ async function prewarmAvailability(
         const dayStart = startOfDay(date);
         const dayEnd = endOfDay(date);
 
-        const events = await getCalendarEvents(userId, dayStart, dayEnd);
-        availabilityCache.setCalendarEvents(userId, dateStr, events);
+        const events = await getTeamCalendarEvents(userId, dayStart, dayEnd);
+        availabilityCache.setCalendarEvents(`team:${userId}`, dateStr, events);
         log.info('Cached events for date', { eventCount: events.length, date: dateStr });
       } catch (error) {
         log.error('Failed to cache date during prewarm', { error, date: dateStr });

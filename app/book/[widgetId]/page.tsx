@@ -106,6 +106,7 @@ export default function BookingPage() {
   // Step 5: Confirmation
   const [booking, setBooking] = useState(false);
   const [confirmationData, setConfirmationData] = useState<any>(null);
+  const [bookingError, setBookingError] = useState<string | null>(null);
 
   // Helper to format price
   const formatPrice = (cents: number | null | undefined, currency: string = 'usd') => {
@@ -120,8 +121,11 @@ export default function BookingPage() {
   const requiresPayment = selectedType?.requirePayment && selectedType?.price;
 
   useEffect(() => {
-    fetchWidgetInfo();
-    fetchCustomFields();
+    const loadInitialData = async () => {
+      await Promise.all([fetchWidgetInfo(), fetchCustomFields()]);
+      setLoading(false);
+    };
+    loadInitialData();
   }, [widgetId]);
 
   const fetchWidgetInfo = async () => {
@@ -135,9 +139,6 @@ export default function BookingPage() {
       }
     } catch (error) {
       console.error('Error fetching widget info:', error);
-      alert('Failed to load booking page');
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -201,21 +202,16 @@ export default function BookingPage() {
 
       if (response.ok) {
         const data = await response.json();
-        console.log('[Booking] Slots API response:', data);
         // Extract slots for the selected date
         const daySlots = data.slots.find((s: DaySlots) => s.date === date);
-        console.log('[Booking] Day slots for', date, ':', daySlots);
         if (daySlots) {
           const availSlots = daySlots.slots.filter((s: TimeSlot) => s.available);
-          console.log('[Booking] Available slots:', availSlots.length);
           setAvailableSlots(availSlots);
           setOptimisticSlots([]); // Clear optimistic once real data arrives
         } else {
-          console.log('[Booking] No day slots found for date:', date);
           setOptimisticSlots([]); // Clear optimistic if no data
         }
       } else {
-        console.error('[Booking] Slots API error:', response.status);
         setOptimisticSlots([]); // Clear on error
         try {
           const errorData = await response.json();
@@ -373,7 +369,7 @@ export default function BookingPage() {
 
   const handleBookAppointment = async (paymentId?: string) => {
     if (!selectedType || !selectedSlot || !contactInfo.name || !contactInfo.email) {
-      alert('Please fill in all required fields');
+      setBookingError('Please fill in all required fields.');
       return;
     }
 
@@ -383,13 +379,13 @@ export default function BookingPage() {
     );
 
     if (missingFields.length > 0) {
-      alert(`Please fill in required fields: ${missingFields.map((f) => f.label).join(', ')}`);
+      setBookingError(`Please fill in required fields: ${missingFields.map((f) => f.label).join(', ')}`);
       return;
     }
 
     // Validate CAPTCHA if configured
     if (process.env.NEXT_PUBLIC_HCAPTCHA_SITE_KEY && !captchaToken) {
-      alert('Please complete the CAPTCHA verification');
+      setBookingError('Please complete the CAPTCHA verification.');
       return;
     }
 
@@ -397,6 +393,7 @@ export default function BookingPage() {
     const finalPaymentIntentId = paymentId || paymentIntentId;
 
     setBooking(true);
+    setBookingError(null);
     try {
       const response = await fetch('/api/appointments/book', {
         method: 'POST',
@@ -421,22 +418,22 @@ export default function BookingPage() {
         setConfirmationData(data.appointment);
         // Set step to 5 if payment was required, 4 otherwise
         setStep(requiresPayment ? 5 : 4);
+      } else if (response.status === 409) {
+        setBookingError('This time slot was just booked by someone else. Please select another time.');
+        setStep(2); // Go back to time selection
+      } else if (response.status === 429) {
+        setBookingError('Too many requests. Please wait a few minutes and try again.');
       } else {
-        const error = await response.json();
-        alert(error.error || 'Failed to book appointment');
-        // Reset CAPTCHA on error
-        if (captchaRef.current) {
-          captchaRef.current.resetCaptcha();
-          setCaptchaToken('');
-        }
-        // If payment failed, stay on payment step
-        if (requiresPayment && step === 4) {
-          // Stay on step 4
-        }
+        const errorData = await response.json().catch(() => ({}));
+        setBookingError(errorData.error || 'Failed to book appointment. Please try again.');
+      }
+      // Reset CAPTCHA on any error
+      if (!response.ok && captchaRef.current) {
+        captchaRef.current.resetCaptcha();
+        setCaptchaToken('');
       }
     } catch (error) {
-      console.error('Error booking appointment:', error);
-      alert('Failed to book appointment');
+      setBookingError('Network error. Please check your connection and try again.');
       // Reset CAPTCHA on error
       if (captchaRef.current) {
         captchaRef.current.resetCaptcha();
@@ -515,7 +512,7 @@ export default function BookingPage() {
                         }`}
                       >
                         {step > s.num ? (
-                          <Check className="h-5 w-5" />
+                          <Check className="h-5 w-5" aria-hidden="true" />
                         ) : (
                           <span className="text-sm font-semibold">{steps.indexOf(s) + 1}</span>
                         )}
@@ -553,18 +550,20 @@ export default function BookingPage() {
                     <button
                       key={type.id}
                       onClick={() => handleSelectType(type)}
+                      aria-label={`Select ${type.name}, ${type.duration} minutes${type.price ? `, ${formatPrice(type.price, type.currency)}` : ', Free'}`}
                       className="group flex items-center gap-4 p-4 rounded-xl border-2 border-border hover:border-primary transition-all duration-300 hover:shadow-lg hover:shadow-primary/10 text-left"
                     >
                       <div
                         className="w-12 h-12 rounded-lg flex-shrink-0"
                         style={{ backgroundColor: type.color }}
+                        aria-hidden="true"
                       />
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-1">
                           <h3 className="font-semibold text-lg">{type.name}</h3>
                           {type.enableGoogleMeet && (
                             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 text-xs font-medium dark:bg-blue-900/30 dark:text-blue-400">
-                              <Video className="h-3 w-3" />
+                              <Video className="h-3 w-3" aria-hidden="true" />
                               Meet
                             </span>
                           )}
@@ -576,12 +575,12 @@ export default function BookingPage() {
                         )}
                         <div className="flex items-center gap-3 mt-2 text-sm text-foreground-tertiary">
                           <span className="flex items-center gap-1">
-                            <Clock className="h-4 w-4" />
+                            <Clock className="h-4 w-4" aria-hidden="true" />
                             {type.duration} minutes
                           </span>
                           {type.requirePayment && type.price && (
                             <span className="flex items-center gap-1 text-green-600 dark:text-green-400 font-medium">
-                              <DollarSign className="h-4 w-4" />
+                              <DollarSign className="h-4 w-4" aria-hidden="true" />
                               {formatPrice(type.price, type.currency)}
                               {type.depositPercent && (
                                 <span className="text-foreground-tertiary font-normal">
@@ -595,7 +594,7 @@ export default function BookingPage() {
                           )}
                         </div>
                       </div>
-                      <ArrowRight className="h-5 w-5 text-foreground-tertiary group-hover:text-primary transition-colors duration-300" />
+                      <ArrowRight className="h-5 w-5 text-foreground-tertiary group-hover:text-primary transition-colors duration-300" aria-hidden="true" />
                     </button>
                   ))
                 )}
@@ -654,7 +653,7 @@ export default function BookingPage() {
                       <div className="py-12 px-4">
                         <div className="max-w-md mx-auto rounded-2xl border border-warning/20 bg-gradient-to-br from-warning/5 to-background p-8 text-center">
                           <div className="inline-flex p-4 rounded-full bg-warning/10 mb-4">
-                            <AlertCircle className="h-8 w-8 text-warning" />
+                            <AlertCircle className="h-8 w-8 text-warning" aria-hidden="true" />
                           </div>
                           <h3 className="font-display text-2xl font-semibold text-foreground mb-3">
                             No Available Dates
@@ -675,6 +674,7 @@ export default function BookingPage() {
                             <button
                               key={date}
                               onClick={() => handleSelectDate(date)}
+                              aria-label={format(parsedDate, 'EEEE, MMMM d, yyyy')}
                               className="group relative h-auto py-6 px-4 flex flex-col items-center gap-2 rounded-xl border-2 border-border bg-surface transition-all duration-300 hover:border-primary hover:shadow-lg hover:shadow-primary/10 hover:-translate-y-1"
                               style={{ animationDelay: `${index * 30}ms` }}
                             >
@@ -740,7 +740,7 @@ export default function BookingPage() {
                       <div className="py-12 px-4">
                         <div className="max-w-md mx-auto rounded-2xl border border-destructive/20 bg-gradient-to-br from-destructive/5 to-background p-8 text-center">
                           <div className="inline-flex p-4 rounded-full bg-destructive/10 mb-4">
-                            <AlertCircle className="h-8 w-8 text-destructive" />
+                            <AlertCircle className="h-8 w-8 text-destructive" aria-hidden="true" />
                           </div>
                           <h3 className="font-display text-2xl font-semibold text-foreground mb-3">
                             Something Went Wrong
@@ -770,7 +770,7 @@ export default function BookingPage() {
                       <div className="py-12 px-4">
                         <div className="max-w-md mx-auto rounded-2xl border border-border bg-surface p-8 text-center">
                           <div className="inline-flex p-4 rounded-full bg-muted mb-4">
-                            <AlertCircle className="h-8 w-8 text-foreground-secondary" />
+                            <AlertCircle className="h-8 w-8 text-foreground-secondary" aria-hidden="true" />
                           </div>
                           <h3 className="font-display text-2xl font-semibold text-foreground mb-3">
                             Fully Booked
@@ -906,7 +906,7 @@ export default function BookingPage() {
                 {requiresPayment && (
                   <div className="p-4 rounded-lg border border-primary/20 bg-primary/5">
                     <div className="flex items-center gap-3">
-                      <DollarSign className="h-5 w-5 text-primary" />
+                      <DollarSign className="h-5 w-5 text-primary" aria-hidden="true" />
                       <div>
                         <p className="font-medium text-foreground">Payment Required</p>
                         <p className="text-sm text-foreground-secondary">
@@ -920,12 +920,29 @@ export default function BookingPage() {
                   </div>
                 )}
 
+                {bookingError && (
+                  <div className="flex items-start gap-3 p-4 rounded-lg border border-destructive/20 bg-destructive/5 text-destructive">
+                    <AlertCircle className="h-5 w-5 flex-shrink-0 mt-0.5" />
+                    <div className="flex-1">
+                      <p className="text-sm font-medium">{bookingError}</p>
+                    </div>
+                    <button
+                      onClick={() => setBookingError(null)}
+                      className="text-destructive/60 hover:text-destructive flex-shrink-0"
+                      aria-label="Dismiss error"
+                    >
+                      <span className="text-lg leading-none">&times;</span>
+                    </button>
+                  </div>
+                )}
+
                 <Button
                   className="w-full bg-gradient-to-r from-primary to-accent hover:shadow-lg hover:shadow-primary/30"
                   onClick={() => {
+                    setBookingError(null);
                     // Validate fields first
                     if (!contactInfo.name || !contactInfo.email) {
-                      alert('Please fill in all required fields');
+                      setBookingError('Please fill in all required fields.');
                       return;
                     }
 
@@ -933,12 +950,12 @@ export default function BookingPage() {
                       (field) => field.required && !formResponses[field.id]
                     );
                     if (missingFields.length > 0) {
-                      alert(`Please fill in required fields: ${missingFields.map((f) => f.label).join(', ')}`);
+                      setBookingError(`Please fill in required fields: ${missingFields.map((f) => f.label).join(', ')}`);
                       return;
                     }
 
                     if (process.env.NEXT_PUBLIC_HCAPTCHA_SITE_KEY && !captchaToken) {
-                      alert('Please complete the CAPTCHA verification');
+                      setBookingError('Please complete the CAPTCHA verification.');
                       return;
                     }
 
@@ -1060,7 +1077,7 @@ export default function BookingPage() {
                 {/* Next steps */}
                 <div className="rounded-xl bg-primary/5 border border-primary/20 p-6">
                   <h4 className="font-semibold text-foreground mb-3 flex items-center gap-2">
-                    <Calendar className="h-5 w-5 text-primary" />
+                    <Calendar className="h-5 w-5 text-primary" aria-hidden="true" />
                     What happens next?
                   </h4>
                   <ul className="space-y-2 text-sm text-foreground-secondary">

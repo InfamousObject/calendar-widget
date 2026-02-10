@@ -53,19 +53,23 @@ export async function POST(request: NextRequest) {
       log.info('[Book] CAPTCHA verification successful', { ip: clientIp });
     }
 
-    // Check rate limit
-    const { success, remaining } = await checkRateLimit('booking', clientIp);
+    // Check rate limit (fail-open: don't block booking on rate limit errors)
+    try {
+      const { success, remaining } = await checkRateLimit('booking', clientIp);
 
-    if (!success) {
-      return NextResponse.json(
-        { error: 'Too many booking requests. Please try again later.' },
-        {
-          status: 429,
-          headers: {
-            'X-RateLimit-Remaining': remaining.toString(),
-          },
-        }
-      );
+      if (!success) {
+        return NextResponse.json(
+          { error: 'Too many booking requests. Please try again later.' },
+          {
+            status: 429,
+            headers: {
+              'X-RateLimit-Remaining': remaining.toString(),
+            },
+          }
+        );
+      }
+    } catch (error) {
+      log.error('[Book] Rate limit check failed, proceeding anyway', error instanceof Error ? error : new Error(String(error)));
     }
 
     log.debug('[Book] Received booking request', {
