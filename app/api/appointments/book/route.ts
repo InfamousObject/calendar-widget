@@ -408,6 +408,8 @@ export async function POST(request: NextRequest) {
         timezone: appointment.timezone,
         cancellationToken: appointment.cancellationToken,
         businessName: user.businessName || undefined,
+        ownerName: user.name || undefined,
+        ownerEmail: user.email,
         meetingLink: meetingLink ?? undefined,
         meetingProvider: meetingLink ? 'google_meet' : undefined,
       });

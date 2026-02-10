@@ -82,6 +82,7 @@ export default function BookingPage() {
   const [optimisticSlots, setOptimisticSlots] = useState<TimeSlot[]>([]);
   const [loadingDates, setLoadingDates] = useState(false);
   const [loadingSlots, setLoadingSlots] = useState(false);
+  const [slotsError, setSlotsError] = useState<string | null>(null);
   const [validating, setValidating] = useState(false);
 
   // Step 3: Contact info
@@ -204,6 +205,7 @@ export default function BookingPage() {
     // OPTIMISTIC RENDERING: Show all theoretical slots immediately
     setLoadingSlots(true);
     setAvailableSlots([]);
+    setSlotsError(null);
     setOptimisticSlots(generateOptimisticSlots(date));
 
     try {
@@ -234,10 +236,17 @@ export default function BookingPage() {
       } else {
         console.error('[Booking] Slots API error:', response.status);
         setOptimisticSlots([]); // Clear on error
+        try {
+          const errorData = await response.json();
+          setSlotsError(errorData.error || 'Failed to load available times');
+        } catch {
+          setSlotsError('Failed to load available times');
+        }
       }
     } catch (error) {
       console.error('Error fetching slots:', error);
       setOptimisticSlots([]); // Clear on error
+      setSlotsError('Unable to connect. Please check your internet connection and try again.');
     } finally {
       setLoadingSlots(false);
       setValidating(false);
@@ -295,6 +304,7 @@ export default function BookingPage() {
   const handleBackToDateSelection = () => {
     setSelectedDate('');
     setAvailableSlots([]);
+    setSlotsError(null);
   };
 
   const renderCustomField = (field: BookingFormField) => {
@@ -747,6 +757,36 @@ export default function BookingPage() {
                             {format(parseISO(slot.start), 'h:mm a')}
                           </Button>
                         ))}
+                      </div>
+                    ) : slotsError ? (
+                      <div className="py-12 px-4">
+                        <div className="max-w-md mx-auto rounded-2xl border border-destructive/20 bg-gradient-to-br from-destructive/5 to-background p-8 text-center">
+                          <div className="inline-flex p-4 rounded-full bg-destructive/10 mb-4">
+                            <AlertCircle className="h-8 w-8 text-destructive" />
+                          </div>
+                          <h3 className="font-display text-2xl font-semibold text-foreground mb-3">
+                            Something Went Wrong
+                          </h3>
+                          <p className="text-foreground-secondary mb-6">
+                            {slotsError}
+                          </p>
+                          <div className="flex gap-3 justify-center">
+                            <Button
+                              variant="outline"
+                              onClick={handleBackToDateSelection}
+                              className="gap-2"
+                            >
+                              <ArrowLeft className="h-4 w-4" />
+                              Choose Another Date
+                            </Button>
+                            <Button
+                              onClick={() => fetchSlotsForDate(selectedDate)}
+                              className="gap-2"
+                            >
+                              Try Again
+                            </Button>
+                          </div>
+                        </div>
                       </div>
                     ) : availableSlots.length === 0 ? (
                       <div className="py-12 px-4">

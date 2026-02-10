@@ -191,22 +191,29 @@ export default function TeamPage() {
                   </CardDescription>
                 </div>
               </div>
-              {can('team:invite') && !requiresUpgrade && (
-                <InviteMemberDialog
-                  canAddMore={data.seats.canAddMore}
-                  seatsUsed={data.seats.used}
-                  seatsTotal={data.seats.total}
-                  onInviteSent={fetchTeamData}
-                />
-              )}
-              {can('team:invite') && requiresUpgrade && (
-                <Link href="/dashboard/billing">
-                  <Button variant="outline" className="gap-2">
-                    <Lock className="h-4 w-4" />
-                    Upgrade to Invite
-                  </Button>
-                </Link>
-              )}
+              <div className="flex items-center gap-3">
+                {can('team:invite') && !requiresUpgrade && (
+                  <div className="text-right mr-2 hidden sm:block">
+                    <p className="text-xs text-muted-foreground">$5/month per additional seat</p>
+                  </div>
+                )}
+                {can('team:invite') && !requiresUpgrade && (
+                  <InviteMemberDialog
+                    canAddMore={data.seats.canAddMore}
+                    seatsUsed={data.seats.used}
+                    seatsTotal={data.seats.total}
+                    onInviteSent={fetchTeamData}
+                  />
+                )}
+                {can('team:invite') && requiresUpgrade && (
+                  <Link href="/dashboard/billing">
+                    <Button variant="outline" className="gap-2">
+                      <Lock className="h-4 w-4" />
+                      Upgrade to Invite
+                    </Button>
+                  </Link>
+                )}
+              </div>
             </div>
           </CardHeader>
           <CardContent>

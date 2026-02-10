@@ -49,6 +49,8 @@ model User {
   teamMemberships         TeamMember[]            @relation("TeamMemberUser")
   usageRecords            UsageRecord[]
   widgetConfig            WidgetConfig?
+  cancellationSurveys     CancellationSurvey[]
+  supportTickets          SupportTicket[]
 }
 
 model Subscription {
@@ -423,4 +425,54 @@ model WebhookEvent {
   createdAt DateTime @default(now())
 
   @@index([provider, eventId])
+}
+
+model CancellationSurvey {
+  id                String    @id @default(cuid())
+  userId            String
+  reason            String    // too_expensive, not_using, missing_features, switched, other
+  reasonDetails     String?   @db.Text
+  subscriptionTier  String
+  monthsSubscribed  Int
+  feedback          String?   @db.Text
+
+  // Re-engagement
+  discountCode      String?
+  discountRedeemed  Boolean   @default(false)
+  reengagementSent  Boolean   @default(false)
+
+  createdAt         DateTime  @default(now())
+
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([reason])
+}
+
+model SupportTicket {
+  id                String    @id @default(cuid())
+  userId            String
+  email             String
+  subject           String
+  description       String    @db.Text
+  category          String    @default("general")
+  priority          String    @default("normal")
+  status            String    @default("open")
+
+  // Context
+  currentPage       String?
+  browserInfo       String?
+  subscriptionTier  String?
+  screenshotUrl     String?
+
+  // AI analysis
+  aiDiagnosis       String?   @db.Text
+  aiSuggestedFix    String?   @db.Text
+
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status])
 }

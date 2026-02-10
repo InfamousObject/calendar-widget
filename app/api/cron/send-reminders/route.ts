@@ -32,6 +32,7 @@ export async function GET(request: NextRequest) {
       },
       include: {
         appointmentType: true,
+        user: true,
       },
     });
 
@@ -51,6 +52,9 @@ export async function GET(request: NextRequest) {
           startTime: appointment.startTime,
           timezone: appointment.timezone,
           cancellationToken: appointment.cancellationToken,
+          ownerName: appointment.user.name || undefined,
+          ownerEmail: appointment.user.email,
+          businessName: appointment.user.businessName || undefined,
           meetingLink: appointment.meetingLink ?? undefined,
           meetingProvider: appointment.meetingProvider ?? undefined,
         });

@@ -19,7 +19,9 @@ import {
   Code2,
   Wallet,
   Users,
+  HelpCircle,
 } from 'lucide-react';
+import { SupportButton } from '@/components/support/support-button';
 
 const navItems = [
   {
@@ -156,12 +158,16 @@ export function DashboardNav() {
             <p className="text-xs text-foreground-secondary mb-3">
               Check our docs or reach out to support
             </p>
-            <Link
-              href="/docs"
-              className="inline-flex items-center gap-2 text-xs font-medium text-primary hover:text-accent transition-colors"
-            >
-              View Documentation →
-            </Link>
+            <div className="flex items-center gap-2">
+              <Link
+                href="/docs"
+                className="inline-flex items-center gap-2 text-xs font-medium text-primary hover:text-accent transition-colors"
+              >
+                View Docs →
+              </Link>
+              <span className="text-foreground-tertiary">|</span>
+              <SupportButton variant="ghost" size="sm" showLabel />
+            </div>
           </div>
         </div>
       </div>

@@ -23,6 +23,14 @@ export async function GET() {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
+    // Count active team members for seat usage
+    const seatsUsed = await prisma.teamMember.count({
+      where: {
+        accountId: context.accountId,
+        status: { in: ['active', 'pending'] },
+      },
+    });
+
     return NextResponse.json({
       tier: user.subscriptionTier,
       status: user.subscriptionStatus,
@@ -36,10 +44,12 @@ export async function GET() {
       },
       // Include seat info for team management
       seats: user.subscription ? {
+        used: seatsUsed,
         included: user.subscription.includedSeats,
         additional: user.subscription.additionalSeats,
         total: user.subscription.totalSeats,
       } : {
+        used: seatsUsed,
         included: 1,
         additional: 0,
         total: 1,

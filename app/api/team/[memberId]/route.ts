@@ -5,6 +5,7 @@ import { prisma } from '@/lib/prisma';
 import { resendInvitation, getInvitationUrl } from '@/lib/invitation';
 import { sendTeamInvitation } from '@/lib/email';
 import { log } from '@/lib/logger';
+import { updateSubscriptionSeats } from '@/lib/stripe';
 
 interface RouteParams {
   params: Promise<{ memberId: string }>;
@@ -253,6 +254,51 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       memberId,
       email: member.email,
     });
+
+    // Sync seats with Stripe
+    const activeSeats = await prisma.teamMember.count({
+      where: {
+        accountId: context.accountId,
+        status: { in: ['active', 'pending'] },
+      },
+    });
+
+    const subscription = await prisma.subscription.findUnique({
+      where: { userId: context.accountId },
+    });
+
+    if (subscription?.stripeSubscriptionId) {
+      const includedSeats = subscription.includedSeats || 1;
+      const additionalNeeded = Math.max(0, activeSeats - includedSeats);
+
+      const result = await updateSubscriptionSeats(
+        subscription.stripeSubscriptionId,
+        additionalNeeded,
+        subscription.billingInterval as 'month' | 'year'
+      );
+
+      if (result.success) {
+        // Update local subscription record
+        await prisma.subscription.update({
+          where: { id: subscription.id },
+          data: {
+            additionalSeats: additionalNeeded,
+            totalSeats: includedSeats + additionalNeeded,
+          },
+        });
+
+        log.info('[Team] Stripe seats updated after member removal', {
+          accountId: context.accountId,
+          activeSeats,
+          additionalNeeded,
+        });
+      } else {
+        log.error('[Team] Failed to update Stripe seats', {
+          error: result.error,
+          accountId: context.accountId,
+        });
+      }
+    }
 
     return NextResponse.json({ success: true });
   } catch (error) {

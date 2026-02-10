@@ -39,6 +39,7 @@ export async function POST(request: NextRequest) {
       where: { cancellationToken },
       include: {
         appointmentType: true,
+        user: true,
       },
     });
 
@@ -158,6 +159,9 @@ export async function POST(request: NextRequest) {
         appointmentTypeName: appointment.appointmentType.name,
         startTime: appointment.startTime,
         timezone: appointment.timezone,
+        ownerName: appointment.user.name || undefined,
+        ownerEmail: appointment.user.email,
+        businessName: appointment.user.businessName || undefined,
       });
     } catch (error) {
       log.error('[Cancellation] Failed to send confirmation email', error);

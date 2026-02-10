@@ -10,8 +10,16 @@ interface BookingConfirmationProps {
   timezone: string;
   cancelUrl: string;
   businessName?: string;
+  ownerName?: string;
   meetingLink?: string;
   meetingProvider?: string;
+}
+
+function getProviderDisplay(ownerName?: string, businessName?: string): string {
+  if (ownerName && businessName) return `${ownerName} at ${businessName}`;
+  if (ownerName) return ownerName;
+  if (businessName) return businessName;
+  return 'your provider';
 }
 
 export function BookingConfirmation({
@@ -21,7 +29,8 @@ export function BookingConfirmation({
   endTime,
   timezone,
   cancelUrl,
-  businessName = 'Kentroi',
+  businessName,
+  ownerName,
   meetingLink,
   meetingProvider,
 }: BookingConfirmationProps) {
@@ -48,7 +57,7 @@ export function BookingConfirmation({
       <Text style={text}>Hi {visitorName},</Text>
 
       <Text style={text}>
-        Your appointment with {businessName} has been confirmed. We look forward to seeing you!
+        Your appointment with <strong>{getProviderDisplay(ownerName, businessName)}</strong> has been confirmed. We look forward to seeing you!
       </Text>
 
       <Section style={detailsBox}>

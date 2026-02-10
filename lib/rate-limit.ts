@@ -38,6 +38,7 @@ const rateLimitConfigs = {
   availability: { maxRequests: 300, windowSeconds: 3600 }, // 300 requests per hour
   cancellation: { maxRequests: 5, windowSeconds: 3600 }, // 5 requests per hour
   widget: { maxRequests: 100, windowSeconds: 3600 }, // 100 requests per hour
+  support: { maxRequests: 5, windowSeconds: 3600 }, // 5 tickets per hour
 } as const;
 
 // Create rate limiters for different endpoints
@@ -88,6 +89,14 @@ export const rateLimiters = redis ? {
     limiter: Ratelimit.slidingWindow(100, '1 h'),
     analytics: true,
     prefix: 'ratelimit:widget',
+  }),
+
+  // Support tickets - 5 per hour per user (hits Anthropic API)
+  support: new Ratelimit({
+    redis,
+    limiter: Ratelimit.slidingWindow(5, '1 h'),
+    analytics: true,
+    prefix: 'ratelimit:support',
   }),
 } : null;
 

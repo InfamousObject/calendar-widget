@@ -6,6 +6,7 @@ import { canAddTeamMember, canInviteTeamMembers } from '@/lib/subscription';
 import { createInvitation, getInvitationUrl } from '@/lib/invitation';
 import { sendTeamInvitation } from '@/lib/email';
 import { log } from '@/lib/logger';
+import { updateSubscriptionSeats } from '@/lib/stripe';
 
 // GET - List team members and seat info
 export async function GET() {
@@ -185,6 +186,53 @@ export async function POST(request: NextRequest) {
         error: emailError instanceof Error ? emailError.message : String(emailError),
       });
       // Continue - invitation was created, email just failed
+    }
+
+    // Sync seats with Stripe after invitation created
+    const activeSeats = await prisma.teamMember.count({
+      where: {
+        accountId: context.accountId,
+        status: { in: ['active', 'pending'] },
+      },
+    });
+
+    const subscription = await prisma.subscription.findUnique({
+      where: { userId: context.accountId },
+    });
+
+    if (subscription?.stripeSubscriptionId) {
+      const includedSeats = subscription.includedSeats || 1;
+      const additionalNeeded = Math.max(0, activeSeats - includedSeats);
+
+      // Only update if additional seats changed
+      if (additionalNeeded !== subscription.additionalSeats) {
+        const result = await updateSubscriptionSeats(
+          subscription.stripeSubscriptionId,
+          additionalNeeded,
+          subscription.billingInterval as 'month' | 'year'
+        );
+
+        if (result.success) {
+          await prisma.subscription.update({
+            where: { id: subscription.id },
+            data: {
+              additionalSeats: additionalNeeded,
+              totalSeats: includedSeats + additionalNeeded,
+            },
+          });
+
+          log.info('[Team] Stripe seats updated after invitation', {
+            accountId: context.accountId,
+            activeSeats,
+            additionalNeeded,
+          });
+        } else {
+          log.error('[Team] Failed to update Stripe seats', {
+            error: result.error,
+            accountId: context.accountId,
+          });
+        }
+      }
     }
 
     return NextResponse.json({

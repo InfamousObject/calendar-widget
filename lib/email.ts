@@ -7,6 +7,9 @@ import { CancellationConfirmation } from '@/emails/cancellation-confirmation';
 import { FormSubmissionNotification } from '@/emails/form-submission';
 import { PaymentFailureAlert } from '@/emails/payment-failure';
 import { TeamInvitation } from '@/emails/team-invitation';
+import { ReengagementOffer } from '@/emails/reengagement-offer';
+import { SupportTicketNotification } from '@/emails/support-ticket';
+import { SubscriptionCancellation } from '@/emails/subscription-cancellation';
 
 // Provide fallback for build time (when env vars aren't available)
 const resend = new Resend(process.env.RESEND_API_KEY || 'dummy-key-for-build');
@@ -43,6 +46,8 @@ export async function sendBookingConfirmation(params: {
   timezone: string;
   cancellationToken: string;
   businessName?: string;
+  ownerName?: string;
+  ownerEmail?: string;
   meetingLink?: string;
   meetingProvider?: string;
 }) {
@@ -52,6 +57,7 @@ export async function sendBookingConfirmation(params: {
     const { data, error } = await resend.emails.send({
       from: FROM_EMAIL,
       to: params.visitorEmail,
+      replyTo: params.ownerEmail,
       subject: `Appointment Confirmed - ${params.appointmentTypeName}`,
       react: BookingConfirmation({ ...params, cancelUrl }),
     });
@@ -110,6 +116,9 @@ export async function sendAppointmentReminder(params: {
   startTime: Date;
   timezone: string;
   cancellationToken: string;
+  ownerName?: string;
+  ownerEmail?: string;
+  businessName?: string;
   meetingLink?: string;
   meetingProvider?: string;
 }) {
@@ -119,6 +128,7 @@ export async function sendAppointmentReminder(params: {
     const { data, error } = await resend.emails.send({
       from: FROM_EMAIL,
       to: params.visitorEmail,
+      replyTo: params.ownerEmail,
       subject: `Reminder: ${params.appointmentTypeName} tomorrow`,
       react: BookingReminder({ ...params, cancelUrl }),
     });
@@ -142,11 +152,15 @@ export async function sendCancellationConfirmation(params: {
   appointmentTypeName: string;
   startTime: Date;
   timezone: string;
+  ownerName?: string;
+  ownerEmail?: string;
+  businessName?: string;
 }) {
   return sendWithRetry(async () => {
     const { data, error } = await resend.emails.send({
       from: FROM_EMAIL,
       to: params.visitorEmail,
+      replyTo: params.ownerEmail,
       subject: `Appointment Cancelled - ${params.appointmentTypeName}`,
       react: CancellationConfirmation(params),
     });
@@ -237,6 +251,106 @@ export async function sendTeamInvitation(params: {
     log.info('[Email] Team invitation sent', {
       to: params.toEmail,
       role: params.role,
+    });
+
+    return data;
+  });
+}
+
+// Send re-engagement offer to churned users
+export async function sendReengagementOffer(params: {
+  userEmail: string;
+  userName: string;
+  reason: string;
+  discountCode: string;
+  discountPercent: number;
+  discountDurationMonths: number;
+}) {
+  const reactivateUrl = `${process.env.NEXT_PUBLIC_APP_URL}/pricing?code=${params.discountCode}`;
+
+  return sendWithRetry(async () => {
+    const { data, error } = await resend.emails.send({
+      from: FROM_EMAIL,
+      to: params.userEmail,
+      subject: `We miss you! Here's ${params.discountPercent}% off to come back`,
+      react: ReengagementOffer({
+        userName: params.userName,
+        reason: params.reason,
+        discountCode: params.discountCode,
+        discountPercent: params.discountPercent,
+        discountDurationMonths: params.discountDurationMonths,
+        reactivateUrl,
+      }),
+    });
+
+    if (error) throw new Error(error.message);
+
+    log.info('[Email] Re-engagement offer sent', {
+      to: params.userEmail,
+      discountCode: params.discountCode,
+    });
+
+    return data;
+  });
+}
+
+// Send support ticket notification to admin
+export async function sendSupportTicketNotification(params: {
+  ticketId: string;
+  userEmail: string;
+  userName: string;
+  subject: string;
+  description: string;
+  category: string;
+  priority: string;
+  currentPage?: string | null;
+  browserInfo?: string | null;
+  subscriptionTier?: string | null;
+  aiDiagnosis?: string | null;
+  aiSuggestedFix?: string | null;
+}) {
+  const adminEmail = process.env.SUPPORT_ADMIN_EMAIL || 'admin@kentroi.com';
+
+  return sendWithRetry(async () => {
+    const { data, error } = await resend.emails.send({
+      from: FROM_EMAIL,
+      to: adminEmail,
+      subject: `[Support] ${params.subject}`,
+      react: SupportTicketNotification(params),
+    });
+
+    if (error) throw new Error(error.message);
+
+    log.info('[Email] Support ticket notification sent', {
+      ticketId: params.ticketId,
+      to: adminEmail,
+    });
+
+    return data;
+  });
+}
+
+// Send subscription cancellation confirmation
+export async function sendSubscriptionCancellation(params: {
+  userEmail: string;
+  userName: string;
+  tierName: string;
+  accessEndDate: string;
+}) {
+  const reactivateUrl = `${process.env.NEXT_PUBLIC_APP_URL}/dashboard/billing`;
+
+  return sendWithRetry(async () => {
+    const { data, error } = await resend.emails.send({
+      from: FROM_EMAIL,
+      to: params.userEmail,
+      subject: 'Your Kentroi Subscription Has Been Canceled',
+      react: SubscriptionCancellation({ ...params, reactivateUrl }),
+    });
+
+    if (error) throw new Error(error.message);
+
+    log.info('[Email] Subscription cancellation confirmation sent', {
+      to: params.userEmail,
     });
 
     return data;

@@ -15,23 +15,28 @@ interface TimeSlot {
   available: boolean;
 }
 
+const isDev = process.env.NODE_ENV === 'development';
+
 // GET - Calculate available time slots
 export async function GET(request: NextRequest) {
-  try {
-    // Check rate limit
-    const clientIp = getClientIp(request);
-    const { success, remaining } = await checkRateLimit('availability', clientIp);
+    // Check rate limit (fail-open: don't block availability on rate limit errors)
+    try {
+      const clientIp = getClientIp(request);
+      const { success, remaining } = await checkRateLimit('availability', clientIp);
 
-    if (!success) {
-      return NextResponse.json(
-        { error: 'Too many availability requests. Please try again later.' },
-        {
-          status: 429,
-          headers: {
-            'X-RateLimit-Remaining': remaining.toString(),
-          },
-        }
-      );
+      if (!success) {
+        return NextResponse.json(
+          { error: 'Too many availability requests. Please try again later.' },
+          {
+            status: 429,
+            headers: {
+              'X-RateLimit-Remaining': remaining.toString(),
+            },
+          }
+        );
+      }
+    } catch (error) {
+      log.error('Rate limit check failed, proceeding anyway', error instanceof Error ? error : new Error(String(error)));
     }
 
     const { searchParams } = new URL(request.url);
@@ -41,12 +46,20 @@ export async function GET(request: NextRequest) {
     const startDateParam = searchParams.get('startDate');
     const endDateParam = searchParams.get('endDate');
 
-    // Must provide either userId or widgetId
+    // Look up user
     let user;
-    if (userId) {
-      user = await prisma.user.findUnique({ where: { id: userId } });
-    } else if (widgetId) {
-      user = await prisma.user.findUnique({ where: { widgetId } });
+    try {
+      if (userId) {
+        user = await prisma.user.findUnique({ where: { id: userId } });
+      } else if (widgetId) {
+        user = await prisma.user.findUnique({ where: { widgetId } });
+      }
+    } catch (error) {
+      log.error('User lookup failed', error instanceof Error ? error : new Error(String(error)));
+      return NextResponse.json(
+        { error: 'Failed to look up user', stage: 'user_lookup', ...(isDev && { details: error instanceof Error ? error.message : String(error) }) },
+        { status: 500 }
+      );
     }
 
     if (!user) {
@@ -64,13 +77,22 @@ export async function GET(request: NextRequest) {
     }
 
     // Get appointment type
-    const appointmentType = await prisma.appointmentType.findFirst({
-      where: {
-        id: appointmentTypeId,
-        userId: user.id,
-        active: true,
-      },
-    });
+    let appointmentType;
+    try {
+      appointmentType = await prisma.appointmentType.findFirst({
+        where: {
+          id: appointmentTypeId,
+          userId: user.id,
+          active: true,
+        },
+      });
+    } catch (error) {
+      log.error('Appointment type lookup failed', error instanceof Error ? error : new Error(String(error)));
+      return NextResponse.json(
+        { error: 'Failed to look up appointment type', stage: 'appointment_type', ...(isDev && { details: error instanceof Error ? error.message : String(error) }) },
+        { status: 500 }
+      );
+    }
 
     if (!appointmentType) {
       return NextResponse.json(
@@ -107,118 +129,128 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Get user's availability settings
-    const availability = await prisma.availability.findMany({
-      where: {
-        userId: user.id,
-        isAvailable: true,
-      },
-    });
-
-    // Get date overrides
-    const dateOverrides = await prisma.dateOverride.findMany({
-      where: {
-        userId: user.id,
-        date: {
-          gte: startDate,
-          lte: endDate,
-        },
-      },
-    });
-
-    // Get existing appointments in this range
-    const existingAppointments = await prisma.appointment.findMany({
-      where: {
-        userId: user.id,
-        startTime: {
-          gte: startDate,
-          lte: endDate,
-        },
-        status: {
-          not: 'cancelled',
-        },
-      },
-      include: {
-        appointmentType: true,
-      },
-    });
+    // Fetch availability settings, date overrides, and existing appointments
+    let availability;
+    let dateOverrides;
+    let existingAppointments;
+    try {
+      [availability, dateOverrides, existingAppointments] = await Promise.all([
+        prisma.availability.findMany({
+          where: {
+            userId: user.id,
+            isAvailable: true,
+          },
+        }),
+        prisma.dateOverride.findMany({
+          where: {
+            userId: user.id,
+            date: {
+              gte: startDate,
+              lte: endDate,
+            },
+          },
+        }),
+        prisma.appointment.findMany({
+          where: {
+            userId: user.id,
+            startTime: {
+              gte: startDate,
+              lte: endDate,
+            },
+            status: {
+              not: 'cancelled',
+            },
+          },
+          include: {
+            appointmentType: true,
+          },
+        }),
+      ]);
+    } catch (error) {
+      log.error('Data queries failed', error instanceof Error ? error : new Error(String(error)));
+      return NextResponse.json(
+        { error: 'Failed to fetch availability data', stage: 'data_queries', ...(isDev && { details: error instanceof Error ? error.message : String(error) }) },
+        { status: 500 }
+      );
+    }
 
     // Generate slots for each day
-    const allSlots: { date: string; slots: TimeSlot[] }[] = [];
-    let currentDate = new Date(startDate);
+    try {
+      const allSlots: { date: string; slots: TimeSlot[] }[] = [];
+      let currentDate = new Date(startDate);
 
-    while (isBefore(currentDate, endDate) || currentDate.getTime() === startDate.getTime()) {
-      const dayOfWeek = currentDate.getDay(); // 0-6
-      const dateStr = format(currentDate, 'yyyy-MM-dd');
+      while (isBefore(currentDate, endDate) || currentDate.getTime() === startDate.getTime()) {
+        const dayOfWeek = currentDate.getDay(); // 0-6
+        const dateStr = format(currentDate, 'yyyy-MM-dd');
 
-      // Check for date override
-      const override = dateOverrides.find(
-        (o) => format(o.date, 'yyyy-MM-dd') === dateStr
-      );
+        // Check for date override
+        const override = dateOverrides.find(
+          (o) => format(o.date, 'yyyy-MM-dd') === dateStr
+        );
 
-      let daySlots: TimeSlot[] = [];
+        let daySlots: TimeSlot[] = [];
 
-      if (override) {
-        // Use override settings
-        if (override.isAvailable && override.startTime && override.endTime) {
-          daySlots = await generateSlotsForDay(
-            currentDate,
-            override.startTime,
-            override.endTime,
-            appointmentType,
-            user,
-            existingAppointments,
-            user.timezone
-          );
+        if (override) {
+          // Use override settings
+          if (override.isAvailable && override.startTime && override.endTime) {
+            daySlots = await generateSlotsForDay(
+              currentDate,
+              override.startTime,
+              override.endTime,
+              appointmentType,
+              user,
+              existingAppointments,
+              user.timezone
+            );
+          }
+          // If override is not available, daySlots stays empty
+        } else {
+          // Use regular availability
+          const dayAvailability = availability.find((a) => a.dayOfWeek === dayOfWeek);
+          if (dayAvailability) {
+            daySlots = await generateSlotsForDay(
+              currentDate,
+              dayAvailability.startTime,
+              dayAvailability.endTime,
+              appointmentType,
+              user,
+              existingAppointments,
+              user.timezone
+            );
+          }
         }
-        // If override is not available, daySlots stays empty
-      } else {
-        // Use regular availability
-        const dayAvailability = availability.find((a) => a.dayOfWeek === dayOfWeek);
-        if (dayAvailability) {
-          daySlots = await generateSlotsForDay(
-            currentDate,
-            dayAvailability.startTime,
-            dayAvailability.endTime,
-            appointmentType,
-            user,
-            existingAppointments,
-            user.timezone
-          );
-        }
+
+        allSlots.push({
+          date: dateStr,
+          slots: daySlots,
+        });
+
+        currentDate = addDays(currentDate, 1);
       }
 
-      allSlots.push({
-        date: dateStr,
-        slots: daySlots,
+      // Cache single-day results
+      if (isSingleDay && allSlots.length > 0) {
+        const dateStr = format(startDate, 'yyyy-MM-dd');
+        availabilityCache.setSlots(user.id, appointmentTypeId, dateStr, allSlots[0].slots);
+      }
+
+      return NextResponse.json({
+        appointmentType: {
+          id: appointmentType.id,
+          name: appointmentType.name,
+          duration: appointmentType.duration,
+        },
+        timezone: user.timezone,
+        slots: allSlots,
+        cached: false,
       });
-
-      currentDate = addDays(currentDate, 1);
+    } catch (error) {
+      log.error('Slot generation failed', error instanceof Error ? error : new Error(String(error)));
+      return NextResponse.json(
+        { error: 'Failed to generate time slots', stage: 'slot_generation', ...(isDev && { details: error instanceof Error ? error.message : String(error) }) },
+        { status: 500 }
+      );
     }
-
-    // Cache single-day results
-    if (isSingleDay && allSlots.length > 0) {
-      const dateStr = format(startDate, 'yyyy-MM-dd');
-      availabilityCache.setSlots(user.id, appointmentTypeId, dateStr, allSlots[0].slots);
-    }
-
-    return NextResponse.json({
-      appointmentType: {
-        id: appointmentType.id,
-        name: appointmentType.name,
-        duration: appointmentType.duration,
-      },
-      timezone: user.timezone,
-      slots: allSlots,
-      cached: false,
-    });
-  } catch (error) {
-    log.error('Error calculating available slots', { error });
-    return NextResponse.json(
-      { error: 'Failed to calculate available slots' },
-      { status: 500 }
-    );
-  }
 }
 
 /**
@@ -299,7 +331,7 @@ async function generateSlotsForDay(
         accountId: user.id,
       });
     } catch (error) {
-      log.error('Error fetching team calendar events', { error, date: dateStr });
+      log.error('Error fetching team calendar events', error instanceof Error ? error : new Error(String(error)));
       calendarEvents = [];
     }
   } else {

@@ -89,8 +89,9 @@ export async function createCheckoutSession(params: {
   interval: BillingInterval;
   successUrl: string;
   cancelUrl: string;
+  promotionCode?: string;
 }): Promise<Stripe.Checkout.Session> {
-  const { userId, email, tier, interval, successUrl, cancelUrl } = params;
+  const { userId, email, tier, interval, successUrl, cancelUrl, promotionCode } = params;
 
   // Get or create Stripe customer
   const customerId = await getOrCreateStripeCustomer(userId, email);
@@ -130,7 +131,10 @@ export async function createCheckoutSession(params: {
         interval,
       },
     },
-    allow_promotion_codes: true,
+    // discounts and allow_promotion_codes are mutually exclusive in Stripe
+    ...(promotionCode
+      ? { discounts: [{ promotion_code: promotionCode }] }
+      : { allow_promotion_codes: true }),
     billing_address_collection: 'auto',
   });
 

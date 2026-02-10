@@ -1,18 +1,20 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Check, X, Loader2 } from 'lucide-react';
+import { Check, X, Loader2, Tag } from 'lucide-react';
 import { toast } from 'sonner';
 
 type BillingInterval = 'month' | 'year';
 
-export default function PricingPage() {
+function PricingContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const promoCode = searchParams.get('code');
   const [interval, setInterval] = useState<BillingInterval>('month');
   const [loading, setLoading] = useState<string | null>(null);
 
@@ -26,7 +28,7 @@ export default function PricingPage() {
       const response = await fetch('/api/stripe/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tier, interval }),
+        body: JSON.stringify({ tier, interval, ...(promoCode && { promotionCode: promoCode }) }),
       });
 
       const data = await response.json();
@@ -100,6 +102,13 @@ export default function PricingPage() {
               </Badge>
             </button>
           </div>
+
+          {promoCode && (
+            <div className="mt-6 inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-success/10 border border-success/20 text-success text-sm font-medium">
+              <Tag className="h-4 w-4" />
+              Discount code {promoCode} will be applied at checkout
+            </div>
+          )}
         </div>
 
         {/* Pricing Cards */}
@@ -379,5 +388,13 @@ export default function PricingPage() {
         </footer>
       </div>
     </div>
+  );
+}
+
+export default function PricingPage() {
+  return (
+    <Suspense>
+      <PricingContent />
+    </Suspense>
   );
 }

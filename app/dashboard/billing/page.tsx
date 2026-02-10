@@ -4,8 +4,10 @@ import { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Check, CreditCard, ExternalLink, Loader2, Wallet, TrendingUp, Settings } from 'lucide-react';
+import { Check, CreditCard, ExternalLink, Loader2, Wallet, TrendingUp, Settings, Users } from 'lucide-react';
+import Link from 'next/link';
 import { toast } from 'sonner';
+import { CancellationSurveyModal, CancellationReason } from '@/components/billing/cancellation-survey-modal';
 
 interface BillingInfo {
   tier: string;
@@ -18,6 +20,12 @@ interface BillingInfo {
     bookings: number;
     chatMessages: number;
   };
+  seats: {
+    used: number;
+    included: number;
+    additional: number;
+    total: number;
+  };
 }
 
 export default function BillingPage() {
@@ -25,11 +33,23 @@ export default function BillingPage() {
   const [loading, setLoading] = useState(true);
   const [portalLoading, setPortalLoading] = useState(false);
   const [cancelLoading, setCancelLoading] = useState(false);
+  const [reactivateLoading, setReactivateLoading] = useState(false);
   const [changePlanLoading, setChangePlanLoading] = useState<string | null>(null);
   const [showPlanOptions, setShowPlanOptions] = useState(false);
+  const [showCancelModal, setShowCancelModal] = useState(false);
 
   useEffect(() => {
     fetchBillingInfo();
+  }, []);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('success') === 'true') {
+      setTimeout(() => {
+        toast.success('Subscription updated successfully!');
+      }, 500);
+      window.history.replaceState({}, '', '/dashboard/billing');
+    }
   }, []);
 
   const fetchBillingInfo = async () => {
@@ -98,16 +118,18 @@ export default function BillingPage() {
     }
   };
 
-  const handleCancel = async () => {
-    if (!confirm('Are you sure you want to cancel your subscription? You will retain access until the end of your billing period.')) {
-      return;
-    }
-
+  const handleCancel = async (surveyData: {
+    reason: CancellationReason;
+    reasonDetails?: string;
+    feedback?: string;
+  }) => {
     setCancelLoading(true);
 
     try {
       const response = await fetch('/api/stripe/cancel', {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(surveyData),
       });
 
       const data = await response.json();
@@ -117,14 +139,47 @@ export default function BillingPage() {
       }
 
       toast.success('Subscription canceled. You will retain access until the end of your billing period.');
+      setShowCancelModal(false);
 
       // Refresh billing info
       await fetchBillingInfo();
     } catch (error: any) {
       console.error('Cancel error:', error);
       toast.error(error.message || 'Failed to cancel subscription');
+      throw error; // Re-throw so the modal knows to keep loading state
     } finally {
       setCancelLoading(false);
+    }
+  };
+
+  const handleRetentionOffer = async (switchToAnnual: boolean) => {
+    const response = await fetch('/api/stripe/retention-offer', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ switchToAnnual }),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Failed to apply offer');
+    await fetchBillingInfo();
+  };
+
+  const handleReactivate = async () => {
+    setReactivateLoading(true);
+    try {
+      const response = await fetch('/api/stripe/reactivate', {
+        method: 'POST',
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to reactivate subscription');
+      }
+      toast.success('Subscription reactivated successfully!');
+      await fetchBillingInfo();
+    } catch (error: any) {
+      console.error('Reactivate error:', error);
+      toast.error(error.message || 'Failed to reactivate subscription');
+    } finally {
+      setReactivateLoading(false);
     }
   };
 
@@ -238,9 +293,23 @@ export default function BillingPage() {
 
             {billing.cancelAtPeriodEnd && (
               <div className="p-4 bg-amber-50 dark:bg-amber-950 rounded-lg border border-amber-200 dark:border-amber-800">
-                <p className="text-sm text-amber-900 dark:text-amber-100">
-                  Your subscription will be canceled at the end of the current period. You can reactivate it from the Stripe portal.
+                <p className="text-sm text-amber-900 dark:text-amber-100 mb-3">
+                  Your subscription will be canceled at the end of the current period. Reactivate now to keep your plan.
                 </p>
+                <Button
+                  onClick={handleReactivate}
+                  disabled={reactivateLoading}
+                  size="sm"
+                >
+                  {reactivateLoading ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Reactivating...
+                    </>
+                  ) : (
+                    'Reactivate Subscription'
+                  )}
+                </Button>
               </div>
             )}
 
@@ -347,6 +416,60 @@ export default function BillingPage() {
           </CardContent>
         </Card>
 
+        {/* Team Seats */}
+        {(billing.tier === 'booking' || billing.tier === 'bundle') && (
+          <Card className="border-border shadow-md">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-blue-500/10">
+                    <Users className="h-5 w-5 text-blue-500" />
+                  </div>
+                  <div>
+                    <CardTitle className="font-display text-xl">Team Seats</CardTitle>
+                    <CardDescription className="text-base">Manage your team capacity</CardDescription>
+                  </div>
+                </div>
+                <Link href="/dashboard/team">
+                  <Button variant="outline" size="sm">
+                    Manage Team
+                  </Button>
+                </Link>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="p-4 bg-muted/50 rounded-lg">
+                  <p className="text-sm text-muted-foreground mb-1">Seats Used</p>
+                  <p className="text-2xl font-bold">{billing.seats.used}</p>
+                </div>
+                <div className="p-4 bg-muted/50 rounded-lg">
+                  <p className="text-sm text-muted-foreground mb-1">Included</p>
+                  <p className="text-2xl font-bold">{billing.seats.included}</p>
+                </div>
+                <div className="p-4 bg-muted/50 rounded-lg">
+                  <p className="text-sm text-muted-foreground mb-1">Additional</p>
+                  <p className="text-2xl font-bold">{billing.seats.additional}</p>
+                </div>
+                <div className="p-4 bg-muted/50 rounded-lg">
+                  <p className="text-sm text-muted-foreground mb-1">Total</p>
+                  <p className="text-2xl font-bold">{billing.seats.total}</p>
+                </div>
+              </div>
+              {billing.seats.additional > 0 && (
+                <div className="p-3 bg-muted/30 rounded-lg text-sm text-muted-foreground">
+                  <p>
+                    Additional seats: <span className="font-medium text-foreground">{billing.seats.additional} × $5/month = ${billing.seats.additional * 5}/month</span>
+                  </p>
+                </div>
+              )}
+              <p className="text-xs text-muted-foreground">
+                1 seat included with your plan. Additional team members cost $5/month each.
+              </p>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Payment Method & Cancellation */}
         {billing.hasStripeCustomer && (
           <Card className="border-border shadow-md">
@@ -389,25 +512,28 @@ export default function BillingPage() {
                     Need to cancel? You'll retain access until the end of your billing period.
                   </p>
                   <Button
-                    onClick={handleCancel}
+                    onClick={() => setShowCancelModal(true)}
                     disabled={cancelLoading}
                     variant="destructive"
                     size="sm"
                   >
-                    {cancelLoading ? (
-                      <>
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        Canceling...
-                      </>
-                    ) : (
-                      'Cancel Subscription'
-                    )}
+                    Cancel Subscription
                   </Button>
                 </div>
               )}
             </CardContent>
           </Card>
         )}
+
+        {/* Cancellation Survey Modal */}
+        <CancellationSurveyModal
+          open={showCancelModal}
+          onOpenChange={setShowCancelModal}
+          onConfirmCancel={handleCancel}
+          currentTier={billing?.tier || 'free'}
+          billingInterval={billing?.interval || 'month'}
+          onAcceptRetentionOffer={handleRetentionOffer}
+        />
       </div>
     </div>
   );

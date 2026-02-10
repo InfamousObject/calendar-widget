@@ -14,6 +14,9 @@ const isPublicRoute = createRouteMatcher([
   '/invite/(.*)',
   '/api/appointments/book(.*)',
   '/api/appointments/cancel(.*)',
+  '/book/(.*)',
+  '/api/csrf/token(.*)',
+  '/docs/(.*)',
   '/api/availability/slots(.*)',
   '/api/availability/dates(.*)',
   '/api/forms/submit(.*)',
@@ -26,6 +29,7 @@ const isPublicRoute = createRouteMatcher([
   '/api/sync-user(.*)',
   '/api/team/accept(.*)',
   '/api/wordpress/(.*)',
+  '/api/cron/(.*)',
 ]);
 
 export default clerkMiddleware(async (auth, req) => {

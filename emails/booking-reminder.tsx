@@ -8,8 +8,17 @@ interface BookingReminderProps {
   startTime: Date;
   timezone: string;
   cancelUrl: string;
+  ownerName?: string;
+  businessName?: string;
   meetingLink?: string;
   meetingProvider?: string;
+}
+
+function getProviderDisplay(ownerName?: string, businessName?: string): string {
+  if (ownerName && businessName) return `${ownerName} at ${businessName}`;
+  if (ownerName) return ownerName;
+  if (businessName) return businessName;
+  return 'your provider';
 }
 
 export function BookingReminder({
@@ -18,6 +27,8 @@ export function BookingReminder({
   startTime,
   timezone,
   cancelUrl,
+  ownerName,
+  businessName,
   meetingLink,
   meetingProvider,
 }: BookingReminderProps) {
@@ -43,7 +54,7 @@ export function BookingReminder({
       <Text style={text}>Hi {visitorName},</Text>
 
       <Text style={text}>
-        This is a friendly reminder about your upcoming appointment tomorrow.
+        This is a friendly reminder about your upcoming appointment with <strong>{getProviderDisplay(ownerName, businessName)}</strong> tomorrow.
       </Text>
 
       <Section style={detailsBox}>

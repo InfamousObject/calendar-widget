@@ -7,6 +7,15 @@ interface CancellationConfirmationProps {
   appointmentTypeName: string;
   startTime: Date;
   timezone: string;
+  ownerName?: string;
+  businessName?: string;
+}
+
+function getProviderDisplay(ownerName?: string, businessName?: string): string {
+  if (ownerName && businessName) return `${ownerName} at ${businessName}`;
+  if (ownerName) return ownerName;
+  if (businessName) return businessName;
+  return 'your provider';
 }
 
 export function CancellationConfirmation({
@@ -14,6 +23,8 @@ export function CancellationConfirmation({
   appointmentTypeName,
   startTime,
   timezone,
+  ownerName,
+  businessName,
 }: CancellationConfirmationProps) {
   const formattedDate = formatInTimeZone(startTime, timezone, 'EEEE, MMMM d, yyyy');
   const formattedTime = formatInTimeZone(startTime, timezone, 'h:mm a');
@@ -25,7 +36,7 @@ export function CancellationConfirmation({
       <Text style={text}>Hi {visitorName},</Text>
 
       <Text style={text}>
-        Your appointment has been successfully cancelled.
+        Your appointment with <strong>{getProviderDisplay(ownerName, businessName)}</strong> has been successfully cancelled.
       </Text>
 
       <Section style={detailsBox}>
