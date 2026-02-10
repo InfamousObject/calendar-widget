@@ -99,9 +99,6 @@ export default function BookingPage() {
   const [captchaToken, setCaptchaToken] = useState('');
   const captchaRef = useRef<HCaptcha>(null);
 
-  // CSRF token state
-  const [csrfToken, setCsrfToken] = useState('');
-
   // Step 4: Payment (if required)
   const [paymentIntentId, setPaymentIntentId] = useState<string | null>(null);
   const [showPayment, setShowPayment] = useState(false);
@@ -125,23 +122,7 @@ export default function BookingPage() {
   useEffect(() => {
     fetchWidgetInfo();
     fetchCustomFields();
-    fetchCsrfToken();
   }, [widgetId]);
-
-  const fetchCsrfToken = async () => {
-    try {
-      const response = await fetch('/api/csrf/token');
-      if (response.ok) {
-        const data = await response.json();
-        setCsrfToken(data.token);
-      } else {
-        // CSRF might be disabled - that's ok, the API will skip validation
-        console.log('[Booking] CSRF token not available (may be disabled)');
-      }
-    } catch (error) {
-      console.error('Error fetching CSRF token:', error);
-    }
-  };
 
   const fetchWidgetInfo = async () => {
     try {
@@ -431,7 +412,6 @@ export default function BookingPage() {
           timezone: widgetInfo?.timezone || 'UTC',
           formResponses: Object.keys(formResponses).length > 0 ? formResponses : undefined,
           captchaToken: captchaToken || undefined,
-          csrfToken: csrfToken || undefined,
           paymentIntentId: finalPaymentIntentId || undefined,
         }),
       });
@@ -444,12 +424,11 @@ export default function BookingPage() {
       } else {
         const error = await response.json();
         alert(error.error || 'Failed to book appointment');
-        // Reset CAPTCHA and fetch new CSRF token on error
+        // Reset CAPTCHA on error
         if (captchaRef.current) {
           captchaRef.current.resetCaptcha();
           setCaptchaToken('');
         }
-        fetchCsrfToken(); // CSRF tokens are one-time use
         // If payment failed, stay on payment step
         if (requiresPayment && step === 4) {
           // Stay on step 4
@@ -458,12 +437,11 @@ export default function BookingPage() {
     } catch (error) {
       console.error('Error booking appointment:', error);
       alert('Failed to book appointment');
-      // Reset CAPTCHA and fetch new CSRF token on error
+      // Reset CAPTCHA on error
       if (captchaRef.current) {
         captchaRef.current.resetCaptcha();
         setCaptchaToken('');
       }
-      fetchCsrfToken(); // CSRF tokens are one-time use
     } finally {
       setBooking(false);
     }
@@ -1119,7 +1097,6 @@ export default function BookingPage() {
                         captchaRef.current.resetCaptcha();
                         setCaptchaToken('');
                       }
-                      fetchCsrfToken();
                     }}
                   >
                     Book Another

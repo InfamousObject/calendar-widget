@@ -22,7 +22,6 @@ const bookAppointmentSchema = z.object({
   timezone: z.string(),
   formResponses: z.record(z.string(), z.unknown()).optional(),
   captchaToken: z.string().optional(), // hCaptcha token for bot protection
-  csrfToken: z.string().optional(), // CSRF token for request validation
   paymentIntentId: z.string().optional(), // Stripe Payment Intent ID for paid appointments
 });
 
@@ -222,95 +221,79 @@ export async function POST(request: NextRequest) {
     // Generate cryptographically secure cancellation token (64 bytes = 128 hex characters)
     const cancellationToken = crypto.randomBytes(64).toString('hex');
 
-    // Use database transaction with serializable isolation to prevent double booking race condition
-    // This ensures that the conflict check and appointment creation are atomic
-    let appointment;
-    try {
-      appointment = await prisma.$transaction(async (tx) => {
-        // Step 1: Check for conflicts while holding a transaction lock
-        const conflictingAppointment = await tx.appointment.findFirst({
-          where: {
-            userId: user.id,
-            status: {
-              not: 'cancelled',
-            },
-            OR: [
-              // Existing appointment overlaps with start of new booking
-              {
-                AND: [
-                  { startTime: { lte: startTime } },
-                  { endTime: { gt: startTime } },
-                ],
-              },
-              // Existing appointment overlaps with end of new booking
-              {
-                AND: [
-                  { startTime: { lt: endTime } },
-                  { endTime: { gte: endTime } },
-                ],
-              },
-              // New booking completely encompasses existing appointment
-              {
-                AND: [
-                  { startTime: { gte: startTime } },
-                  { endTime: { lte: endTime } },
-                ],
-              },
+    // Check for conflicting appointments then create
+    // Using sequential queries (interactive transactions are not supported
+    // with @prisma/adapter-pg through Supabase PgBouncer)
+    const conflictingAppointment = await prisma.appointment.findFirst({
+      where: {
+        userId: user.id,
+        status: {
+          not: 'cancelled',
+        },
+        OR: [
+          // Existing appointment overlaps with start of new booking
+          {
+            AND: [
+              { startTime: { lte: startTime } },
+              { endTime: { gt: startTime } },
             ],
           },
-        });
-
-        if (conflictingAppointment) {
-          // Throw error to abort transaction
-          throw new Error('SLOT_UNAVAILABLE');
-        }
-
-        // Step 2: Create appointment while transaction lock is held
-        // This ensures no other request can create a conflicting appointment
-        const newAppointment = await tx.appointment.create({
-          data: {
-            userId: user.id,
-            appointmentTypeId: appointmentType.id,
-            startTime,
-            endTime,
-            timezone: validatedData.timezone,
-            visitorName: validatedData.visitorName,
-            visitorEmail: validatedData.visitorEmail,
-            visitorPhone: validatedData.visitorPhone,
-            notes: validatedData.notes,
-            formResponses: validatedData.formResponses as Prisma.InputJsonValue,
-            status: 'confirmed',
-            cancellationToken,
-            // Payment info (if payment was required)
-            paymentIntentId: paymentInfo?.paymentIntentId,
-            paymentStatus: paymentInfo?.paymentStatus,
-            amountPaid: paymentInfo?.amountPaid,
-            currency: paymentInfo?.currency,
+          // Existing appointment overlaps with end of new booking
+          {
+            AND: [
+              { startTime: { lt: endTime } },
+              { endTime: { gte: endTime } },
+            ],
           },
-          include: {
-            appointmentType: true,
+          // New booking completely encompasses existing appointment
+          {
+            AND: [
+              { startTime: { gte: startTime } },
+              { endTime: { lte: endTime } },
+            ],
           },
-        });
+        ],
+      },
+    });
 
-        return newAppointment;
-      }, {
-        timeout: 5000, // 5 second timeout to prevent long-running locks
-      });
-    } catch (error: any) {
-      // Handle slot unavailable error
-      if (error.message === 'SLOT_UNAVAILABLE') {
-        return NextResponse.json(
-          { error: 'This time slot is no longer available. Please select another time.' },
-          { status: 409 }
-        );
-      }
-
-      // Re-throw other errors
-      throw error;
+    if (conflictingAppointment) {
+      return NextResponse.json(
+        { error: 'This time slot is no longer available. Please select another time.' },
+        { status: 409 }
+      );
     }
 
+    const appointment = await prisma.appointment.create({
+      data: {
+        userId: user.id,
+        appointmentTypeId: appointmentType.id,
+        startTime,
+        endTime,
+        timezone: validatedData.timezone,
+        visitorName: validatedData.visitorName,
+        visitorEmail: validatedData.visitorEmail,
+        visitorPhone: validatedData.visitorPhone,
+        notes: validatedData.notes,
+        formResponses: validatedData.formResponses as Prisma.InputJsonValue,
+        status: 'confirmed',
+        cancellationToken,
+        // Payment info (if payment was required)
+        paymentIntentId: paymentInfo?.paymentIntentId,
+        paymentStatus: paymentInfo?.paymentStatus,
+        amountPaid: paymentInfo?.amountPaid,
+        currency: paymentInfo?.currency,
+      },
+      include: {
+        appointmentType: true,
+      },
+    });
+
     // Track usage for billing and limits
-    await incrementUsage(user.id, 'booking');
+    try {
+      await incrementUsage(user.id, 'booking');
+    } catch (error) {
+      log.error('[Book] Failed to increment usage', error);
+    }
 
     // Create Google Calendar event (with optional Google Meet link)
     let calendarEventId: string | null | undefined;
