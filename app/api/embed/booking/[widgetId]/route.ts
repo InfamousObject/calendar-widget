@@ -49,6 +49,7 @@ export async function GET(
         requirePhone: user.widgetConfig?.requirePhone || false,
         showNotes: user.widgetConfig?.showNotes ?? true,
         daysToDisplay: user.widgetConfig?.daysToDisplay || 7,
+        widgetDaysToDisplay: user.widgetConfig?.widgetDaysToDisplay || 4,
       },
       customFields: user.bookingFormFields,
     };

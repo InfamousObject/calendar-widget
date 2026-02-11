@@ -55,6 +55,7 @@ interface WidgetConfig {
     requirePhone: boolean;
     showNotes: boolean;
     daysToDisplay: number;
+    widgetDaysToDisplay?: number;
   };
   customFields: BookingFormField[];
 }
@@ -385,8 +386,8 @@ function EmbedBookingContent() {
     );
   }
 
-  const daysToDisplay = config.bookingSettings.daysToDisplay || 7;
-  const availableDays = Array.from({ length: daysToDisplay }, (_, i) => addDays(startOfDay(new Date()), i));
+  const widgetDaysCount = config.bookingSettings.widgetDaysToDisplay || 4;
+  const availableDays = Array.from({ length: widgetDaysCount }, (_, i) => addDays(startOfDay(new Date()), i));
 
   return (
     <div ref={containerRef} className="max-w-2xl mx-auto p-4">
