@@ -399,7 +399,16 @@
       if (type.description) {
         tc.appendChild(el('div', { className: 'kr-tdesc', textContent: type.description }));
       }
-      tc.appendChild(el('div', { className: 'kr-tdur', textContent: type.duration + ' minutes' }));
+      // Duration and price row
+      var infoText = type.duration + ' minutes';
+      if (type.requirePayment && type.price) {
+        var priceStr = new Intl.NumberFormat('en-US', { style: 'currency', currency: (type.currency || 'usd').toUpperCase() }).format(type.price / 100);
+        infoText += ' · ' + priceStr;
+        if (type.depositPercent) infoText += ' (' + type.depositPercent + '% deposit)';
+      } else {
+        infoText += ' · Free';
+      }
+      tc.appendChild(el('div', { className: 'kr-tdur', textContent: infoText }));
       bd.appendChild(tc);
     });
 
@@ -413,7 +422,7 @@
     var bd = el('div', { className: 'kr-card-bd kr-fi' });
     bd.appendChild(el('h3', { className: 'kr-h', textContent: 'Select a date' }));
 
-    var days = (this.state.config.bookingSettings && this.state.config.bookingSettings.daysToDisplay) || 7;
+    var days = (this.state.config.bookingSettings && this.state.config.bookingSettings.widgetDaysToDisplay) || 4;
     var grid = el('div', { className: 'kr-dg' });
     var today = startOfDay(new Date());
 
@@ -507,10 +516,23 @@
 
     // TODO: hCaptcha integration — server-side rate limiting provides baseline protection
 
+    // Payment notice for paid appointments
+    var type = this.state.selectedType;
+    var requiresPayment = type && type.requirePayment && type.price;
+    if (requiresPayment) {
+      var priceStr = new Intl.NumberFormat('en-US', { style: 'currency', currency: (type.currency || 'usd').toUpperCase() }).format(type.price / 100);
+      var payNotice = el('div', { className: 'kr-pay-notice', style: { padding: '12px', borderRadius: '8px', backgroundColor: 'rgba(79,70,229,0.08)', marginBottom: '12px', fontSize: '14px' } });
+      payNotice.appendChild(el('div', { style: { fontWeight: '600', marginBottom: '4px' }, textContent: 'Payment Required' }));
+      var payText = priceStr;
+      if (type.depositPercent) payText += ' (' + type.depositPercent + '% deposit)';
+      payNotice.appendChild(el('div', { style: { color: '#6b7280' }, textContent: payText + ' — You will be redirected to complete payment.' }));
+      bd.appendChild(payNotice);
+    }
+
     // Submit
     var submitBtn = el('button', {
       className: 'kr-btn kr-btn-p kr-btn-f',
-      textContent: self.state.submitting ? 'Booking...' : 'Confirm Booking',
+      textContent: self.state.submitting ? 'Processing...' : (requiresPayment ? 'Continue to Payment' : 'Confirm Booking'),
       onClick: function () { self._submit(); },
     });
     if (self.state.submitting) submitBtn.disabled = true;
@@ -617,6 +639,14 @@
       return;
     }
 
+    // For paid appointments, redirect to the full booking page which has Stripe payment
+    var selectedType = this.state.selectedType;
+    if (selectedType && selectedType.requirePayment && selectedType.price) {
+      var bookUrl = API_BASE + '/book/' + this.widgetId + '?appointmentTypeId=' + selectedType.id;
+      window.open(bookUrl, '_blank');
+      return;
+    }
+
     this.state.submitting = true;
     this.state.validationError = null;
     this._render();
@@ -624,7 +654,7 @@
     try {
       var body = {
         widgetId: this.widgetId,
-        appointmentTypeId: this.state.selectedType.id,
+        appointmentTypeId: selectedType.id,
         startTime: this.state.selectedSlot.start,
         visitorName: fd.name,
         visitorEmail: fd.email,
