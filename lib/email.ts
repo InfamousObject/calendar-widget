@@ -10,6 +10,7 @@ import { TeamInvitation } from '@/emails/team-invitation';
 import { ReengagementOffer } from '@/emails/reengagement-offer';
 import { SupportTicketNotification } from '@/emails/support-ticket';
 import { SubscriptionCancellation } from '@/emails/subscription-cancellation';
+import { Welcome } from '@/emails/welcome';
 
 // Provide fallback for build time (when env vars aren't available)
 const resend = new Resend(process.env.RESEND_API_KEY || 'dummy-key-for-build');
@@ -351,6 +352,29 @@ export async function sendSubscriptionCancellation(params: {
 
     log.info('[Email] Subscription cancellation confirmation sent', {
       to: params.userEmail,
+    });
+
+    return data;
+  });
+}
+
+// Send welcome email to new users
+export async function sendWelcomeEmail(params: {
+  toEmail: string;
+  toName: string;
+}) {
+  return sendWithRetry(async () => {
+    const { data, error } = await resend.emails.send({
+      from: FROM_EMAIL,
+      to: params.toEmail,
+      subject: 'Welcome to Kentroi!',
+      react: Welcome(params),
+    });
+
+    if (error) throw new Error(error.message);
+
+    log.info('[Email] Welcome email sent', {
+      to: params.toEmail,
     });
 
     return data;

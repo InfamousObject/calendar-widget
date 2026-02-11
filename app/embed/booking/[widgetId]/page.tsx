@@ -11,7 +11,8 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Calendar, ArrowLeft, Check } from 'lucide-react';
+import { Calendar, ArrowLeft, Check, CreditCard } from 'lucide-react';
+import { PaymentForm } from '@/components/booking/payment-form';
 import { format, addDays, startOfDay, parseISO } from 'date-fns';
 import HCaptcha from '@hcaptcha/react-hcaptcha';
 import { trackConversion } from '@/lib/analytics/track';
@@ -22,6 +23,10 @@ interface AppointmentType {
   description?: string;
   duration: number;
   color: string;
+  price?: number | null;
+  currency?: string;
+  requirePayment?: boolean;
+  depositPercent?: number | null;
 }
 
 interface BookingFormField {
@@ -54,7 +59,7 @@ interface WidgetConfig {
   customFields: BookingFormField[];
 }
 
-type Step = 'select-type' | 'select-date' | 'select-time' | 'details' | 'success';
+type Step = 'select-type' | 'select-date' | 'select-time' | 'details' | 'payment' | 'success';
 
 function EmbedBookingContent() {
   const params = useParams();
@@ -78,6 +83,17 @@ function EmbedBookingContent() {
   });
   const [customFormResponses, setCustomFormResponses] = useState<Record<string, any>>({});
   const [submitting, setSubmitting] = useState(false);
+  const [paymentIntentId, setPaymentIntentId] = useState<string | null>(null);
+
+  const requiresPayment = selectedType?.requirePayment && selectedType?.price;
+
+  const formatPrice = (cents: number | null | undefined, currency: string = 'usd') => {
+    if (cents === null || cents === undefined) return 'Free';
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: currency.toUpperCase(),
+    }).format(cents / 100);
+  };
 
   // CAPTCHA state
   const [captchaToken, setCaptchaToken] = useState('');
@@ -184,7 +200,7 @@ function EmbedBookingContent() {
     }
   };
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (paymentId?: string) => {
     if (!selectedDate || !selectedSlot || !selectedType || !config) return;
 
     // Validate required fields
@@ -226,6 +242,8 @@ function EmbedBookingContent() {
       return;
     }
 
+    const finalPaymentIntentId = paymentId || paymentIntentId;
+
     setSubmitting(true);
     try {
       const startTime = parseISO(selectedSlot.start);
@@ -244,6 +262,7 @@ function EmbedBookingContent() {
           timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
           formResponses: Object.keys(customFormResponses).length > 0 ? customFormResponses : undefined,
           captchaToken: captchaToken || undefined,
+          paymentIntentId: finalPaymentIntentId || undefined,
         }),
       });
 
@@ -391,6 +410,8 @@ function EmbedBookingContent() {
                     setSelectedSlot(null);
                   } else if (step === 'details') {
                     setStep('select-time');
+                  } else if (step === 'payment') {
+                    setStep('details');
                   }
                 }}
               >
@@ -402,7 +423,12 @@ function EmbedBookingContent() {
                 {step === 'success' ? 'Booking Confirmed!' : `Book with ${config.businessName}`}
               </CardTitle>
               {selectedType && step !== 'success' && (
-                <CardDescription>{selectedType.name} ({selectedType.duration} min)</CardDescription>
+                <CardDescription>
+                  {selectedType.name} ({selectedType.duration} min)
+                  {selectedType.requirePayment && selectedType.price && (
+                    <span className="ml-2">{formatPrice(selectedType.price, selectedType.currency)}</span>
+                  )}
+                </CardDescription>
               )}
             </div>
           </div>
@@ -431,7 +457,15 @@ function EmbedBookingContent() {
                     )}
                   </CardHeader>
                   <CardContent>
-                    <p className="text-sm text-muted-foreground">{type.duration} minutes</p>
+                    <p className="text-sm text-muted-foreground">
+                      {type.duration} minutes
+                      {type.requirePayment && type.price && (
+                        <span className="ml-2 inline-flex items-center gap-1">
+                          <CreditCard className="h-3 w-3" />
+                          {formatPrice(type.price, type.currency)}
+                        </span>
+                      )}
+                    </p>
                   </CardContent>
                 </Card>
               ))}
@@ -556,7 +590,13 @@ function EmbedBookingContent() {
 
               <Button
                 className="w-full"
-                onClick={handleSubmit}
+                onClick={() => {
+                  if (requiresPayment) {
+                    setStep('payment');
+                  } else {
+                    handleSubmit();
+                  }
+                }}
                 disabled={
                   !formData.name ||
                   !formData.email ||
@@ -564,9 +604,24 @@ function EmbedBookingContent() {
                   (!!process.env.NEXT_PUBLIC_HCAPTCHA_SITE_KEY && !captchaToken)
                 }
               >
-                {submitting ? 'Booking...' : 'Confirm Booking'}
+                {requiresPayment ? 'Continue to Payment' : submitting ? 'Booking...' : 'Confirm Booking'}
               </Button>
             </div>
+          )}
+
+          {/* Payment */}
+          {step === 'payment' && requiresPayment && selectedType && (
+            <PaymentForm
+              widgetId={widgetId}
+              appointmentTypeId={selectedType.id}
+              visitorEmail={formData.email}
+              visitorName={formData.name}
+              onPaymentSuccess={(id) => {
+                setPaymentIntentId(id);
+                handleSubmit(id);
+              }}
+              onBack={() => setStep('details')}
+            />
           )}
 
           {/* Success */}

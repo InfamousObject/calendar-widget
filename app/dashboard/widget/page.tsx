@@ -36,6 +36,7 @@ interface WidgetSettings {
   requirePhone: boolean;
   showNotes: boolean;
   daysToDisplay: number;
+  widgetDaysToDisplay: number;
 }
 
 export default function WidgetSettingsPage() {
@@ -114,7 +115,7 @@ export default function WidgetSettingsPage() {
                 <div className="p-3 rounded-xl bg-gradient-to-br from-primary to-accent shadow-lg shadow-primary/30">
                   <Settings className="h-6 w-6 text-white" />
                 </div>
-                <h1 className="font-display text-4xl font-semibold tracking-tight">Widget Settings</h1>
+                <h1 className="font-display text-4xl font-semibold tracking-tight">Booking Page Settings</h1>
               </div>
               <p className="text-lg text-foreground-secondary font-light">
                 Customize your booking widget appearance and behavior
@@ -345,7 +346,7 @@ export default function WidgetSettingsPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="daysToDisplay">Days to Display</Label>
+                  <Label htmlFor="daysToDisplay">Booking Page Days</Label>
                   <Select
                     value={String(settings.daysToDisplay || 7)}
                     onValueChange={(value) =>
@@ -365,7 +366,26 @@ export default function WidgetSettingsPage() {
                     </SelectContent>
                   </Select>
                   <p className="text-sm text-muted-foreground">
-                    How many days to show in the booking calendar
+                    How many days to show on the standalone booking page
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="widgetDaysToDisplay">Widget Days to Display</Label>
+                  <Input
+                    id="widgetDaysToDisplay"
+                    type="number"
+                    min={1}
+                    max={14}
+                    value={settings.widgetDaysToDisplay || 4}
+                    onChange={(e) =>
+                      setSettings({ ...settings, widgetDaysToDisplay: parseInt(e.target.value) || 4 })
+                    }
+                  />
+                  <p className="text-sm text-muted-foreground">
+                    The widget displays fewer days since it appears in a smaller window. Maximum 14 days.
                   </p>
                 </div>
               </div>

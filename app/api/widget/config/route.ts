@@ -29,6 +29,10 @@ export async function GET(request: NextRequest) {
             description: true,
             duration: true,
             color: true,
+            price: true,
+            currency: true,
+            requirePayment: true,
+            depositPercent: true,
           },
         },
         forms: {
@@ -85,6 +89,7 @@ export async function GET(request: NextRequest) {
         timeFormat: user.widgetConfig?.timeFormat || '12h',
         requirePhone: user.widgetConfig?.requirePhone || false,
         showNotes: user.widgetConfig?.showNotes ?? true,
+        widgetDaysToDisplay: user.widgetConfig?.widgetDaysToDisplay || 4,
       },
 
       // Chatbot config (only if enabled)

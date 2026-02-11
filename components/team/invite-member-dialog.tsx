@@ -22,6 +22,7 @@ import {
 } from '@/components/ui/select';
 import { Loader2, UserPlus, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
+import Link from 'next/link';
 
 interface InviteMemberDialogProps {
   canAddMore: boolean;
@@ -85,6 +86,27 @@ export function InviteMemberDialog({
         )}
       </DialogTrigger>
       <DialogContent className="sm:max-w-[425px]">
+        {seatsTotal === 0 ? (
+          <>
+            <DialogHeader>
+              <DialogTitle>Invite Team Member</DialogTitle>
+              <DialogDescription>
+                You need a paid seat before you can invite team members.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="flex flex-col items-center gap-4 py-6">
+              <div className="flex items-center gap-2 p-3 bg-amber-50 dark:bg-amber-950 text-amber-900 dark:text-amber-100 rounded-lg w-full">
+                <AlertTriangle className="h-4 w-4 shrink-0" />
+                <p className="text-sm">Purchase a seat to invite team members.</p>
+              </div>
+              <Link href="/dashboard/team">
+                <Button type="button" onClick={() => setOpen(false)}>
+                  Go to Team Settings
+                </Button>
+              </Link>
+            </div>
+          </>
+        ) : (
         <form onSubmit={handleSubmit}>
           <DialogHeader>
             <DialogTitle>Invite Team Member</DialogTitle>
@@ -171,6 +193,7 @@ export function InviteMemberDialog({
             </Button>
           </DialogFooter>
         </form>
+        )}
       </DialogContent>
     </Dialog>
   );

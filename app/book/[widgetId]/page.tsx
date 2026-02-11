@@ -37,6 +37,7 @@ interface AppointmentType {
 interface WidgetInfo {
   businessName: string;
   timezone: string;
+  daysToDisplay?: number;
   appointmentTypes: AppointmentType[];
 }
 
@@ -158,7 +159,7 @@ export default function BookingPage() {
     setLoadingDates(true);
     try {
       const response = await fetch(
-        `/api/availability/dates?widgetId=${widgetId}&appointmentTypeId=${appointmentTypeId}&daysAhead=14`
+        `/api/availability/dates?widgetId=${widgetId}&appointmentTypeId=${appointmentTypeId}&daysAhead=${widgetInfo?.daysToDisplay || 14}`
       );
 
       if (response.ok) {

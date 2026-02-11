@@ -5,7 +5,7 @@ import type { SubscriptionTier } from '@/lib/stripe';
 export const TIER_LIMITS = {
   free: {
     appointmentTypes: 1,
-    monthlyBookings: 25,
+    monthlyBookings: Infinity,
     contactForms: Infinity,
     knowledgeBaseArticles: 0,
     chatbotMessages: 0,
@@ -240,13 +240,15 @@ export async function canAddTeamMember(userId: string): Promise<{
   message?: string;
 }> {
   const limit = await getTeamSeatLimit(userId);
-  const current = await prisma.teamMember.count({
+  const teamMembers = await prisma.teamMember.count({
     where: {
       accountId: userId,
       status: { in: ['active', 'pending'] },
     },
   });
 
+  // +1 for the account owner who occupies a seat
+  const current = teamMembers + 1;
   const allowed = current < limit;
 
   return {

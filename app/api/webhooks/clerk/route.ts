@@ -4,6 +4,7 @@ import { WebhookEvent } from '@clerk/nextjs/server';
 import { prisma } from '@/lib/prisma';
 import { NextResponse } from 'next/server';
 import { log } from '@/lib/logger';
+import { sendWelcomeEmail } from '@/lib/email';
 
 export async function POST(req: Request) {
   const WEBHOOK_SECRET = process.env.CLERK_WEBHOOK_SECRET;
@@ -90,6 +91,8 @@ export async function POST(req: Request) {
       const existingById = await prisma.user.findUnique({ where: { id } });
       const existingByEmail = await prisma.user.findUnique({ where: { email } });
 
+      const userName = `${first_name || ''} ${last_name || ''}`.trim() || email.split('@')[0];
+
       if (existingById) {
         // User already exists with this Clerk ID, just update
         log.info('[Clerk Webhook] User already exists, updating', { userId: id });
@@ -97,7 +100,7 @@ export async function POST(req: Request) {
           where: { id },
           data: {
             email,
-            name: `${first_name || ''} ${last_name || ''}`.trim() || email.split('@')[0],
+            name: userName,
           },
         });
       } else if (existingByEmail) {
@@ -115,7 +118,7 @@ export async function POST(req: Request) {
           data: {
             id,
             email,
-            name: `${first_name || ''} ${last_name || ''}`.trim() || email.split('@')[0],
+            name: userName,
             emailVerified: new Date(),
             widgetConfig: {
               create: {
@@ -133,13 +136,18 @@ export async function POST(req: Request) {
             },
           },
         });
+
+        // Fire-and-forget welcome email
+        sendWelcomeEmail({ toEmail: email, toName: userName }).catch(err =>
+          log.error('[Clerk Webhook] Failed to send welcome email', err)
+        );
       } else {
         // Create new user
         const user = await prisma.user.create({
           data: {
             id,
             email,
-            name: `${first_name || ''} ${last_name || ''}`.trim() || email.split('@')[0],
+            name: userName,
             emailVerified: new Date(),
             widgetConfig: {
               create: {
@@ -160,6 +168,11 @@ export async function POST(req: Request) {
         log.info('[Clerk Webhook] User created', { userId: user.id });
         // TODO: Implement server-side conversion API for GA4 Measurement Protocol
         // trackConversion('sign_up', { method: 'clerk' })
+
+        // Fire-and-forget welcome email
+        sendWelcomeEmail({ toEmail: email, toName: userName }).catch(err =>
+          log.error('[Clerk Webhook] Failed to send welcome email', err)
+        );
       }
     }
 

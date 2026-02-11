@@ -18,6 +18,11 @@ export async function GET(
         businessName: true,
         name: true,
         timezone: true,
+        widgetConfig: {
+          select: {
+            daysToDisplay: true,
+          },
+        },
       },
     });
 
@@ -40,6 +45,10 @@ export async function GET(
         description: true,
         duration: true,
         color: true,
+        price: true,
+        currency: true,
+        requirePayment: true,
+        depositPercent: true,
       },
       orderBy: {
         name: 'asc',
@@ -49,6 +58,7 @@ export async function GET(
     return NextResponse.json({
       businessName: user.businessName || user.name || 'Business',
       timezone: user.timezone,
+      daysToDisplay: user.widgetConfig?.daysToDisplay || 7,
       appointmentTypes,
     });
   } catch (error) {

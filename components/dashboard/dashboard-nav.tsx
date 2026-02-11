@@ -70,7 +70,7 @@ const navItems = [
     icon: BookOpen,
   },
   {
-    title: 'Widget Settings',
+    title: 'Booking Page Settings',
     href: '/dashboard/widget',
     icon: Palette,
   },

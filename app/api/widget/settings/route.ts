@@ -23,6 +23,7 @@ const widgetSettingsSchema = z.object({
   requirePhone: z.boolean().optional(),
   showNotes: z.boolean().optional(),
   daysToDisplay: z.number().min(7).max(90).optional(),
+  widgetDaysToDisplay: z.number().min(1).max(14).optional(),
 });
 
 // GET - Get widget settings for the team account

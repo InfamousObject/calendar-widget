@@ -11,7 +11,8 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Calendar, FileText, X, ArrowLeft, Check, MessageSquare, Send } from 'lucide-react';
+import { Calendar, FileText, X, ArrowLeft, Check, MessageSquare, Send, CreditCard } from 'lucide-react';
+import { PaymentForm } from '@/components/booking/payment-form';
 import { format, addDays, startOfDay, parseISO, addMinutes } from 'date-fns';
 import { trackConversion } from '@/lib/analytics/track';
 
@@ -31,6 +32,7 @@ interface WidgetConfig {
     timeFormat: string;
     requirePhone: boolean;
     showNotes: boolean;
+    widgetDaysToDisplay?: number;
   };
   chatbot?: {
     enabled: boolean;
@@ -44,6 +46,10 @@ interface WidgetConfig {
       description?: string;
       duration: number;
       color: string;
+      price?: number | null;
+      currency?: string;
+      requirePayment?: boolean;
+      depositPercent?: number | null;
     }>;
     forms: Array<{
       id: string;
@@ -358,6 +364,17 @@ function BookingView({ widgetId, appointmentType, config, onSuccess }: any) {
   const [customFormFields, setCustomFormFields] = useState<any[]>([]);
   const [formResponses, setFormResponses] = useState<Record<string, any>>({});
   const [submitting, setSubmitting] = useState(false);
+  const [paymentIntentId, setPaymentIntentId] = useState<string | null>(null);
+
+  const requiresPayment = appointmentType.requirePayment && appointmentType.price;
+
+  const formatPrice = (cents: number | null | undefined, currency: string = 'usd') => {
+    if (cents === null || cents === undefined) return 'Free';
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: currency.toUpperCase(),
+    }).format(cents / 100);
+  };
 
   useEffect(() => {
     fetchCustomFields();
@@ -400,7 +417,7 @@ function BookingView({ widgetId, appointmentType, config, onSuccess }: any) {
     }
   };
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (paymentId?: string) => {
     if (!selectedDate || !selectedTime) return;
 
     // Validate required custom fields
@@ -411,6 +428,8 @@ function BookingView({ widgetId, appointmentType, config, onSuccess }: any) {
       alert(`Please fill in required fields: ${missingFields.map((f) => f.label).join(', ')}`);
       return;
     }
+
+    const finalPaymentIntentId = paymentId || paymentIntentId;
 
     setSubmitting(true);
     try {
@@ -429,6 +448,7 @@ function BookingView({ widgetId, appointmentType, config, onSuccess }: any) {
           notes: formData.notes,
           timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
           formResponses: Object.keys(formResponses).length > 0 ? formResponses : undefined,
+          paymentIntentId: finalPaymentIntentId || undefined,
         }),
       });
 
@@ -525,21 +545,30 @@ function BookingView({ widgetId, appointmentType, config, onSuccess }: any) {
     }
   };
 
-  // Simplified date picker (showing next 30 days)
-  const next30Days = Array.from({ length: 30 }, (_, i) => addDays(startOfDay(new Date()), i));
+  // Date picker using configured widget days to display
+  const widgetDaysCount = config.bookingSettings?.widgetDaysToDisplay || 4;
+  const displayDays = Array.from({ length: widgetDaysCount }, (_, i) => addDays(startOfDay(new Date()), i));
 
   return (
     <div className="space-y-6">
       <div>
         <h2 className="text-xl font-bold mb-2">{appointmentType.name}</h2>
-        <p className="text-sm text-muted-foreground">{appointmentType.duration} minutes</p>
+        <p className="text-sm text-muted-foreground">
+          {appointmentType.duration} minutes
+          {requiresPayment && (
+            <span className="ml-2 inline-flex items-center gap-1">
+              <CreditCard className="h-3 w-3" />
+              {formatPrice(appointmentType.price, appointmentType.currency)}
+            </span>
+          )}
+        </p>
       </div>
 
       {step === 1 && (
         <div className="space-y-4">
           <h3 className="font-medium">Select a date</h3>
           <div className="grid grid-cols-3 gap-2">
-            {next30Days.map((date) => (
+            {displayDays.map((date) => (
               <Button
                 key={date.toISOString()}
                 variant={selectedDate && format(date, 'yyyy-MM-dd') === format(selectedDate, 'yyyy-MM-dd') ? 'default' : 'outline'}
@@ -633,13 +662,33 @@ function BookingView({ widgetId, appointmentType, config, onSuccess }: any) {
           </div>
           <Button
             className="w-full"
-            onClick={handleSubmit}
+            onClick={() => {
+              if (requiresPayment) {
+                setStep(4);
+              } else {
+                handleSubmit();
+              }
+            }}
             disabled={!formData.name || !formData.email || submitting}
             style={{ backgroundColor: config.appearance.primaryColor }}
           >
-            {submitting ? 'Booking...' : 'Book Appointment'}
+            {requiresPayment ? 'Continue to Payment' : submitting ? 'Booking...' : 'Book Appointment'}
           </Button>
         </div>
+      )}
+
+      {step === 4 && requiresPayment && (
+        <PaymentForm
+          widgetId={widgetId}
+          appointmentTypeId={appointmentType.id}
+          visitorEmail={formData.email}
+          visitorName={formData.name}
+          onPaymentSuccess={(id) => {
+            setPaymentIntentId(id);
+            handleSubmit(id);
+          }}
+          onBack={() => setStep(3)}
+        />
       )}
     </div>
   );
