@@ -8,7 +8,6 @@ import { ThemeProvider } from '@/components/theme-provider';
 import { OrganizationSchema, SoftwareApplicationSchema } from '@/components/seo/schemas';
 import { Analytics } from '@vercel/analytics/react';
 import { SpeedInsights } from '@vercel/speed-insights/next';
-import { GoogleAnalytics } from '@/components/analytics/GoogleAnalytics';
 import { RouteChangeTracker } from '@/components/analytics/RouteChangeTracker';
 import { CookieConsent } from '@/components/analytics/CookieConsent';
 
@@ -99,6 +98,26 @@ export default function RootLayout({
           {/* Structured Data / Schema.org */}
           <OrganizationSchema />
           <SoftwareApplicationSchema />
+          {/* Google Analytics 4 (gtag.js) — inline in <head> for tag detection */}
+          {process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID && (
+            <>
+              <script
+                async
+                src={`https://www.googletagmanager.com/gtag/js?id=${process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID}`}
+              />
+              <script
+                dangerouslySetInnerHTML={{
+                  __html: `
+                    window.dataLayer = window.dataLayer || [];
+                    function gtag(){dataLayer.push(arguments);}
+                    gtag('consent', 'default', { analytics_storage: 'denied' });
+                    gtag('js', new Date());
+                    gtag('config', '${process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID}');
+                  `,
+                }}
+              />
+            </>
+          )}
         </head>
         <body
           className={`${sansFont.variable} antialiased`}
@@ -110,7 +129,6 @@ export default function RootLayout({
             <Toaster />
             <Analytics />
             <SpeedInsights />
-            <GoogleAnalytics />
             <RouteChangeTracker />
             <CookieConsent />
           </ThemeProvider>
