@@ -7,6 +7,7 @@ import { encryptJSON } from '@/lib/encryption';
 import { log } from '@/lib/logger';
 import { z } from 'zod';
 import type { Prisma } from '@prisma/client';
+export { OPTIONS } from '@/lib/cors';
 
 // Schema for form submission
 const submitSchema = z.object({

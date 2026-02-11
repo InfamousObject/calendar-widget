@@ -10,6 +10,7 @@ import { log } from '@/lib/logger';
 import { z } from 'zod';
 import crypto from 'crypto';
 import type { Prisma } from '@prisma/client';
+export { OPTIONS } from '@/lib/cors';
 
 const bookAppointmentSchema = z.object({
   widgetId: z.string(),

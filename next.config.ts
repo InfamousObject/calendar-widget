@@ -9,6 +9,13 @@ const nextConfig: NextConfig = {
   },
 
   async headers() {
+    // CORS headers for embed API routes (called cross-origin by embed.js on customer sites)
+    const corsHeaders = [
+      { key: 'Access-Control-Allow-Origin', value: '*' },
+      { key: 'Access-Control-Allow-Methods', value: 'GET, POST, OPTIONS' },
+      { key: 'Access-Control-Allow-Headers', value: 'Content-Type' },
+    ];
+
     // Security headers for most routes
     const securityHeaders = [
       {
@@ -34,6 +41,12 @@ const nextConfig: NextConfig = {
     ];
 
     return [
+      // CORS for embed API routes (used by public/embed.js SDK)
+      { source: '/api/embed/:path*', headers: corsHeaders },
+      { source: '/api/widget/:path*', headers: corsHeaders },
+      { source: '/api/availability/:path*', headers: corsHeaders },
+      { source: '/api/appointments/book', headers: corsHeaders },
+      { source: '/api/forms/submit', headers: corsHeaders },
       // Embeddable routes - allow iframe embedding from any origin
       {
         source: '/embed/:path*',

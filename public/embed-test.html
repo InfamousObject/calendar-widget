@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kentroi Embed Test Page</title>
+  <style>
+    /* Host page styles — intentionally opinionated to test Shadow DOM isolation */
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Georgia, 'Times New Roman', serif; color: #333; line-height: 1.8; }
+    h1, h2, h3 { font-family: 'Courier New', monospace; }
+    input, button, select, textarea { font-family: 'Comic Sans MS', cursive; font-size: 18px; color: red; }
+    a { color: purple; }
+
+    .container { max-width: 900px; margin: 0 auto; padding: 40px 20px; }
+
+    .section { padding: 60px 20px; }
+    .section-light { background: #f8f9fa; }
+    .section-dark { background: #1a1a2e; color: #e0e0e0; }
+    .section-colored { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: #fff; }
+
+    .section h2 { margin-bottom: 8px; font-size: 24px; }
+    .section p { margin-bottom: 24px; font-size: 14px; opacity: 0.7; }
+
+    .embed-wrapper { max-width: 700px; margin: 0 auto; }
+
+    .hero { text-align: center; padding: 60px 20px; background: #fff; border-bottom: 1px solid #eee; }
+    .hero h1 { font-size: 32px; margin-bottom: 12px; }
+    .hero p { font-size: 16px; color: #666; }
+
+    .info-box { background: #fff3cd; border: 1px solid #ffc107; border-radius: 8px; padding: 16px; margin: 24px auto; max-width: 700px; font-size: 14px; }
+    .info-box code { background: #f8f9fa; padding: 2px 6px; border-radius: 4px; font-family: monospace; }
+  </style>
+</head>
+<body>
+
+  <!-- Hero -->
+  <div class="hero">
+    <h1>Kentroi Embed Test Page</h1>
+    <p>This page tests the Shadow DOM inline embed SDK. Host page styles should NOT leak into the widgets.</p>
+    <div class="info-box">
+      Replace <code>YOUR_WIDGET_ID</code> and <code>YOUR_FORM_ID</code> below with real IDs from your Kentroi dashboard.
+      <br>If running locally, the script auto-detects the API base from its own URL.
+    </div>
+  </div>
+
+  <!-- Light background — Booking Widget -->
+  <div class="section section-light">
+    <div class="container">
+      <h2>Booking Widget (Light Background)</h2>
+      <p>The booking widget below should render with its own styles, unaffected by this page's serif fonts and red inputs.</p>
+      <div class="embed-wrapper">
+        <div data-kentroi-type="booking" data-widget-id="YOUR_WIDGET_ID"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Dark background — Contact Form -->
+  <div class="section section-dark">
+    <div class="container">
+      <h2>Contact Form (Dark Background)</h2>
+      <p>The form widget should have its own white card, regardless of the dark host background.</p>
+      <div class="embed-wrapper">
+        <div data-kentroi-type="form" data-form-id="YOUR_FORM_ID"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Colored background — Another Booking Widget with pre-selected type -->
+  <div class="section section-colored">
+    <div class="container">
+      <h2>Booking Widget with Pre-selected Type (Gradient Background)</h2>
+      <p>This widget has a data-appointment-type attribute to skip the type selection step.</p>
+      <div class="embed-wrapper">
+        <div data-kentroi-type="booking" data-widget-id="YOUR_WIDGET_ID" data-appointment-type="YOUR_TYPE_ID"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Surrounding content to test no interference -->
+  <div class="section section-light">
+    <div class="container">
+      <h2>Host Page Content (No Widget)</h2>
+      <p>This section has normal page content to verify nothing bleeds from the widgets.</p>
+      <form style="max-width: 400px;">
+        <label>Host page input (should be red Comic Sans):</label><br>
+        <input type="text" placeholder="This should look different from widget inputs" style="width: 100%; padding: 8px; margin-top: 4px;">
+        <br><br>
+        <button type="button" style="padding: 8px 16px;">Host Page Button</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Load the embed SDK -->
+  <script src="/embed.js" async></script>
+
+</body>
+</html>

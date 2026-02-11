@@ -6,6 +6,7 @@ import { fromZonedTime } from 'date-fns-tz';
 import { availabilityCache } from '@/lib/cache/availability-cache';
 import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
 import { log } from '@/lib/logger';
+export { OPTIONS } from '@/lib/cors';
 
 interface TimeSlot {
   start: string; // ISO string

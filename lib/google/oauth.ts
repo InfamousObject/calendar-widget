@@ -44,9 +44,9 @@ export async function getAuthUrl(userId: string) {
         tokenLength: stateToken.length,
         expiresIn: 600
       });
-    } catch (error) {
+    } catch (error: any) {
       log.error('[OAuth] Failed to store state token in Redis', error);
-      throw new Error('Failed to initialize OAuth flow. Please try again.');
+      throw new Error(`Redis state storage failed: ${error.message || 'Unknown error'}`);
     }
   } else {
     log.error('[OAuth] Cannot generate auth URL - Redis not available');

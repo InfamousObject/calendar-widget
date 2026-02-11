@@ -26,6 +26,7 @@ const isPublicRoute = createRouteMatcher([
   '/api/embed/(.*)',
   '/api/widget/(.*)',
   '/embed/(.*)',
+  '/widget/(.*)',
   '/api/stripe/webhook(.*)',
   '/api/webhooks/clerk(.*)',
   '/api/sync-user(.*)',

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { log } from '@/lib/logger';
+export { OPTIONS } from '@/lib/cors';
 
 // GET - Get form for embed (public endpoint)
 export async function GET(

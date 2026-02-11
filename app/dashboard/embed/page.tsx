@@ -4,9 +4,8 @@ import { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Code, Copy, ExternalLink, Check, Calendar, FileText, MessageSquare } from 'lucide-react';
+import { Code, Copy, ExternalLink, Check, Calendar, FileText, MessageSquare, ChevronDown, ChevronUp } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface Form {
@@ -27,6 +26,8 @@ export default function EmbedPage() {
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
   const [origin, setOrigin] = useState('');
   const [hasChatbotAccess, setHasChatbotAccess] = useState(false);
+  const [showLegacyBooking, setShowLegacyBooking] = useState(false);
+  const [showLegacyForms, setShowLegacyForms] = useState(false);
 
   useEffect(() => {
     setOrigin(window.location.origin);
@@ -73,12 +74,29 @@ export default function EmbedPage() {
     }
   };
 
+  // --- SDK embed codes (new default) ---
+
+  const getBookingEmbedCode = (appointmentTypeId?: string) => {
+    const typeAttr = appointmentTypeId ? ` data-appointment-type="${appointmentTypeId}"` : '';
+    return `<!-- Kentroi Booking Widget -->
+<div data-kentroi-type="booking" data-widget-id="${widgetId}"${typeAttr}></div>
+<script src="${origin}/embed.js" async></script>`;
+  };
+
+  const getFormEmbedCode = (formId: string) => {
+    return `<!-- Kentroi Contact Form -->
+<div data-kentroi-type="form" data-form-id="${formId}"></div>
+<script src="${origin}/embed.js" async></script>`;
+  };
+
+  // --- Legacy iframe codes (kept as fallback) ---
+
   const getBookingIframeCode = (appointmentTypeId?: string) => {
     const url = appointmentTypeId
       ? `${origin}/embed/booking/${widgetId}?type=${appointmentTypeId}`
       : `${origin}/embed/booking/${widgetId}`;
 
-    return `<!-- Kentroi Booking Embed -->
+    return `<!-- Kentroi Booking Embed (iframe) -->
 <iframe
   src="${url}"
   width="100%"
@@ -89,7 +107,7 @@ export default function EmbedPage() {
   };
 
   const getFormIframeCode = (formId: string) => {
-    return `<!-- Kentroi Form Embed -->
+    return `<!-- Kentroi Form Embed (iframe) -->
 <iframe
   src="${origin}/embed/form/${formId}"
   width="100%"
@@ -130,6 +148,33 @@ export default function EmbedPage() {
   const openTestPage = (url: string) => {
     window.open(url, '_blank');
   };
+
+  /** Reusable code block with copy button */
+  const CodeBlock = ({ code, id, size = 'sm' }: { code: string; id: string; size?: 'sm' | 'xs' }) => (
+    <div className="relative">
+      <pre className={`bg-muted p-4 rounded-lg overflow-x-auto text-${size}`}>
+        <code>{code}</code>
+      </pre>
+      <Button
+        variant="outline"
+        size="sm"
+        className="absolute top-2 right-2"
+        onClick={() => copyToClipboard(code, id)}
+      >
+        {copiedCode === id ? (
+          <>
+            <Check className="h-4 w-4 mr-2" />
+            Copied!
+          </>
+        ) : (
+          <>
+            <Copy className="h-4 w-4 mr-2" />
+            Copy
+          </>
+        )}
+      </Button>
+    </div>
+  );
 
   if (loading) {
     return (
@@ -234,7 +279,7 @@ export default function EmbedPage() {
                   <div>
                     <CardTitle className="font-display text-xl">Booking Widget</CardTitle>
                     <CardDescription className="text-base">
-                      Embed an inline booking widget on your website. Visitors can book appointments directly on your page.
+                      Embed an inline booking widget on your website. Renders natively on the page with no iframe — auto-sizes to fit content.
                     </CardDescription>
                   </div>
                 </div>
@@ -256,29 +301,7 @@ export default function EmbedPage() {
                     {/* All Types */}
                     <div className="space-y-3">
                       <h4 className="font-medium">All Appointment Types</h4>
-                      <div className="relative">
-                        <pre className="bg-muted p-4 rounded-lg overflow-x-auto text-sm">
-                          <code>{getBookingIframeCode()}</code>
-                        </pre>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="absolute top-2 right-2"
-                          onClick={() => copyToClipboard(getBookingIframeCode(), 'booking-all')}
-                        >
-                          {copiedCode === 'booking-all' ? (
-                            <>
-                              <Check className="h-4 w-4 mr-2" />
-                              Copied!
-                            </>
-                          ) : (
-                            <>
-                              <Copy className="h-4 w-4 mr-2" />
-                              Copy
-                            </>
-                          )}
-                        </Button>
-                      </div>
+                      <CodeBlock code={getBookingEmbedCode()} id="booking-all" />
                       <Button
                         onClick={() => openTestPage(`${origin}/embed/booking/${widgetId}`)}
                         variant="outline"
@@ -301,29 +324,7 @@ export default function EmbedPage() {
                             <CardTitle className="text-base font-display">{type.name}</CardTitle>
                           </CardHeader>
                           <CardContent className="space-y-3">
-                            <div className="relative">
-                              <pre className="bg-muted p-4 rounded-lg overflow-x-auto text-xs">
-                                <code>{getBookingIframeCode(type.id)}</code>
-                              </pre>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="absolute top-2 right-2"
-                                onClick={() => copyToClipboard(getBookingIframeCode(type.id), `booking-${type.id}`)}
-                              >
-                                {copiedCode === `booking-${type.id}` ? (
-                                  <>
-                                    <Check className="h-4 w-4 mr-2" />
-                                    Copied!
-                                  </>
-                                ) : (
-                                  <>
-                                    <Copy className="h-4 w-4 mr-2" />
-                                    Copy
-                                  </>
-                                )}
-                              </Button>
-                            </div>
+                            <CodeBlock code={getBookingEmbedCode(type.id)} id={`booking-${type.id}`} size="xs" />
                             <Button
                               onClick={() => openTestPage(`${origin}/embed/booking/${widgetId}?type=${type.id}`)}
                               variant="outline"
@@ -335,6 +336,25 @@ export default function EmbedPage() {
                           </CardContent>
                         </Card>
                       ))}
+                    </div>
+
+                    {/* Legacy iframe toggle */}
+                    <div className="pt-4 border-t">
+                      <button
+                        className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                        onClick={() => setShowLegacyBooking(!showLegacyBooking)}
+                      >
+                        {showLegacyBooking ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                        Legacy iframe embed
+                      </button>
+                      {showLegacyBooking && (
+                        <div className="mt-3 space-y-3">
+                          <p className="text-xs text-muted-foreground">
+                            Use iframe embeds if the inline SDK doesn&apos;t work on your platform.
+                          </p>
+                          <CodeBlock code={getBookingIframeCode()} id="booking-iframe" size="xs" />
+                        </div>
+                      )}
                     </div>
                   </>
                 )}
@@ -353,7 +373,7 @@ export default function EmbedPage() {
                   <div>
                     <CardTitle className="font-display text-xl">Contact Forms</CardTitle>
                     <CardDescription className="text-base">
-                      Embed contact forms inline on your website. Each form can be embedded separately.
+                      Embed contact forms inline on your website. Renders natively with no iframe — auto-sizes to fit content.
                     </CardDescription>
                   </div>
                 </div>
@@ -371,46 +391,45 @@ export default function EmbedPage() {
                     </p>
                   </div>
                 ) : (
-                  forms.map((form) => (
-                    <Card key={form.id} className="border-border hover:border-primary/30 transition-all duration-200">
-                      <CardHeader>
-                        <CardTitle className="text-base font-display">{form.name}</CardTitle>
-                      </CardHeader>
-                      <CardContent className="space-y-3">
-                        <div className="relative">
-                          <pre className="bg-muted p-4 rounded-lg overflow-x-auto text-sm">
-                            <code>{getFormIframeCode(form.id)}</code>
-                          </pre>
+                  <>
+                    {forms.map((form) => (
+                      <Card key={form.id} className="border-border hover:border-primary/30 transition-all duration-200">
+                        <CardHeader>
+                          <CardTitle className="text-base font-display">{form.name}</CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-3">
+                          <CodeBlock code={getFormEmbedCode(form.id)} id={`form-${form.id}`} />
                           <Button
+                            onClick={() => openTestPage(`${origin}/embed/form/${form.id}`)}
                             variant="outline"
                             size="sm"
-                            className="absolute top-2 right-2"
-                            onClick={() => copyToClipboard(getFormIframeCode(form.id), `form-${form.id}`)}
                           >
-                            {copiedCode === `form-${form.id}` ? (
-                              <>
-                                <Check className="h-4 w-4 mr-2" />
-                                Copied!
-                              </>
-                            ) : (
-                              <>
-                                <Copy className="h-4 w-4 mr-2" />
-                                Copy
-                              </>
-                            )}
+                            <ExternalLink className="h-4 w-4 mr-2" />
+                            Preview
                           </Button>
+                        </CardContent>
+                      </Card>
+                    ))}
+
+                    {/* Legacy iframe toggle */}
+                    <div className="pt-4 border-t">
+                      <button
+                        className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                        onClick={() => setShowLegacyForms(!showLegacyForms)}
+                      >
+                        {showLegacyForms ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                        Legacy iframe embed
+                      </button>
+                      {showLegacyForms && forms.length > 0 && (
+                        <div className="mt-3 space-y-3">
+                          <p className="text-xs text-muted-foreground">
+                            Use iframe embeds if the inline SDK doesn&apos;t work on your platform.
+                          </p>
+                          <CodeBlock code={getFormIframeCode(forms[0].id)} id="form-iframe" size="xs" />
                         </div>
-                        <Button
-                          onClick={() => openTestPage(`${origin}/embed/form/${form.id}`)}
-                          variant="outline"
-                          size="sm"
-                        >
-                          <ExternalLink className="h-4 w-4 mr-2" />
-                          Preview
-                        </Button>
-                      </CardContent>
-                    </Card>
-                  ))
+                      )}
+                    </div>
+                  </>
                 )}
               </CardContent>
             </Card>
@@ -439,29 +458,7 @@ export default function EmbedPage() {
                   <p className="text-sm text-muted-foreground">
                     Embed the chatbot directly on any page. Visitors can chat without leaving your site.
                   </p>
-                  <div className="relative">
-                    <pre className="bg-muted p-4 rounded-lg overflow-x-auto text-sm">
-                      <code>{getChatbotIframeCode()}</code>
-                    </pre>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="absolute top-2 right-2"
-                      onClick={() => copyToClipboard(getChatbotIframeCode(), 'chatbot-inline')}
-                    >
-                      {copiedCode === 'chatbot-inline' ? (
-                        <>
-                          <Check className="h-4 w-4 mr-2" />
-                          Copied!
-                        </>
-                      ) : (
-                        <>
-                          <Copy className="h-4 w-4 mr-2" />
-                          Copy
-                        </>
-                      )}
-                    </Button>
-                  </div>
+                  <CodeBlock code={getChatbotIframeCode()} id="chatbot-inline" />
                   <Button
                     onClick={() => openTestPage(`${origin}/widget/${widgetId}?view=chat`)}
                     variant="outline"
@@ -537,25 +534,25 @@ export default function EmbedPage() {
                 <li>
                   <strong>Copy the embed code</strong>
                   <p className="text-muted-foreground ml-5 mt-1">
-                    Choose the feature above and click "Copy"
+                    Choose the feature above and click &ldquo;Copy&rdquo;
                   </p>
                 </li>
                 <li>
                   <strong>Paste into your website</strong>
                   <p className="text-muted-foreground ml-5 mt-1">
-                    Add the iframe code to your HTML
+                    Add the embed snippet to any HTML page
                   </p>
                 </li>
                 <li>
-                  <strong>Adjust dimensions if needed</strong>
+                  <strong>No configuration needed</strong>
                   <p className="text-muted-foreground ml-5 mt-1">
-                    Modify width/height to fit your layout
+                    The widget auto-sizes and adapts to your page layout
                   </p>
                 </li>
                 <li>
                   <strong>Save and publish</strong>
                   <p className="text-muted-foreground ml-5 mt-1">
-                    Widget appears on your live site
+                    Widget appears on your live site immediately
                   </p>
                 </li>
               </ol>
