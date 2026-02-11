@@ -3,7 +3,6 @@ import { prisma } from '@/lib/prisma';
 import { generateChatResponse, Message, KnowledgeBaseArticle } from '@/lib/claude';
 import { incrementUsage, hasFeatureAccess } from '@/lib/subscription';
 import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
-import { validateCsrfToken, isCsrfEnabled } from '@/lib/csrf';
 import { z } from 'zod';
 import { log } from '@/lib/logger';
 
@@ -16,7 +15,6 @@ const chatSchema = z.object({
       content: z.string(),
     })
   ),
-  csrfToken: z.string().optional(), // CSRF token for request validation
 });
 
 // POST - Send a chat message and get AI response
@@ -24,28 +22,12 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
 
-    // Get client IP for CSRF and rate limiting
+    // Get client IP for rate limiting
     const clientIp = getClientIp(request);
 
-    // Verify CSRF token if enabled (before other validations to fail fast on forged requests)
-    if (isCsrfEnabled()) {
-      if (!body.csrfToken) {
-        return NextResponse.json(
-          { error: 'CSRF token required. Please refresh the page and try again.' },
-          { status: 403 }
-        );
-      }
-
-      const csrfValid = await validateCsrfToken(body.csrfToken, clientIp);
-      if (!csrfValid) {
-        return NextResponse.json(
-          { error: 'Invalid or expired CSRF token. Please refresh the page and try again.' },
-          { status: 403 }
-        );
-      }
-
-      log.info('[Chatbot] CSRF validation successful', { ip: clientIp });
-    }
+    // Note: CSRF is intentionally skipped for the chatbot endpoint.
+    // This API is called from cross-origin iframes on customer sites where
+    // CSRF tokens cannot be obtained. Rate limiting (below) protects against abuse.
 
     // Check rate limit (critical for preventing expensive API abuse)
     const { success, remaining } = await checkRateLimit('chatbot', clientIp);

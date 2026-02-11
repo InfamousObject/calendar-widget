@@ -135,6 +135,34 @@ function WidgetContent() {
   // Only show back button if we navigated from menu (not direct link)
   const showBackButton = view !== 'menu' && initialView === 'menu';
 
+  // Chat-only mode: opened directly via ?view=chat (e.g. floating chat widget)
+  const isChatOnly = initialView === 'chat';
+
+  if (isChatOnly) {
+    return (
+      <div className="h-screen flex flex-col relative" style={{ backgroundColor: config.appearance.backgroundColor }}>
+        {/* Floating close button */}
+        <Button
+          variant="ghost"
+          size="sm"
+          className="absolute top-2 right-2 z-10 rounded-full"
+          onClick={handleClose}
+          aria-label="Close chat"
+        >
+          <X className="h-4 w-4" />
+        </Button>
+
+        {/* Chat content fills the whole panel */}
+        <div className="flex-1 overflow-y-auto p-4 pt-10">
+          <ChatView
+            widgetId={widgetId}
+            config={config}
+          />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="h-screen flex flex-col" style={{ backgroundColor: config.appearance.backgroundColor }}>
       {/* Header */}
@@ -804,9 +832,8 @@ function ChatView({ widgetId, config }: any) {
 
   useEffect(() => {
     // Add initial greeting
-    if (config.chatbot?.greetingMessage) {
-      setMessages([{ role: 'assistant', content: config.chatbot.greetingMessage }]);
-    }
+    const greeting = config.chatbot?.greetingMessage || 'Hi! How can I help you today?';
+    setMessages([{ role: 'assistant', content: greeting }]);
   }, []);
 
   const handleSend = async () => {
@@ -839,10 +866,10 @@ function ChatView({ widgetId, config }: any) {
         const data = await response.json();
         setMessages([...newMessages, { role: 'assistant', content: data.message }]);
       } else {
-        const errorData = await response.json();
+        const errorData = await response.json().catch(() => ({}));
         setMessages([
           ...newMessages,
-          { role: 'assistant', content: 'Sorry, I encountered an error. Please try again.' },
+          { role: 'assistant', content: errorData.error || 'Sorry, I encountered an error. Please try again.' },
         ]);
       }
     } catch (error) {
