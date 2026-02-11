@@ -400,6 +400,9 @@ export async function POST(request: NextRequest) {
       log.error('[Book] Failed to send email notifications', error);
     }
 
+    // TODO: Implement server-side conversion API for GA4 Measurement Protocol
+    // trackConversion('booking_completed', { appointment_type: appointmentType.name, widget_id: widgetId })
+
     return NextResponse.json({
       success: true,
       appointment: {

@@ -159,6 +159,9 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // TODO: Implement server-side conversion API for GA4 Measurement Protocol
+    // trackConversion('form_submitted', { form_id: form.id, form_name: form.name })
+
     return NextResponse.json({
       success: true,
       message: settings.successMessage || 'Thank you for your submission!',

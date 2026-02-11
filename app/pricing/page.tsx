@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Check, X, Loader2, Tag } from 'lucide-react';
 import { toast } from 'sonner';
+import { trackConversion } from '@/lib/analytics/track';
 
 type BillingInterval = 'month' | 'year';
 
@@ -42,6 +43,9 @@ function PricingContent() {
       if (!response.ok) {
         throw new Error(data.error || 'Failed to create checkout session');
       }
+
+      // Track begin_checkout conversion
+      trackConversion('begin_checkout', { tier, interval, value: prices[tier][interval], currency: 'USD' });
 
       // Redirect to Stripe Checkout
       window.location.href = data.url;

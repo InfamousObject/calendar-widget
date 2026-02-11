@@ -14,6 +14,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Calendar, ArrowLeft, Check } from 'lucide-react';
 import { format, addDays, startOfDay, parseISO } from 'date-fns';
 import HCaptcha from '@hcaptcha/react-hcaptcha';
+import { trackConversion } from '@/lib/analytics/track';
 
 interface AppointmentType {
   id: string;
@@ -247,6 +248,7 @@ function EmbedBookingContent() {
       });
 
       if (response.ok) {
+        trackConversion('booking_completed', { appointment_type: selectedType?.name, widget_id: widgetId });
         setStep('success');
       } else {
         const errorData = await response.json();

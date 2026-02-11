@@ -206,6 +206,8 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
   });
 
   log.info('[Webhook] Subscription created/updated successfully');
+  // TODO: Implement server-side conversion API for GA4 Measurement Protocol
+  // trackConversion('purchase', { value: session.amount_total / 100, currency: 'usd', transaction_id: session.id, tier })
 }
 
 // Handle subscription updates

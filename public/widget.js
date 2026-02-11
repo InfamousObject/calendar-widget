@@ -214,5 +214,7 @@
   }
 
   // Start loading
+  // Note: widget_loaded conversion is tracked inside the iframe (/widget/[widgetId]) via GA4,
+  // not here, since this script runs on the customer's domain.
   loadConfig();
 })();

@@ -71,6 +71,15 @@ const nextConfig: NextConfig = {
           {
             key: 'X-Frame-Options',
             value: 'SAMEORIGIN'
+          },
+          {
+            key: 'Content-Security-Policy',
+            value: [
+              "frame-ancestors 'self'",
+              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://www.google-analytics.com",
+              "img-src 'self' data: blob: https://www.google-analytics.com",
+              "connect-src 'self' https://www.google-analytics.com https://analytics.google.com https://*.clerk.accounts.dev https://*.vercel-insights.com https://*.vercel-scripts.com",
+            ].join('; ')
           }
         ]
       }

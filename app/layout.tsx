@@ -6,6 +6,11 @@ import { ClerkProvider } from '@clerk/nextjs';
 import { ErrorBoundary } from '@/components/error-boundary';
 import { ThemeProvider } from '@/components/theme-provider';
 import { OrganizationSchema, SoftwareApplicationSchema } from '@/components/seo/schemas';
+import { Analytics } from '@vercel/analytics/react';
+import { SpeedInsights } from '@vercel/speed-insights/next';
+import { GoogleAnalytics } from '@/components/analytics/GoogleAnalytics';
+import { RouteChangeTracker } from '@/components/analytics/RouteChangeTracker';
+import { CookieConsent } from '@/components/analytics/CookieConsent';
 
 const sansFont = Manrope({
   variable: "--font-sans",
@@ -103,6 +108,11 @@ export default function RootLayout({
               {children}
             </ErrorBoundary>
             <Toaster />
+            <Analytics />
+            <SpeedInsights />
+            <GoogleAnalytics />
+            <RouteChangeTracker />
+            <CookieConsent />
           </ThemeProvider>
         </body>
       </html>

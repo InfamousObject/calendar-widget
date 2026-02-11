@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox';
 import { Calendar, FileText, X, ArrowLeft, Check, MessageSquare, Send } from 'lucide-react';
 import { format, addDays, startOfDay, parseISO, addMinutes } from 'date-fns';
+import { trackConversion } from '@/lib/analytics/track';
 
 interface WidgetConfig {
   widgetId: string;
@@ -77,6 +78,7 @@ function WidgetContent() {
     // Apply custom styles
     if (config) {
       applyCustomStyles();
+      trackConversion('widget_loaded', { widget_id: widgetId });
     }
   }, [config]);
 
@@ -403,6 +405,7 @@ function BookingView({ widgetId, appointmentType, config, onSuccess }: any) {
       });
 
       if (response.ok) {
+        trackConversion('booking_completed', { appointment_type: appointmentType.name, widget_id: widgetId });
         onSuccess();
       } else {
         const errorData = await response.json();
@@ -643,6 +646,7 @@ function FormView({ form, config, onSuccess }: any) {
       });
 
       if (response.ok) {
+        trackConversion('form_submitted', { form_id: form.id, form_name: form.name });
         onSuccess();
       } else {
         const errorData = await response.json();
@@ -807,6 +811,12 @@ function ChatView({ widgetId, config }: any) {
 
   const handleSend = async () => {
     if (!input.trim() || loading) return;
+
+    // Track chatbot_engaged on first user message
+    const isFirstUserMessage = messages.every(m => m.role === 'assistant');
+    if (isFirstUserMessage) {
+      trackConversion('chatbot_engaged', { widget_id: widgetId });
+    }
 
     const userMessage = { role: 'user' as const, content: input };
     const newMessages = [...messages, userMessage];

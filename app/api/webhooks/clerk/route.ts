@@ -158,6 +158,8 @@ export async function POST(req: Request) {
           },
         });
         log.info('[Clerk Webhook] User created', { userId: user.id });
+        // TODO: Implement server-side conversion API for GA4 Measurement Protocol
+        // trackConversion('sign_up', { method: 'clerk' })
       }
     }
 
