@@ -14,6 +14,7 @@ const isPublicRoute = createRouteMatcher([
   '/invite/(.*)',
   '/api/appointments/book(.*)',
   '/api/appointments/cancel(.*)',
+  '/api/appointments/payment-intent(.*)',
   '/book/(.*)',
   '/api/csrf/token(.*)',
   '/docs/(.*)',
