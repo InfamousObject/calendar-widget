@@ -20,14 +20,9 @@ export const metadata: Metadata = {
 };
 
 export default function WordPressDocsPage() {
-  const iframeCode = `<!-- Kentroi Booking Widget -->
-<iframe
-  src="https://kentroi.com/embed/booking/YOUR_WIDGET_ID"
-  width="100%"
-  height="600"
-  frameborder="0"
-  style="border: none; max-width: 800px;"
-></iframe>`;
+  const embedCode = `<!-- Kentroi Booking Widget -->
+<div data-kentroi-type="booking" data-widget-id="YOUR_WIDGET_ID"></div>
+<script src="https://www.kentroi.com/embed.js" async></script>`;
 
   const shortcodeExample = `[kentroi_booking]
 
@@ -117,14 +112,15 @@ export default function WordPressDocsPage() {
           Method 2: Direct Embed Code
         </h2>
         <p className="text-muted-foreground mb-6">
-          If you prefer not to use a plugin, you can embed the widget directly using an iframe.
+          If you prefer not to use a plugin, you can embed the widget directly using our JavaScript SDK.
+          The widget renders natively on your page — no iframe needed.
         </p>
 
         <StepList
           steps={[
             {
               title: 'Get Your Embed Code',
-              description: 'Log in to your Kentroi dashboard and go to Embed Widget. Copy the iframe code.',
+              description: 'Log in to your Kentroi dashboard and go to Embed Widget. Copy the embed snippet.',
               content: (
                 <Link href="/dashboard/embed" className="text-primary hover:underline">
                   Go to Embed Widget →
@@ -137,12 +133,12 @@ export default function WordPressDocsPage() {
             },
             {
               title: 'Paste the Embed Code',
-              description: 'Paste your iframe code into the Custom HTML block.',
-              content: <CodeBlock code={iframeCode} language="html" />,
+              description: 'Paste your embed snippet into the Custom HTML block.',
+              content: <CodeBlock code={embedCode} language="html" />,
             },
             {
               title: 'Save and Preview',
-              description: 'Save your changes and preview the page to see your booking widget in action.',
+              description: 'Save your changes and preview the page. The widget auto-sizes to fit its content.',
             },
           ]}
         />
@@ -154,33 +150,36 @@ export default function WordPressDocsPage() {
 
         <div className="space-y-4">
           <div>
-            <h3 className="font-semibold mb-2">Adjusting Size</h3>
+            <h3 className="font-semibold mb-2">Specific Appointment Type</h3>
             <p className="text-sm text-muted-foreground mb-2">
-              Modify the width and height attributes in the iframe code:
+              Link directly to a specific appointment type by adding the <code>data-appointment-type</code> attribute:
             </p>
             <CodeBlock
-              code={`<iframe
-  src="https://kentroi.com/embed/booking/YOUR_WIDGET_ID"
-  width="100%"
-  height="800"  <!-- Increase height for more space -->
-  frameborder="0"
-></iframe>`}
+              code={`<div data-kentroi-type="booking" data-widget-id="YOUR_WIDGET_ID" data-appointment-type="APPOINTMENT_TYPE_ID"></div>
+<script src="https://www.kentroi.com/embed.js" async></script>`}
               language="html"
             />
           </div>
 
           <div>
-            <h3 className="font-semibold mb-2">Specific Appointment Type</h3>
+            <h3 className="font-semibold mb-2">Contact Forms</h3>
             <p className="text-sm text-muted-foreground mb-2">
-              Link directly to a specific appointment type by adding the type parameter:
+              Embed a contact form by using <code>data-kentroi-type=&quot;form&quot;</code> with your Form ID:
             </p>
             <CodeBlock
-              code={`<iframe
-  src="https://kentroi.com/embed/booking/YOUR_WIDGET_ID?type=APPOINTMENT_TYPE_ID"
-  width="100%"
-  height="600"
-  frameborder="0"
-></iframe>`}
+              code={`<div data-kentroi-type="form" data-form-id="YOUR_FORM_ID"></div>
+<script src="https://www.kentroi.com/embed.js" async></script>`}
+              language="html"
+            />
+          </div>
+
+          <div>
+            <h3 className="font-semibold mb-2">Floating Chat Button</h3>
+            <p className="text-sm text-muted-foreground mb-2">
+              Add the floating chat button to your site&apos;s footer template so it appears on every page:
+            </p>
+            <CodeBlock
+              code={`<script src="https://www.kentroi.com/widget.js" data-widget-id="YOUR_WIDGET_ID" data-api-base="https://www.kentroi.com" async></script>`}
               language="html"
             />
           </div>
@@ -195,16 +194,17 @@ export default function WordPressDocsPage() {
           <div className="p-4 rounded-lg border border-border">
             <h3 className="font-semibold mb-1">Widget not appearing</h3>
             <p className="text-sm text-muted-foreground">
-              Make sure your Widget ID is correct and your account is active. Check that the iframe code
-              wasn't modified by WordPress. Some themes may strip iframe tags - try using the plugin instead.
+              Make sure your Widget ID is correct and your account is active. Check the browser console
+              for errors. Some security plugins may block external scripts — add <code>kentroi.com</code> to
+              your allowed domains if needed.
             </p>
           </div>
 
           <div className="p-4 rounded-lg border border-border">
-            <h3 className="font-semibold mb-1">Widget appears too small</h3>
+            <h3 className="font-semibold mb-1">Script stripped by WordPress</h3>
             <p className="text-sm text-muted-foreground">
-              Increase the height value in the iframe code. A minimum of 600px is recommended for the
-              full booking experience.
+              WordPress may strip script tags in some editors. Make sure you&apos;re using a &quot;Custom HTML&quot;
+              block, not a paragraph or text block. Alternatively, use the official plugin method above.
             </p>
           </div>
 

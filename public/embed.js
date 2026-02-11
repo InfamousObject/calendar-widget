@@ -223,11 +223,6 @@
       '.kr-err-t{font-size:14px;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:12px 16px;color:#991b1b}',
       '.kr-alert{font-size:13px;color:#fff;background:#ef4444;border-radius:8px;padding:10px 14px;margin-bottom:16px;animation:kr-fade 200ms ease}',
 
-      /* Powered by */
-      '.kr-pw{text-align:center;padding-top:16px;font-size:12px;color:#9ca3af}',
-      '.kr-pw a{color:#6b7280;text-decoration:none}',
-      '.kr-pw a:hover{color:#4F46E5}',
-
       /* Fade animation */
       '.kr-fi{animation:kr-fade 200ms ease}',
       '@keyframes kr-fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}',
@@ -328,14 +323,6 @@
     }
 
     this.root.appendChild(card);
-
-    // Powered-by footer
-    if (this.state.step !== 'loading') {
-      var pw = el('div', { className: 'kr-pw' });
-      var a = el('a', { href: 'https://www.kentroi.com', target: '_blank', rel: 'noopener' }, 'Powered by Kentroi');
-      pw.appendChild(a);
-      this.root.appendChild(pw);
-    }
   };
 
   // --- Shared renderers ---
@@ -845,12 +832,6 @@
     }
 
     this.root.appendChild(card);
-
-    if (this.state.step !== 'loading') {
-      var pw = el('div', { className: 'kr-pw' });
-      pw.appendChild(el('a', { href: 'https://www.kentroi.com', target: '_blank', rel: 'noopener' }, 'Powered by Kentroi'));
-      this.root.appendChild(pw);
-    }
   };
 
   // Reuse loading / error renderers from KentroiBooking

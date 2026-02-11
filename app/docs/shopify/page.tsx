@@ -20,14 +20,9 @@ export const metadata: Metadata = {
 };
 
 export default function ShopifyDocsPage() {
-  const iframeCode = `<!-- Kentroi Booking Widget -->
-<iframe
-  src="https://kentroi.com/embed/booking/YOUR_WIDGET_ID"
-  width="100%"
-  height="600"
-  frameborder="0"
-  style="border: none; max-width: 800px;"
-></iframe>`;
+  const embedCode = `<!-- Kentroi Booking Widget -->
+<div data-kentroi-type="booking" data-widget-id="YOUR_WIDGET_ID"></div>
+<script src="https://www.kentroi.com/embed.js" async></script>`;
 
   return (
     <div className="space-y-8">
@@ -63,7 +58,7 @@ export default function ShopifyDocsPage() {
           steps={[
             {
               title: 'Get Your Embed Code',
-              description: 'Log in to your Kentroi dashboard and go to Embed Widget. Copy the iframe code for your booking widget.',
+              description: 'Log in to your Kentroi dashboard and go to Embed Widget. Copy the embed snippet for your booking widget.',
               content: (
                 <Link href="/dashboard/embed" className="text-primary hover:underline">
                   Go to Embed Widget →
@@ -84,12 +79,12 @@ export default function ShopifyDocsPage() {
             },
             {
               title: 'Paste the Embed Code',
-              description: 'Paste your Kentroi iframe code:',
-              content: <CodeBlock code={iframeCode} language="html" />,
+              description: 'Paste your Kentroi embed snippet:',
+              content: <CodeBlock code={embedCode} language="html" />,
             },
             {
               title: 'Save and Preview',
-              description: 'Click Save and preview your page to see the booking widget.',
+              description: 'Click Save and preview your page. The widget renders natively and auto-sizes to fit.',
             },
           ]}
         />
@@ -131,18 +126,18 @@ export default function ShopifyDocsPage() {
 
         <div className="space-y-4">
           <div className="p-4 rounded-lg border border-border">
-            <h3 className="font-semibold mb-1">Widget looks squished</h3>
+            <h3 className="font-semibold mb-1">Widget not appearing</h3>
             <p className="text-sm text-muted-foreground">
-              Some Shopify themes have container max-widths. Try removing the max-width style from the iframe,
-              or adjust your theme's content width settings.
+              Make sure you&apos;re in HTML editing mode when pasting the code. Some Shopify themes
+              strip script tags in the rich text editor — use the Custom HTML/Liquid section instead.
             </p>
           </div>
 
           <div className="p-4 rounded-lg border border-border">
             <h3 className="font-semibold mb-1">Page is blank after adding code</h3>
             <p className="text-sm text-muted-foreground">
-              Make sure you're in HTML editing mode when pasting the code. If the page content disappears,
-              undo the change and try again.
+              If the page content disappears, undo the change and try again. Make sure you&apos;re
+              using the HTML editor, not the visual editor.
             </p>
           </div>
         </div>

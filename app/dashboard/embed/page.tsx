@@ -117,19 +117,8 @@ export default function EmbedPage() {
 ></iframe>`;
   };
 
-  const getChatbotIframeCode = () => {
-    return `<!-- Kentroi AI Chatbot Embed -->
-<iframe
-  src="${origin}/widget/${widgetId}?view=chat"
-  width="100%"
-  height="600"
-  frameborder="0"
-  style="border: none; max-width: 500px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);"
-></iframe>`;
-  };
-
   const getFloatingWidgetCode = () => {
-    return `<!-- Kentroi Floating Chat Button (Coming Soon) -->
+    return `<!-- Kentroi Floating Chat Button -->
 <script
   src="${origin}/widget.js"
   data-widget-id="${widgetId}"
@@ -447,18 +436,18 @@ export default function EmbedPage() {
                   <div>
                     <CardTitle className="font-display text-xl">AI Chatbot</CardTitle>
                     <CardDescription className="text-base">
-                      Embed an inline AI chatbot on your website. The chatbot can answer questions, qualify leads, and help book appointments.
+                      Add a floating chat button to your website. The chatbot can answer questions, qualify leads, and help book appointments.
                     </CardDescription>
                   </div>
                 </div>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-3">
-                  <h4 className="font-medium">Inline Chat Widget</h4>
+                  <h4 className="font-medium">Floating Chat Button</h4>
                   <p className="text-sm text-muted-foreground">
-                    Embed the chatbot directly on any page. Visitors can chat without leaving your site.
+                    A floating button that appears on every page of your site, opening a chat popup when clicked. Visitors can chat without leaving your site.
                   </p>
-                  <CodeBlock code={getChatbotIframeCode()} id="chatbot-inline" />
+                  <CodeBlock code={getFloatingWidgetCode()} id="chatbot-floating" />
                   <Button
                     onClick={() => openTestPage(`${origin}/widget/${widgetId}?view=chat`)}
                     variant="outline"
@@ -467,21 +456,6 @@ export default function EmbedPage() {
                     <ExternalLink className="h-4 w-4 mr-2" />
                     Preview
                   </Button>
-                </div>
-
-                <div className="space-y-3 pt-4 border-t">
-                  <h4 className="font-medium">Floating Chat Button (Coming Soon)</h4>
-                  <p className="text-sm text-muted-foreground">
-                    A floating button that appears on all pages, opening a chat popup when clicked.
-                  </p>
-                  <div className="relative opacity-50">
-                    <pre className="bg-muted p-4 rounded-lg overflow-x-auto text-sm">
-                      <code>{getFloatingWidgetCode()}</code>
-                    </pre>
-                  </div>
-                  <p className="text-xs text-muted-foreground italic">
-                    This option will be available in a future update
-                  </p>
                 </div>
               </CardContent>
             </Card>

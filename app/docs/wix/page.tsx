@@ -20,13 +20,9 @@ export const metadata: Metadata = {
 };
 
 export default function WixDocsPage() {
-  const iframeCode = `<iframe
-  src="https://kentroi.com/embed/booking/YOUR_WIDGET_ID"
-  width="100%"
-  height="600"
-  frameborder="0"
-  style="border: none;"
-></iframe>`;
+  const embedCode = `<!-- Kentroi Booking Widget -->
+<div data-kentroi-type="booking" data-widget-id="YOUR_WIDGET_ID"></div>
+<script src="https://www.kentroi.com/embed.js" async></script>`;
 
   return (
     <div className="space-y-8">
@@ -62,7 +58,7 @@ export default function WixDocsPage() {
           steps={[
             {
               title: 'Get Your Embed Code',
-              description: 'Log in to your Kentroi dashboard and go to Embed Widget. Copy the iframe code.',
+              description: 'Log in to your Kentroi dashboard and go to Embed Widget. Copy the embed snippet.',
               content: (
                 <Link href="/dashboard/embed" className="text-primary hover:underline">
                   Go to Embed Widget →
@@ -79,12 +75,12 @@ export default function WixDocsPage() {
             },
             {
               title: 'Enter the Code',
-              description: 'Click "Enter Code" on the embed element and select "Code" tab. Paste your iframe:',
-              content: <CodeBlock code={iframeCode} language="html" />,
+              description: 'Click "Enter Code" on the embed element and select "Code" tab. Paste your embed snippet:',
+              content: <CodeBlock code={embedCode} language="html" />,
             },
             {
-              title: 'Resize and Position',
-              description: 'Drag the corners of the embed to resize it. Position it where you want on your page.',
+              title: 'Position the Element',
+              description: 'Position the embed element where you want on your page. The widget auto-sizes to fit its content.',
             },
             {
               title: 'Publish',
@@ -101,31 +97,32 @@ export default function WixDocsPage() {
 
       <section className="pt-8 border-t border-border">
         <h2 className="font-display text-2xl font-semibold mb-4">
-          Using Wix's iFrame Element
+          Adding Other Widgets
         </h2>
 
-        <StepList
-          steps={[
-            {
-              title: 'Add iFrame Element',
-              description: 'Click "+" > "Embed Code" > "iFrame". This adds a dedicated iframe element.',
-            },
-            {
-              title: 'Enter the URL',
-              description: 'In the settings, paste your Kentroi embed URL:',
-              content: (
-                <CodeBlock
-                  code="https://kentroi.com/embed/booking/YOUR_WIDGET_ID"
-                  language="text"
-                />
-              ),
-            },
-            {
-              title: 'Adjust Size',
-              description: 'Set the width to 100% and height to at least 600px for best results.',
-            },
-          ]}
-        />
+        <div className="space-y-4">
+          <div>
+            <h3 className="font-semibold mb-2">Contact Form</h3>
+            <p className="text-sm text-muted-foreground mb-2">
+              Use the same HTML embed method with a form snippet:
+            </p>
+            <CodeBlock
+              code={`<div data-kentroi-type="form" data-form-id="YOUR_FORM_ID"></div>\n<script src="https://www.kentroi.com/embed.js" async></script>`}
+              language="html"
+            />
+          </div>
+
+          <div>
+            <h3 className="font-semibold mb-2">Floating Chat Button</h3>
+            <p className="text-sm text-muted-foreground mb-2">
+              Add this to your site&apos;s global custom code (Settings {'>'} Custom Code {'>'} Footer):
+            </p>
+            <CodeBlock
+              code={`<script src="https://www.kentroi.com/widget.js" data-widget-id="YOUR_WIDGET_ID" data-api-base="https://www.kentroi.com" async></script>`}
+              language="html"
+            />
+          </div>
+        </div>
       </section>
 
       <section className="pt-8 border-t border-border">
@@ -143,8 +140,8 @@ export default function WixDocsPage() {
           <div className="p-4 rounded-lg border border-border">
             <h3 className="font-semibold mb-1">Widget is cut off</h3>
             <p className="text-sm text-muted-foreground">
-              Resize the HTML embed element to make it taller. Click and drag the corners or
-              set a specific height in the element settings.
+              Resize the HTML embed element to give it enough space. The widget auto-sizes
+              its content but the Wix container may need to be taller.
             </p>
           </div>
 

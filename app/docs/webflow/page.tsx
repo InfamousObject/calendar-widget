@@ -20,13 +20,9 @@ export const metadata: Metadata = {
 };
 
 export default function WebflowDocsPage() {
-  const iframeCode = `<iframe
-  src="https://kentroi.com/embed/booking/YOUR_WIDGET_ID"
-  width="100%"
-  height="600"
-  frameborder="0"
-  style="border: none; max-width: 800px;"
-></iframe>`;
+  const embedCode = `<!-- Kentroi Booking Widget -->
+<div data-kentroi-type="booking" data-widget-id="YOUR_WIDGET_ID"></div>
+<script src="https://www.kentroi.com/embed.js" async></script>`;
 
   return (
     <div className="space-y-8">
@@ -62,7 +58,7 @@ export default function WebflowDocsPage() {
           steps={[
             {
               title: 'Get Your Embed Code',
-              description: 'Log in to your Kentroi dashboard and go to Embed Widget. Copy the iframe code.',
+              description: 'Log in to your Kentroi dashboard and go to Embed Widget. Copy the embed snippet.',
               content: (
                 <Link href="/dashboard/embed" className="text-primary hover:underline">
                   Go to Embed Widget →
@@ -79,8 +75,8 @@ export default function WebflowDocsPage() {
             },
             {
               title: 'Paste the Code',
-              description: 'Double-click the embed element and paste your iframe code:',
-              content: <CodeBlock code={iframeCode} language="html" />,
+              description: 'Double-click the embed element and paste your embed snippet:',
+              content: <CodeBlock code={embedCode} language="html" />,
             },
             {
               title: 'Style the Container',
@@ -101,28 +97,39 @@ export default function WebflowDocsPage() {
 
       <section className="pt-8 border-t border-border">
         <h2 className="font-display text-2xl font-semibold mb-4">
-          Responsive Design Tips
+          Other Widgets
         </h2>
 
         <div className="space-y-4">
           <div>
-            <h3 className="font-semibold mb-2">Using a Div Wrapper</h3>
+            <h3 className="font-semibold mb-2">Contact Form</h3>
             <p className="text-sm text-muted-foreground mb-2">
-              For better control, wrap your embed in a div and style the container:
+              Embed a contact form using the same Embed element approach:
             </p>
-            <ol className="list-decimal list-inside space-y-1 text-sm text-muted-foreground">
-              <li>Add a Div Block to your page</li>
-              <li>Set the div's max-width to your desired widget width (e.g., 800px)</li>
-              <li>Set width to 100% for responsive behavior</li>
-              <li>Drag the Embed element inside the div</li>
-            </ol>
+            <CodeBlock
+              code={`<div data-kentroi-type="form" data-form-id="YOUR_FORM_ID"></div>\n<script src="https://www.kentroi.com/embed.js" async></script>`}
+              language="html"
+            />
           </div>
 
           <div>
-            <h3 className="font-semibold mb-2">Mobile Breakpoints</h3>
+            <h3 className="font-semibold mb-2">Floating Chat Button</h3>
+            <p className="text-sm text-muted-foreground mb-2">
+              Add this to your site&apos;s custom code (Project Settings {'>'} Custom Code {'>'} Footer Code)
+              so it appears on every page:
+            </p>
+            <CodeBlock
+              code={`<script src="https://www.kentroi.com/widget.js" data-widget-id="YOUR_WIDGET_ID" data-api-base="https://www.kentroi.com" async></script>`}
+              language="html"
+            />
+          </div>
+
+          <div>
+            <h3 className="font-semibold mb-2">Responsive Behavior</h3>
             <p className="text-sm text-muted-foreground">
-              Use Webflow's breakpoint system to adjust the embed height on mobile devices.
-              Switch to tablet/mobile view and adjust the iframe height as needed.
+              The widget auto-sizes to fit its content and adapts to your container width.
+              For better control, wrap the Embed element in a Div Block and set the
+              div&apos;s max-width to your desired widget width.
             </p>
           </div>
         </div>
@@ -141,10 +148,10 @@ export default function WebflowDocsPage() {
           </div>
 
           <div className="p-4 rounded-lg border border-border">
-            <h3 className="font-semibold mb-1">Embed doesn't scroll properly</h3>
+            <h3 className="font-semibold mb-1">Widget content is cut off</h3>
             <p className="text-sm text-muted-foreground">
-              Ensure the iframe height is sufficient (at least 600px). If content is cut off,
-              increase the height value in the iframe code.
+              The widget auto-sizes, but the Webflow embed container may clip content.
+              Make sure the embed element&apos;s overflow is set to &quot;visible&quot; in the Style panel.
             </p>
           </div>
 

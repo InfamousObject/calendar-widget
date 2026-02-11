@@ -86,7 +86,7 @@ export default function DocsPage() {
         <ol className="list-decimal list-inside space-y-2 text-sm">
           <li>Sign in to your <Link href="/dashboard" className="text-primary hover:underline">Kentroi dashboard</Link></li>
           <li>Go to <Link href="/dashboard/embed" className="text-primary hover:underline">Embed Widget</Link></li>
-          <li>Copy the iframe code for your booking widget, contact form, or AI chatbot</li>
+          <li>Copy the embed snippet for your booking widget, contact form, or AI chatbot</li>
           <li>Paste it into your website's HTML</li>
         </ol>
       </div>
@@ -127,22 +127,24 @@ export default function DocsPage() {
           <div className="p-4 rounded-lg border border-border">
             <h3 className="font-semibold mb-1">Booking Widget</h3>
             <p className="text-sm text-muted-foreground">
-              Let visitors book appointments directly on your website. They can see available times,
-              choose an appointment type, and complete their booking without leaving your site.
+              Let visitors book appointments directly on your website. The widget renders natively
+              on the page using our JavaScript SDK — no iframe needed. It auto-sizes to fit content
+              and is fully style-isolated from your site.
             </p>
           </div>
           <div className="p-4 rounded-lg border border-border">
             <h3 className="font-semibold mb-1">Contact Forms</h3>
             <p className="text-sm text-muted-foreground">
-              Embed customizable contact forms to capture leads and inquiries.
+              Embed customizable contact forms that render inline on your page.
               Forms can include custom fields and send notifications to your email.
             </p>
           </div>
           <div className="p-4 rounded-lg border border-border">
             <h3 className="font-semibold mb-1">AI Chatbot</h3>
             <p className="text-sm text-muted-foreground">
-              Add an AI-powered chatbot that can answer questions, qualify leads, and help visitors
-              book appointments. Available on Chatbot and Bundle plans.
+              Add a floating chat button that appears on every page of your site. The AI-powered
+              chatbot can answer questions, qualify leads, and help visitors book appointments.
+              Available on Chatbot and Bundle plans.
             </p>
           </div>
         </div>

@@ -20,13 +20,9 @@ export const metadata: Metadata = {
 };
 
 export default function SquarespaceDocsPage() {
-  const iframeCode = `<iframe
-  src="https://kentroi.com/embed/booking/YOUR_WIDGET_ID"
-  width="100%"
-  height="600"
-  frameborder="0"
-  style="border: none; max-width: 800px;"
-></iframe>`;
+  const embedCode = `<!-- Kentroi Booking Widget -->
+<div data-kentroi-type="booking" data-widget-id="YOUR_WIDGET_ID"></div>
+<script src="https://www.kentroi.com/embed.js" async></script>`;
 
   return (
     <div className="space-y-8">
@@ -67,7 +63,7 @@ export default function SquarespaceDocsPage() {
           steps={[
             {
               title: 'Get Your Embed Code',
-              description: 'Log in to your Kentroi dashboard and go to Embed Widget. Copy the iframe code.',
+              description: 'Log in to your Kentroi dashboard and go to Embed Widget. Copy the embed snippet.',
               content: (
                 <Link href="/dashboard/embed" className="text-primary hover:underline">
                   Go to Embed Widget →
@@ -84,12 +80,12 @@ export default function SquarespaceDocsPage() {
             },
             {
               title: 'Paste the Embed Code',
-              description: 'Paste your Kentroi iframe code into the code block. Make sure "Display Source" is unchecked.',
-              content: <CodeBlock code={iframeCode} language="html" />,
+              description: 'Paste your Kentroi embed snippet into the code block. Make sure "Display Source" is unchecked.',
+              content: <CodeBlock code={embedCode} language="html" />,
             },
             {
               title: 'Apply and Save',
-              description: 'Click Apply, then Save your page. The widget should now be visible.',
+              description: 'Click Apply, then Save your page. The widget renders natively and auto-sizes to fit.',
             },
           ]}
         />
@@ -142,10 +138,10 @@ export default function SquarespaceDocsPage() {
           </div>
 
           <div className="p-4 rounded-lg border border-border">
-            <h3 className="font-semibold mb-1">Widget height is wrong</h3>
+            <h3 className="font-semibold mb-1">Widget spacing looks off</h3>
             <p className="text-sm text-muted-foreground">
-              Adjust the height value in the iframe code. Squarespace may also add padding -
-              you can adjust this in the block's spacing settings.
+              Squarespace may add extra padding around code blocks. Adjust the block&apos;s
+              spacing settings in the editor to control the surrounding whitespace.
             </p>
           </div>
         </div>
