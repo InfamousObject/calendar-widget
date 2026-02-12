@@ -23,15 +23,8 @@ export async function POST(request: NextRequest) {
     // Get client IP for rate limiting and CAPTCHA verification
     const clientIp = getClientIp(request);
 
-    // Verify CAPTCHA if configured (before rate limiting to prevent CAPTCHA bypass)
-    if (process.env.HCAPTCHA_SECRET_KEY) {
-      if (!body.captchaToken) {
-        return NextResponse.json(
-          { error: 'CAPTCHA verification required. Please complete the verification.' },
-          { status: 400 }
-        );
-      }
-
+    // Verify CAPTCHA if configured and token provided (embeds skip CAPTCHA, rate limiting protects)
+    if (process.env.HCAPTCHA_SECRET_KEY && body.captchaToken) {
       const captchaValid = await verifyCaptcha(body.captchaToken, clientIp);
       if (!captchaValid) {
         return NextResponse.json(
