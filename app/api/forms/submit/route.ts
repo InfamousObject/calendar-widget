@@ -123,12 +123,17 @@ export async function POST(request: NextRequest) {
       try {
         const { sendFormSubmissionNotification } = await import('@/lib/email');
 
+        const fields = formFields.map((field) => ({
+          label: field.label,
+          value: String(validatedData.data[field.id] ?? ''),
+        }));
+
         const result = await sendFormSubmissionNotification({
           notificationEmail: settings.notificationEmail,
           formName: form.name,
           submissionId: submission.id,
           submittedAt: submission.createdAt,
-          fieldCount: Object.keys(validatedData.data).length,
+          fields,
         });
         if (result) {
           log.info('[Form Submission] Notification email sent');

@@ -6,14 +6,14 @@ interface FormSubmissionNotificationProps {
   formName: string;
   submissionId: string;
   submittedAt: Date;
-  fieldCount: number;
+  fields: Array<{ label: string; value: string }>;
 }
 
 export function FormSubmissionNotification({
   formName,
   submissionId,
   submittedAt,
-  fieldCount,
+  fields,
 }: FormSubmissionNotificationProps) {
   const formattedDate = format(submittedAt, 'PPpp'); // e.g., "Apr 29, 2023, 5:30 PM"
 
@@ -22,26 +22,22 @@ export function FormSubmissionNotification({
       <Heading style={h1}>New Form Submission</Heading>
 
       <Text style={text}>
-        You have received a new submission for your form.
+        You have received a new submission for <strong>{formName}</strong>.
       </Text>
 
       <Section style={detailsBox}>
-        <Text style={detailLabel}>Form Name:</Text>
-        <Text style={detailValue}>{formName}</Text>
-
-        <Text style={detailLabel}>Submitted:</Text>
-        <Text style={detailValue}>{formattedDate}</Text>
-
-        <Text style={detailLabel}>Number of Fields:</Text>
-        <Text style={detailValue}>{fieldCount}</Text>
-
-        <Text style={detailLabel}>Submission ID:</Text>
-        <Text style={detailValue}>{submissionId}</Text>
+        {fields.map((field, index) => (
+          <div key={index}>
+            <Text style={detailLabel}>{field.label}:</Text>
+            <Text style={detailValue}>{field.value || '—'}</Text>
+          </div>
+        ))}
       </Section>
 
-      <Text style={text}>
-        Log in to your dashboard to view the full submission details.
-      </Text>
+      <Section style={metaBox}>
+        <Text style={metaText}>Submitted: {formattedDate}</Text>
+        <Text style={metaText}>Submission ID: {submissionId}</Text>
+      </Section>
     </EmailLayout>
   );
 }
@@ -81,4 +77,16 @@ const detailValue = {
   color: '#1f2937',
   fontSize: '16px',
   margin: '0 0 16px 0',
+};
+
+const metaBox = {
+  borderTop: '1px solid #e5e7eb',
+  paddingTop: '16px',
+  marginTop: '8px',
+};
+
+const metaText = {
+  color: '#9ca3af',
+  fontSize: '12px',
+  margin: '0 0 4px 0',
 };

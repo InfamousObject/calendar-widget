@@ -182,7 +182,7 @@ export async function sendFormSubmissionNotification(params: {
   formName: string;
   submissionId: string;
   submittedAt: Date;
-  fieldCount: number;
+  fields: Array<{ label: string; value: string }>;
 }) {
   return sendWithRetry(async () => {
     const { data, error } = await resend.emails.send({
