@@ -237,6 +237,7 @@
     this.widgetId = widgetId;
     this.preselectedTypeId = appointmentTypeId || null;
     this.shadow = container.attachShadow({ mode: 'open' });
+    this.card = null;
     this.state = {
       step: 'loading', // loading | error | select-type | select-date | select-time | details | success
       config: null,
@@ -293,39 +294,43 @@
   };
 
   KentroiBooking.prototype._render = function () {
-    // Preserve nothing — full re-render (values stored in state)
-    while (this.root.firstChild) this.root.removeChild(this.root.firstChild);
+    // Keep card shell persistent to avoid flash-to-background on transitions
+    if (!this.card) {
+      this.card = el('div', { className: 'kr-card' });
+      this.root.appendChild(this.card);
+    }
+    while (this.card.firstChild) this.card.removeChild(this.card.firstChild);
 
-    var card = el('div', { className: 'kr-card kr-fi' });
+    var content = el('div', { className: 'kr-fi' });
 
     switch (this.state.step) {
-      case 'loading':  card.appendChild(this._loading('Loading booking options...')); break;
-      case 'error':    card.appendChild(this._error()); break;
+      case 'loading':  content.appendChild(this._loading('Loading booking options...')); break;
+      case 'error':    content.appendChild(this._error()); break;
       case 'select-type':
-        card.appendChild(this._header(false));
-        card.appendChild(this._selectType());
+        content.appendChild(this._header(false));
+        content.appendChild(this._selectType());
         break;
       case 'select-date':
-        card.appendChild(this._header(true));
-        card.appendChild(this._selectDate());
+        content.appendChild(this._header(true));
+        content.appendChild(this._selectDate());
         break;
       case 'select-time':
-        card.appendChild(this._header(true));
-        card.appendChild(this._selectTime());
+        content.appendChild(this._header(true));
+        content.appendChild(this._selectTime());
         break;
       case 'details':
-        card.appendChild(this._header(true));
-        card.appendChild(this._details());
+        content.appendChild(this._header(true));
+        content.appendChild(this._details());
         break;
       case 'success':
-        card.appendChild(this._success());
+        content.appendChild(this._success());
         break;
       case 'payment-redirect':
-        card.appendChild(this._paymentRedirect());
+        content.appendChild(this._paymentRedirect());
         break;
     }
 
-    this.root.appendChild(card);
+    this.card.appendChild(content);
   };
 
   // --- Shared renderers ---
@@ -830,6 +835,7 @@
     this.container = container;
     this.formId = formId;
     this.shadow = container.attachShadow({ mode: 'open' });
+    this.card = null;
     this.state = {
       step: 'loading', // loading | error | form | success
       config: null,
@@ -870,26 +876,30 @@
   };
 
   KentroiForm.prototype._render = function () {
-    while (this.root.firstChild) this.root.removeChild(this.root.firstChild);
+    if (!this.card) {
+      this.card = el('div', { className: 'kr-card' });
+      this.root.appendChild(this.card);
+    }
+    while (this.card.firstChild) this.card.removeChild(this.card.firstChild);
 
-    var card = el('div', { className: 'kr-card kr-fi' });
+    var content = el('div', { className: 'kr-fi' });
 
     switch (this.state.step) {
       case 'loading':
-        card.appendChild(this._loading('Loading form...'));
+        content.appendChild(this._loading('Loading form...'));
         break;
       case 'error':
-        card.appendChild(this._error());
+        content.appendChild(this._error());
         break;
       case 'form':
-        card.appendChild(this._formContent());
+        content.appendChild(this._formContent());
         break;
       case 'success':
-        card.appendChild(this._success());
+        content.appendChild(this._success());
         break;
     }
 
-    this.root.appendChild(card);
+    this.card.appendChild(content);
   };
 
   // Reuse loading / error renderers from KentroiBooking
