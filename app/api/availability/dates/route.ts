@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Check cache first
-    const cachedDates = availabilityCache.getDates(user.id, appointmentTypeId);
+    const cachedDates = availabilityCache.getDates(user.id, appointmentTypeId, daysAhead);
     if (cachedDates) {
       const appointmentType = await prisma.appointmentType.findFirst({
         where: { id: appointmentTypeId, userId: user.id, active: true },
@@ -77,23 +77,26 @@ export async function GET(request: NextRequest) {
 
     // Get date overrides
     const startDate = startOfDay(new Date());
-    const endDate = addDays(startDate, daysAhead);
+    // Scan up to daysAhead*3 or 90 calendar days to find enough available dates
+    const maxScanDays = Math.max(daysAhead * 3, 90);
+    const scanEndDate = addDays(startDate, maxScanDays);
 
     const dateOverrides = await prisma.dateOverride.findMany({
       where: {
         userId: user.id,
         date: {
           gte: startDate,
-          lte: endDate,
+          lte: scanEndDate,
         },
       },
     });
 
     // Generate list of dates with availability
+    // daysAhead = number of available dates to return (not calendar days)
     const availableDates: string[] = [];
     let currentDate = new Date(startDate);
 
-    while (currentDate <= endDate) {
+    while (currentDate <= scanEndDate && availableDates.length < daysAhead) {
       const dayOfWeek = currentDate.getDay();
       const dateStr = format(currentDate, 'yyyy-MM-dd');
 
@@ -120,7 +123,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Cache the results
-    availabilityCache.setDates(user.id, appointmentTypeId, availableDates);
+    availabilityCache.setDates(user.id, appointmentTypeId, daysAhead, availableDates);
 
     return NextResponse.json({
       availableDates,

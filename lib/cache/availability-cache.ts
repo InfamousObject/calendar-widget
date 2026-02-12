@@ -45,8 +45,8 @@ class AvailabilityCache {
   /**
    * Generate cache key for dates
    */
-  private getDatesKey(userId: string, appointmentTypeId: string): string {
-    return `dates:${userId}:${appointmentTypeId}`;
+  private getDatesKey(userId: string, appointmentTypeId: string, daysAhead: number): string {
+    return `dates:${userId}:${appointmentTypeId}:${daysAhead}`;
   }
 
   /**
@@ -66,16 +66,16 @@ class AvailabilityCache {
   /**
    * Get cached available dates (L1 only - lightweight)
    */
-  getDates(userId: string, appointmentTypeId: string): string[] | null {
-    const key = this.getDatesKey(userId, appointmentTypeId);
+  getDates(userId: string, appointmentTypeId: string, daysAhead: number): string[] | null {
+    const key = this.getDatesKey(userId, appointmentTypeId, daysAhead);
     return this.getFromMemory(key);
   }
 
   /**
    * Set cached available dates (L1 only)
    */
-  setDates(userId: string, appointmentTypeId: string, dates: string[]): void {
-    const key = this.getDatesKey(userId, appointmentTypeId);
+  setDates(userId: string, appointmentTypeId: string, daysAhead: number, dates: string[]): void {
+    const key = this.getDatesKey(userId, appointmentTypeId, daysAhead);
     this.setInMemory(key, dates, this.TTL);
   }
 

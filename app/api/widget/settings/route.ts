@@ -4,6 +4,7 @@ import { hasPermission } from '@/lib/permissions';
 import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
 import { log } from '@/lib/logger';
+import { availabilityCache } from '@/lib/cache/availability-cache';
 
 const widgetSettingsSchema = z.object({
   primaryColor: z.string().optional(),
@@ -16,8 +17,8 @@ const widgetSettingsSchema = z.object({
   offsetY: z.number().optional(),
   showOnMobile: z.boolean().optional(),
   delaySeconds: z.number().optional(),
-  logoUrl: z.string().optional(),
-  businessName: z.string().optional(),
+  logoUrl: z.string().nullish(),
+  businessName: z.string().nullish(),
   welcomeMessage: z.string().optional(),
   timeFormat: z.enum(['12h', '24h']).optional(),
   requirePhone: z.boolean().optional(),
@@ -106,6 +107,11 @@ export async function PATCH(request: NextRequest) {
         userId: user.id,
       },
     });
+
+    // Invalidate availability cache when days-to-display settings change
+    if (validatedData.daysToDisplay !== undefined || validatedData.widgetDaysToDisplay !== undefined) {
+      availabilityCache.invalidateUser(user.id);
+    }
 
     return NextResponse.json({ settings: widgetConfig });
   } catch (error) {

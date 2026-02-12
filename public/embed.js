@@ -320,6 +320,9 @@
       case 'success':
         card.appendChild(this._success());
         break;
+      case 'payment-redirect':
+        card.appendChild(this._paymentRedirect());
+        break;
     }
 
     this.root.appendChild(card);
@@ -561,6 +564,20 @@
     return wrap;
   };
 
+  KentroiBooking.prototype._paymentRedirect = function () {
+    var wrap = el('div', { className: 'kr-ok kr-fi' });
+
+    var ic = el('div', { className: 'kr-ok-ic' });
+    ic.appendChild(svgIcon(['M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6', 'M15 3h6v6', 'M10 14L21 3'], 32, '#4F46E5'));
+    wrap.appendChild(ic);
+
+    wrap.appendChild(el('h3', { className: 'kr-ok-t', textContent: 'Complete Your Payment' }));
+    wrap.appendChild(el('p', { className: 'kr-ok-d', textContent: 'A new tab has been opened to securely process your payment.' }));
+    wrap.appendChild(el('p', { className: 'kr-ok-d', textContent: 'Please complete the payment there to confirm your booking.' }));
+
+    return wrap;
+  };
+
   // --- Navigation ---
 
   KentroiBooking.prototype._goBack = function () {
@@ -639,11 +656,22 @@
       return;
     }
 
-    // For paid appointments, redirect to the full booking page which has Stripe payment
+    // For paid appointments, redirect to the full booking page with all booking data pre-filled
     var selectedType = this.state.selectedType;
     if (selectedType && selectedType.requirePayment && selectedType.price) {
-      var bookUrl = API_BASE + '/book/' + this.widgetId + '?appointmentTypeId=' + selectedType.id;
+      var params = new URLSearchParams();
+      params.set('appointmentTypeId', selectedType.id);
+      params.set('prefilled', '1');
+      if (this.state.selectedDate) params.set('date', this.state.selectedDate);
+      if (this.state.selectedSlot && this.state.selectedSlot.start) params.set('time', this.state.selectedSlot.start);
+      if (fd.name) params.set('name', fd.name);
+      if (fd.email) params.set('email', fd.email);
+      if (fd.phone) params.set('phone', fd.phone);
+      if (fd.notes) params.set('notes', fd.notes);
+      var bookUrl = API_BASE + '/book/' + this.widgetId + '?' + params.toString();
       window.open(bookUrl, '_blank');
+      this.state.step = 'payment-redirect';
+      this._render();
       return;
     }
 

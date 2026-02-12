@@ -1,7 +1,9 @@
 'use client';
+// Force dynamic rendering to avoid useSearchParams() prerender errors
+export const dynamic = 'force-dynamic';
 
 import { useEffect, useState, useRef } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -66,7 +68,9 @@ interface BookingFormField {
 export default function BookingPage() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const widgetId = typeof params.widgetId === 'string' ? params.widgetId : params.widgetId?.[0] || '';
+  const prefillProcessed = useRef(false);
 
   const [loading, setLoading] = useState(true);
   const [widgetInfo, setWidgetInfo] = useState<WidgetInfo | null>(null);
@@ -128,6 +132,71 @@ export default function BookingPage() {
     };
     loadInitialData();
   }, [widgetId]);
+
+  // Handle prefilled data from embed redirect (paid appointments)
+  useEffect(() => {
+    if (!widgetInfo || prefillProcessed.current) return;
+    if (searchParams.get('prefilled') !== '1') return;
+
+    prefillProcessed.current = true;
+
+    const appointmentTypeId = searchParams.get('appointmentTypeId');
+    const date = searchParams.get('date');
+    const time = searchParams.get('time');
+    const name = searchParams.get('name');
+    const email = searchParams.get('email');
+    const phone = searchParams.get('phone') || '';
+    const notes = searchParams.get('notes') || '';
+
+    if (!appointmentTypeId || !date || !time || !name || !email) return;
+
+    // Find the matching appointment type
+    const type = widgetInfo.appointmentTypes.find((t) => t.id === appointmentTypeId);
+    if (!type) return;
+
+    // Pre-populate all state
+    setSelectedType(type);
+    setSelectedDate(date);
+    setContactInfo({ name, email, phone, notes });
+
+    // Fetch slots and validate the selected time, then advance to payment
+    const validateAndAdvance = async () => {
+      try {
+        const startDate = startOfDay(parseISO(date)).toISOString();
+        const endDate = addDays(parseISO(date), 1).toISOString();
+        const response = await fetch(
+          `/api/availability/slots?widgetId=${widgetId}&appointmentTypeId=${appointmentTypeId}&startDate=${startDate}&endDate=${endDate}`
+        );
+
+        if (response.ok) {
+          const data = await response.json();
+          const daySlots = data.slots?.find((s: DaySlots) => s.date === date);
+          if (daySlots) {
+            const availSlots = daySlots.slots.filter((s: TimeSlot) => s.available);
+            setAvailableSlots(availSlots);
+
+            // Find the matching slot
+            const matchedSlot = availSlots.find((s: TimeSlot) => s.start === time);
+            if (matchedSlot) {
+              setSelectedSlot(matchedSlot);
+              setStep(4); // Skip to payment
+              return;
+            }
+          }
+        }
+
+        // Slot no longer available — fall back to date/time selection
+        fetchAvailableDates(appointmentTypeId);
+        setSlotsError('The selected time is no longer available. Please choose another time.');
+        setStep(2);
+      } catch {
+        fetchAvailableDates(appointmentTypeId);
+        setStep(2);
+      }
+    };
+
+    validateAndAdvance();
+  }, [widgetInfo, searchParams]);
 
   const fetchWidgetInfo = async () => {
     try {
