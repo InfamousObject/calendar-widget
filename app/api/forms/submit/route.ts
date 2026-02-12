@@ -111,24 +111,41 @@ export async function POST(request: NextRequest) {
       successMessage?: string;
       emailNotifications?: boolean;
       notificationEmail?: string;
-    };
+    } | null;
 
-    if (settings.emailNotifications && settings.notificationEmail) {
+    log.info('[Form Submission] Email settings check', {
+      emailNotifications: settings?.emailNotifications,
+      hasNotificationEmail: !!settings?.notificationEmail,
+      formId: form.id,
+    });
+
+    if (settings?.emailNotifications && settings?.notificationEmail) {
       try {
         const { sendFormSubmissionNotification } = await import('@/lib/email');
 
-        await sendFormSubmissionNotification({
+        const result = await sendFormSubmissionNotification({
           notificationEmail: settings.notificationEmail,
           formName: form.name,
           submissionId: submission.id,
           submittedAt: submission.createdAt,
           fieldCount: Object.keys(validatedData.data).length,
         });
-        log.info('[Form Submission] Notification email sent');
+        if (result) {
+          log.info('[Form Submission] Notification email sent');
+        } else {
+          log.error('[Form Submission] Email send returned null (failed silently)', {
+            formId: form.id,
+            notificationEmail: settings.notificationEmail,
+          });
+        }
       } catch (error) {
         log.error('[Form Submission] Failed to send notification', error);
         // Don't fail the submission if email fails
       }
+    } else {
+      log.info('[Form Submission] Email notification skipped (not enabled or no email configured)', {
+        formId: form.id,
+      });
     }
 
     // TODO: Implement server-side conversion API for GA4 Measurement Protocol
@@ -136,7 +153,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: settings.successMessage || 'Thank you for your submission!',
+      message: settings?.successMessage || 'Thank you for your submission!',
       submissionId: submission.id,
     });
   } catch (error) {
