@@ -662,7 +662,7 @@
       var params = new URLSearchParams();
       params.set('appointmentTypeId', selectedType.id);
       params.set('prefilled', '1');
-      if (this.state.selectedDate) params.set('date', this.state.selectedDate);
+      if (this.state.selectedDate) params.set('date', formatDate(this.state.selectedDate));
       if (this.state.selectedSlot && this.state.selectedSlot.start) params.set('time', this.state.selectedSlot.start);
       if (fd.name) params.set('name', fd.name);
       if (fd.email) params.set('email', fd.email);
