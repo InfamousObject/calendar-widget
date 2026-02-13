@@ -112,7 +112,7 @@ export default function RootLayout({
                     function gtag(){dataLayer.push(arguments);}
                     gtag('consent', 'default', { analytics_storage: 'denied' });
                     gtag('js', new Date());
-                    gtag('config', '${process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID}');
+                    gtag('config', '${process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID}'${process.env.NODE_ENV === 'development' ? ", { debug_mode: true }" : ''});
                   `,
                 }}
               />
@@ -127,6 +127,7 @@ export default function RootLayout({
               {children}
             </ErrorBoundary>
             <Toaster />
+            {/* Requires Web Analytics & Speed Insights enabled in Vercel dashboard (Settings > Analytics) */}
             <Analytics />
             <SpeedInsights />
             <RouteChangeTracker />

@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Calendar, FileText, MessageSquare, Users, Copy, ExternalLink, Clock } from 'lucide-react';
 import { toast } from 'sonner';
 import { SetupChecklist } from '@/components/dashboard/setup-checklist';
+import { trackConversion } from '@/lib/analytics/track';
 
 export default function DashboardPage() {
   const { user, isLoaded, isSignedIn } = useUser();
@@ -19,6 +20,15 @@ export default function DashboardPage() {
   const [widgetId, setWidgetId] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [recentBookings, setRecentBookings] = useState<any[]>([]);
+
+  // Track sign_up conversion when arriving from registration
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('signup') === 'true') {
+      trackConversion('sign_up', { method: 'clerk' });
+      window.history.replaceState({}, '', '/dashboard');
+    }
+  }, []);
 
   useEffect(() => {
     if (isSignedIn) {

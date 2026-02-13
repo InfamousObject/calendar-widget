@@ -46,7 +46,7 @@ export default function RegisterPage() {
             }}
             routing="hash"
             signInUrl="/auth/login"
-            forceRedirectUrl="/dashboard"
+            forceRedirectUrl="/dashboard?signup=true"
           />
         </div>
 

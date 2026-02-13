@@ -8,6 +8,7 @@ import { Check, CreditCard, ExternalLink, Loader2, Wallet, TrendingUp, Settings,
 import Link from 'next/link';
 import { toast } from 'sonner';
 import { CancellationSurveyModal, CancellationReason } from '@/components/billing/cancellation-survey-modal';
+import { trackConversion } from '@/lib/analytics/track';
 
 interface BillingInfo {
   tier: string;
@@ -45,6 +46,7 @@ export default function BillingPage() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get('success') === 'true') {
+      trackConversion('purchase', { currency: 'USD' });
       setTimeout(() => {
         toast.success('Subscription updated successfully!');
       }, 500);
