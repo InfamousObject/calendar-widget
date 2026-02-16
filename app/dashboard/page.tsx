@@ -8,6 +8,7 @@ import { Calendar, FileText, MessageSquare, Users, Copy, ExternalLink, Clock } f
 import { toast } from 'sonner';
 import { SetupChecklist } from '@/components/dashboard/setup-checklist';
 import { trackConversion } from '@/lib/analytics/track';
+import Link from 'next/link';
 
 export default function DashboardPage() {
   const { user, isLoaded, isSignedIn } = useUser();
@@ -122,24 +123,28 @@ export default function DashboardPage() {
       value: stats.appointments,
       icon: Calendar,
       color: 'text-blue-500',
+      href: '/dashboard/bookings',
     },
     {
       title: 'Contact Forms',
       value: stats.forms,
       icon: FileText,
       color: 'text-green-500',
+      href: '/dashboard/forms',
     },
     {
       title: 'Form Submissions',
       value: stats.submissions,
       icon: Users,
       color: 'text-purple-500',
+      href: '/dashboard/forms',
     },
     {
       title: 'Conversations',
       value: stats.conversations,
       icon: MessageSquare,
       color: 'text-orange-500',
+      href: '/dashboard/conversations',
     },
   ];
 
@@ -169,28 +174,29 @@ export default function DashboardPage() {
         {statCards.map((stat, index) => {
           const Icon = stat.icon;
           return (
-            <Card
-              key={stat.title}
-              className="group relative overflow-hidden border-border hover:border-primary/50 transition-all duration-300 hover:shadow-lg hover:shadow-primary/10"
-              style={{ animationDelay: `${index * 100}ms` }}
-            >
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-foreground-secondary">
-                  {stat.title}
-                </CardTitle>
-                <div className={`p-2 rounded-lg bg-${stat.color}/10 transition-transform duration-300 group-hover:scale-110`}>
-                  <Icon className={`h-4 w-4 ${stat.color}`} />
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold font-display tracking-tight">
-                  {stat.value}
-                </div>
-              </CardContent>
+            <Link key={stat.title} href={stat.href} className="block">
+              <Card
+                className="group relative overflow-hidden border-border hover:border-primary/50 transition-all duration-300 hover:shadow-lg hover:shadow-primary/10 cursor-pointer"
+                style={{ animationDelay: `${index * 100}ms` }}
+              >
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium text-foreground-secondary">
+                    {stat.title}
+                  </CardTitle>
+                  <div className={`p-2 rounded-lg bg-${stat.color}/10 transition-transform duration-300 group-hover:scale-110`}>
+                    <Icon className={`h-4 w-4 ${stat.color}`} />
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-bold font-display tracking-tight">
+                    {stat.value}
+                  </div>
+                </CardContent>
 
-              {/* Subtle gradient overlay on hover */}
-              <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
-            </Card>
+                {/* Subtle gradient overlay on hover */}
+                <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
+              </Card>
+            </Link>
           );
         })}
       </div>

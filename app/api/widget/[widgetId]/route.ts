@@ -21,6 +21,18 @@ export async function GET(
         widgetConfig: {
           select: {
             daysToDisplay: true,
+            primaryColor: true,
+            backgroundColor: true,
+            textColor: true,
+            borderRadius: true,
+            fontFamily: true,
+            welcomeMessage: true,
+            logoUrl: true,
+            timeFormat: true,
+            requirePhone: true,
+            showNotes: true,
+            widgetDaysToDisplay: true,
+            businessName: true,
           },
         },
       },
@@ -56,10 +68,23 @@ export async function GET(
     });
 
     return NextResponse.json({
-      businessName: user.businessName || user.name || 'Business',
+      businessName: user.widgetConfig?.businessName || user.businessName || user.name || 'Business',
       timezone: user.timezone,
       daysToDisplay: user.widgetConfig?.daysToDisplay || 7,
       appointmentTypes,
+      // Appearance settings
+      primaryColor: user.widgetConfig?.primaryColor || '#3b82f6',
+      backgroundColor: user.widgetConfig?.backgroundColor || '#ffffff',
+      textColor: user.widgetConfig?.textColor || '#1f2937',
+      borderRadius: user.widgetConfig?.borderRadius || 'medium',
+      fontFamily: user.widgetConfig?.fontFamily || 'system',
+      // Display settings
+      welcomeMessage: user.widgetConfig?.welcomeMessage || 'Book an appointment with us',
+      logoUrl: user.widgetConfig?.logoUrl || null,
+      timeFormat: user.widgetConfig?.timeFormat || '12h',
+      requirePhone: user.widgetConfig?.requirePhone || false,
+      showNotes: user.widgetConfig?.showNotes ?? true,
+      widgetDaysToDisplay: user.widgetConfig?.widgetDaysToDisplay || 4,
     });
   } catch (error) {
     log.error('Error fetching widget info', error);

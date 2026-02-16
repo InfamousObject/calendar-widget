@@ -9,6 +9,7 @@ import { Users, UserPlus, Crown, AlertTriangle, Loader2, Lock, Sparkles } from '
 import { toast } from 'sonner';
 import { InviteMemberDialog } from '@/components/team/invite-member-dialog';
 import { TeamMembersList } from '@/components/team/team-members-list';
+import { AddSeatsDialog } from '@/components/team/add-seats-dialog';
 import { usePermissions } from '@/hooks/use-permissions';
 import Link from 'next/link';
 
@@ -234,11 +235,7 @@ export default function TeamPage() {
                     </div>
                   </div>
                   {isOwner && (
-                    <Link href="/dashboard/billing">
-                      <Button variant="outline" size="sm">
-                        Add Seats
-                      </Button>
-                    </Link>
+                    <AddSeatsDialog onSeatsAdded={fetchTeamData} />
                   )}
                 </div>
               )}

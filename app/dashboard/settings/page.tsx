@@ -205,6 +205,10 @@ export default function SettingsPage() {
                       all your data, calendar connections, appointments, and remove your access
                       to connected services.
                     </p>
+                    <p className="text-sm text-destructive font-medium">
+                      If you have an active subscription, it will be immediately cancelled and
+                      any remaining time on your billing period will be forfeited.
+                    </p>
                   </div>
                 </div>
 

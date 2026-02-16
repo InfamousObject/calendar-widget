@@ -9,7 +9,7 @@ import { OrganizationSchema, SoftwareApplicationSchema } from '@/components/seo/
 import { Analytics } from '@vercel/analytics/react';
 import { SpeedInsights } from '@vercel/speed-insights/next';
 import { RouteChangeTracker } from '@/components/analytics/RouteChangeTracker';
-import { CookieConsent } from '@/components/analytics/CookieConsent';
+
 
 const sansFont = Manrope({
   variable: "--font-sans",
@@ -110,7 +110,7 @@ export default function RootLayout({
                   __html: `
                     window.dataLayer = window.dataLayer || [];
                     function gtag(){dataLayer.push(arguments);}
-                    gtag('consent', 'default', { analytics_storage: 'denied' });
+                    gtag('consent', 'default', { analytics_storage: 'granted' });
                     gtag('js', new Date());
                     gtag('config', '${process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID}'${process.env.NODE_ENV === 'development' ? ", { debug_mode: true }" : ''});
                   `,
@@ -131,7 +131,6 @@ export default function RootLayout({
             <Analytics />
             <SpeedInsights />
             <RouteChangeTracker />
-            <CookieConsent />
           </ThemeProvider>
         </body>
       </html>

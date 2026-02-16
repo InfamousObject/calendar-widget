@@ -493,13 +493,12 @@ export async function checkForConflicts(
       'checkForConflicts'
     );
 
-    // Filter out declined events and check for conflicts
+    // Filter out declined events and check for conflicts (include all-day events)
     const events = response.data.items || [];
     const activeEvents = events.filter(
       (event) =>
         event.status !== 'cancelled' &&
-        event.start?.dateTime &&
-        event.end?.dateTime
+        (event.start?.dateTime || event.start?.date)
     );
 
     return activeEvents.length > 0;
@@ -550,19 +549,19 @@ export function checkSlotsAgainstEvents(
   slots: { start: Date; end: Date }[],
   calendarEvents: any[]
 ): boolean[] {
-  // Filter out cancelled events and events without times
+  // Filter out cancelled events; keep both timed and all-day events
   const activeEvents = calendarEvents.filter(
     (event) =>
       event.status !== 'cancelled' &&
-      event.start?.dateTime &&
-      event.end?.dateTime
+      (event.start?.dateTime || event.start?.date)
   );
 
   // Check each slot against all events
   return slots.map((slot) => {
     const hasConflict = activeEvents.some((event) => {
-      const eventStart = new Date(event.start.dateTime);
-      const eventEnd = new Date(event.end.dateTime);
+      // Handle both timed events (dateTime) and all-day events (date)
+      const eventStart = new Date(event.start.dateTime || event.start.date);
+      const eventEnd = new Date(event.end.dateTime || event.end.date);
 
       // Check for overlap
       return (

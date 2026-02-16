@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { createCalendarEvent } from '@/lib/google/calendar';
+import { createCalendarEvent, checkForConflicts } from '@/lib/google/calendar';
 import { stripe } from '@/lib/stripe';
 import { availabilityCache } from '@/lib/cache/availability-cache';
 import { incrementUsage, checkUsageLimit } from '@/lib/subscription';
@@ -226,6 +226,12 @@ export async function POST(request: NextRequest) {
     // Generate cryptographically secure cancellation token (64 bytes = 128 hex characters)
     const cancellationToken = crypto.randomBytes(64).toString('hex');
 
+    // Apply buffer times to the conflict check window
+    const bufferBefore = appointmentType.bufferBefore || 0;
+    const bufferAfter = appointmentType.bufferAfter || 0;
+    const bufferedStartTime = new Date(startTime.getTime() - bufferBefore * 60000);
+    const bufferedEndTime = new Date(endTime.getTime() + bufferAfter * 60000);
+
     // Check for conflicting appointments then create
     // Using sequential queries (interactive transactions are not supported
     // with @prisma/adapter-pg through Supabase PgBouncer)
@@ -236,25 +242,25 @@ export async function POST(request: NextRequest) {
           not: 'cancelled',
         },
         OR: [
-          // Existing appointment overlaps with start of new booking
+          // Existing appointment overlaps with start of new booking (with buffer)
           {
             AND: [
-              { startTime: { lte: startTime } },
-              { endTime: { gt: startTime } },
+              { startTime: { lte: bufferedStartTime } },
+              { endTime: { gt: bufferedStartTime } },
             ],
           },
-          // Existing appointment overlaps with end of new booking
+          // Existing appointment overlaps with end of new booking (with buffer)
           {
             AND: [
-              { startTime: { lt: endTime } },
-              { endTime: { gte: endTime } },
+              { startTime: { lt: bufferedEndTime } },
+              { endTime: { gte: bufferedEndTime } },
             ],
           },
-          // New booking completely encompasses existing appointment
+          // New booking (with buffer) completely encompasses existing appointment
           {
             AND: [
-              { startTime: { gte: startTime } },
-              { endTime: { lte: endTime } },
+              { startTime: { gte: bufferedStartTime } },
+              { endTime: { lte: bufferedEndTime } },
             ],
           },
         ],
@@ -266,6 +272,19 @@ export async function POST(request: NextRequest) {
         { error: 'This time slot is no longer available. Please select another time.' },
         { status: 409 }
       );
+    }
+
+    // Check Google Calendar for conflicts (don't block booking if calendar check fails)
+    try {
+      const hasCalendarConflict = await checkForConflicts(user.id, bufferedStartTime, bufferedEndTime);
+      if (hasCalendarConflict) {
+        return NextResponse.json(
+          { error: 'This time slot is no longer available. Please select another time.' },
+          { status: 409 }
+        );
+      }
+    } catch (error) {
+      log.error('[Book] Google Calendar conflict check failed, proceeding with booking', error);
     }
 
     const appointment = await prisma.appointment.create({

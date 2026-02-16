@@ -1,5 +1,8 @@
 import { Metadata } from 'next';
 
+// Force dynamic rendering so useSearchParams() works for prefilled booking URLs
+export const dynamic = 'force-dynamic';
+
 export async function generateMetadata({
   params,
 }: {

@@ -128,6 +128,26 @@ export async function DELETE(
       );
     }
 
+    // Check for existing appointments linked to this type
+    const appointmentCount = await prisma.appointment.count({
+      where: { appointmentTypeId: id },
+    });
+
+    if (appointmentCount > 0) {
+      // Soft-delete: deactivate instead of hard-deleting to preserve appointment history
+      await prisma.appointmentType.update({
+        where: { id },
+        data: { active: false },
+      });
+
+      return NextResponse.json({
+        message: 'Appointment type deactivated (has existing appointments)',
+        deactivated: true,
+        appointmentCount,
+      });
+    }
+
+    // No appointments reference this type, safe to hard-delete
     await prisma.appointmentType.delete({
       where: { id },
     });
@@ -140,6 +160,14 @@ export async function DELETE(
 
     if (error instanceof Error && error.message === 'Unauthorized') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // Handle FK constraint violations gracefully
+    if (error instanceof Error && error.message.includes('Foreign key constraint')) {
+      return NextResponse.json(
+        { error: 'Cannot delete appointment type with existing appointments. It has been deactivated instead.' },
+        { status: 409 }
+      );
     }
 
     return NextResponse.json(

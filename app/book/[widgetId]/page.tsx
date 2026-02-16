@@ -1,8 +1,6 @@
 'use client';
-// Force dynamic rendering to avoid useSearchParams() prerender errors
-export const dynamic = 'force-dynamic';
 
-import { useEffect, useState, useRef } from 'react';
+import { Suspense, useEffect, useState, useRef } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -41,6 +39,19 @@ interface WidgetInfo {
   timezone: string;
   daysToDisplay?: number;
   appointmentTypes: AppointmentType[];
+  // Appearance settings
+  primaryColor?: string;
+  backgroundColor?: string;
+  textColor?: string;
+  borderRadius?: string;
+  fontFamily?: string;
+  // Display settings
+  welcomeMessage?: string;
+  logoUrl?: string;
+  timeFormat?: string;
+  requirePhone?: boolean;
+  showNotes?: boolean;
+  widgetDaysToDisplay?: number;
 }
 
 interface TimeSlot {
@@ -65,7 +76,7 @@ interface BookingFormField {
   active: boolean;
 }
 
-export default function BookingPage() {
+function BookingPageContent() {
   const params = useParams();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -132,6 +143,50 @@ export default function BookingPage() {
     };
     loadInitialData();
   }, [widgetId]);
+
+  // Apply widget appearance settings as CSS variables
+  useEffect(() => {
+    if (!widgetInfo) return;
+
+    const root = document.documentElement;
+
+    if (widgetInfo.primaryColor) {
+      root.style.setProperty('--booking-primary', widgetInfo.primaryColor);
+    }
+    if (widgetInfo.backgroundColor) {
+      root.style.setProperty('--booking-bg', widgetInfo.backgroundColor);
+    }
+    if (widgetInfo.textColor) {
+      root.style.setProperty('--booking-text', widgetInfo.textColor);
+    }
+
+    const borderRadiusMap: Record<string, string> = {
+      sharp: '0px',
+      medium: '8px',
+      rounded: '16px',
+    };
+    if (widgetInfo.borderRadius) {
+      root.style.setProperty('--booking-radius', borderRadiusMap[widgetInfo.borderRadius] || '8px');
+    }
+
+    const fontFamilyMap: Record<string, string> = {
+      system: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+      inter: '"Inter", sans-serif',
+      roboto: '"Roboto", sans-serif',
+      'open-sans': '"Open Sans", sans-serif',
+    };
+    if (widgetInfo.fontFamily) {
+      root.style.setProperty('--booking-font', fontFamilyMap[widgetInfo.fontFamily] || fontFamilyMap.system);
+    }
+
+    return () => {
+      root.style.removeProperty('--booking-primary');
+      root.style.removeProperty('--booking-bg');
+      root.style.removeProperty('--booking-text');
+      root.style.removeProperty('--booking-radius');
+      root.style.removeProperty('--booking-font');
+    };
+  }, [widgetInfo]);
 
   // Handle prefilled data from embed redirect (paid appointments)
   useEffect(() => {
@@ -443,6 +498,11 @@ export default function BookingPage() {
       return;
     }
 
+    if (widgetInfo?.requirePhone && !contactInfo.phone) {
+      setBookingError('Phone number is required.');
+      return;
+    }
+
     // Validate required custom fields
     const missingFields = customFormFields.filter(
       (field) => field.required && !formResponses[field.id]
@@ -537,13 +597,32 @@ export default function BookingPage() {
     );
   }
 
+  // Build inline styles from widget settings
+  const bookingPageStyle: React.CSSProperties = {
+    ...(widgetInfo.backgroundColor ? { backgroundColor: widgetInfo.backgroundColor } : {}),
+    ...(widgetInfo.textColor ? { color: widgetInfo.textColor } : {}),
+    ...(widgetInfo.fontFamily && widgetInfo.fontFamily !== 'system' ? {
+      fontFamily: ({
+        inter: '"Inter", sans-serif',
+        roboto: '"Roboto", sans-serif',
+        'open-sans': '"Open Sans", sans-serif',
+      } as Record<string, string>)[widgetInfo.fontFamily] || undefined,
+    } : {}),
+  };
+
+  // Format time according to widget settings
+  const timeFormatStr = widgetInfo.timeFormat === '24h' ? 'HH:mm' : 'h:mm a';
+
   return (
-    <div className="min-h-screen bg-gradient-to-b from-background to-muted/30 py-12 px-4">
+    <div className="min-h-screen bg-gradient-to-b from-background to-muted/30 py-12 px-4" style={bookingPageStyle}>
       <div className="max-w-4xl mx-auto">
         {/* Header */}
         <div className="text-center mb-12">
+          {widgetInfo.logoUrl && (
+            <img src={widgetInfo.logoUrl} alt={widgetInfo.businessName} className="h-16 mx-auto mb-4 object-contain" />
+          )}
           <h1 className="font-display text-5xl font-semibold tracking-tight mb-3">{widgetInfo.businessName}</h1>
-          <p className="text-lg text-foreground-secondary font-light">Schedule your appointment in minutes</p>
+          <p className="text-lg text-foreground-secondary font-light">{widgetInfo.welcomeMessage || 'Schedule your appointment in minutes'}</p>
         </div>
 
         {/* Enhanced Progress Indicator */}
@@ -802,7 +881,7 @@ export default function BookingPage() {
                             disabled
                             className="h-auto py-3 opacity-70"
                           >
-                            {format(parseISO(slot.start), 'h:mm a')}
+                            {format(parseISO(slot.start), timeFormatStr)}
                           </Button>
                         ))}
                       </div>
@@ -868,7 +947,7 @@ export default function BookingPage() {
                             className="group relative h-auto py-4 px-3 rounded-xl border-2 border-border bg-surface text-sm font-semibold transition-all duration-200 hover:border-primary hover:bg-primary hover:text-primary-foreground hover:shadow-lg hover:shadow-primary/20 hover:scale-105"
                             style={{ animationDelay: `${idx * 20}ms` }}
                           >
-                            {format(parseISO(slot.start), 'h:mm a')}
+                            {format(parseISO(slot.start), timeFormatStr)}
                           </button>
                         ))}
                       </div>
@@ -890,7 +969,7 @@ export default function BookingPage() {
                     <CardTitle>Your Information</CardTitle>
                     <CardDescription>
                       {format(parseISO(selectedSlot.start), 'EEEE, MMMM d')} at{' '}
-                      {format(parseISO(selectedSlot.start), 'h:mm a')}
+                      {format(parseISO(selectedSlot.start), timeFormatStr)}
                     </CardDescription>
                   </div>
                   <Button variant="outline" onClick={() => setStep(2)}>
@@ -932,7 +1011,9 @@ export default function BookingPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="phone">Phone (optional)</Label>
+                  <Label htmlFor="phone">
+                    Phone {widgetInfo.requirePhone ? <span className="text-destructive">*</span> : '(optional)'}
+                  </Label>
                   <Input
                     id="phone"
                     type="tel"
@@ -941,20 +1022,23 @@ export default function BookingPage() {
                       setContactInfo({ ...contactInfo, phone: e.target.value })
                     }
                     placeholder="+1 (555) 123-4567"
+                    required={widgetInfo.requirePhone}
                   />
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="notes">Notes (optional)</Label>
-                  <Input
-                    id="notes"
-                    value={contactInfo.notes}
-                    onChange={(e) =>
-                      setContactInfo({ ...contactInfo, notes: e.target.value })
-                    }
-                    placeholder="Any additional information..."
-                  />
-                </div>
+                {widgetInfo.showNotes !== false && (
+                  <div className="space-y-2">
+                    <Label htmlFor="notes">Notes (optional)</Label>
+                    <Input
+                      id="notes"
+                      value={contactInfo.notes}
+                      onChange={(e) =>
+                        setContactInfo({ ...contactInfo, notes: e.target.value })
+                      }
+                      placeholder="Any additional information..."
+                    />
+                  </div>
+                )}
 
                 {/* Custom form fields */}
                 {customFormFields.map((field) => renderCustomField(field))}
@@ -1013,6 +1097,11 @@ export default function BookingPage() {
                     // Validate fields first
                     if (!contactInfo.name || !contactInfo.email) {
                       setBookingError('Please fill in all required fields.');
+                      return;
+                    }
+
+                    if (widgetInfo?.requirePhone && !contactInfo.phone) {
+                      setBookingError('Phone number is required.');
                       return;
                     }
 
@@ -1131,7 +1220,7 @@ export default function BookingPage() {
                     <div className="flex items-center justify-between py-2">
                       <span className="text-sm text-foreground-secondary font-medium">Time</span>
                       <span className="font-semibold text-foreground">
-                        {format(parseISO(confirmationData.startTime), 'h:mm a')} - {format(parseISO(confirmationData.endTime), 'h:mm a')}
+                        {format(parseISO(confirmationData.startTime), timeFormatStr)} - {format(parseISO(confirmationData.endTime), timeFormatStr)}
                       </span>
                     </div>
 
@@ -1204,5 +1293,22 @@ export default function BookingPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function BookingPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="relative w-16 h-16">
+            <div className="absolute inset-0 rounded-full border-4 border-primary/20" />
+            <div className="absolute inset-0 rounded-full border-4 border-primary border-t-transparent animate-spin" />
+          </div>
+        </div>
+      }
+    >
+      <BookingPageContent />
+    </Suspense>
   );
 }

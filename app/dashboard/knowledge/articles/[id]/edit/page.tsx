@@ -315,29 +315,6 @@ export default function EditArticlePage() {
                   </Select>
                 </div>
 
-                {/* Category */}
-                <div className="space-y-2">
-                  <Label>Category</Label>
-                  <Select
-                    value={article.categoryId || 'none'}
-                    onValueChange={(value) =>
-                      setArticle({ ...article, categoryId: value === 'none' ? undefined : value })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="No category" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">No category</SelectItem>
-                      {categories.map((cat) => (
-                        <SelectItem key={cat.id} value={cat.id}>
-                          {cat.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
                 {/* Pin */}
                 <div className="flex items-center space-x-2">
                   <Checkbox

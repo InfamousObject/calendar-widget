@@ -18,21 +18,6 @@ export function event(action: string, params: Record<string, any>): void {
   });
 }
 
-// Grant analytics consent
-export function grantConsent(): void {
-  if (!GA_MEASUREMENT_ID || typeof window === 'undefined' || !window.gtag) return;
-  window.gtag('consent', 'update', {
-    analytics_storage: 'granted',
-  });
-}
-
-// Deny analytics consent
-export function denyConsent(): void {
-  if (!GA_MEASUREMENT_ID || typeof window === 'undefined' || !window.gtag) return;
-  window.gtag('consent', 'update', {
-    analytics_storage: 'denied',
-  });
-}
 
 // Extend Window interface for gtag
 declare global {
