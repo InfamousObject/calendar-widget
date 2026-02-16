@@ -114,26 +114,28 @@ export async function POST(req: Request) {
         // Use deleteMany to handle cascade more reliably
         const deleteResult = await prisma.user.deleteMany({ where: { email } });
         log.info('[Clerk Webhook] Deleted old user', { deletedCount: deleteResult.count });
+        // Sequential writes to avoid implicit transactions (PgBouncer compatible)
         await prisma.user.create({
           data: {
             id,
             email,
             name: userName,
             emailVerified: new Date(),
-            widgetConfig: {
-              create: {
-                primaryColor: '#3b82f6',
-                backgroundColor: '#ffffff',
-                textColor: '#1f2937',
-                borderRadius: 'medium',
-                fontFamily: 'system',
-                position: 'bottom-right',
-                offsetX: 20,
-                offsetY: 20,
-                showOnMobile: true,
-                delaySeconds: 0,
-              },
-            },
+          },
+        });
+        await prisma.widgetConfig.create({
+          data: {
+            userId: id,
+            primaryColor: '#3b82f6',
+            backgroundColor: '#ffffff',
+            textColor: '#1f2937',
+            borderRadius: 'medium',
+            fontFamily: 'system',
+            position: 'bottom-right',
+            offsetX: 20,
+            offsetY: 20,
+            showOnMobile: true,
+            delaySeconds: 0,
           },
         });
 
@@ -142,30 +144,31 @@ export async function POST(req: Request) {
           log.error('[Clerk Webhook] Failed to send welcome email', err)
         );
       } else {
-        // Create new user
-        const user = await prisma.user.create({
+        // Create new user - sequential writes to avoid implicit transactions (PgBouncer compatible)
+        await prisma.user.create({
           data: {
             id,
             email,
             name: userName,
             emailVerified: new Date(),
-            widgetConfig: {
-              create: {
-                primaryColor: '#3b82f6',
-                backgroundColor: '#ffffff',
-                textColor: '#1f2937',
-                borderRadius: 'medium',
-                fontFamily: 'system',
-                position: 'bottom-right',
-                offsetX: 20,
-                offsetY: 20,
-                showOnMobile: true,
-                delaySeconds: 0,
-              },
-            },
           },
         });
-        log.info('[Clerk Webhook] User created', { userId: user.id });
+        await prisma.widgetConfig.create({
+          data: {
+            userId: id,
+            primaryColor: '#3b82f6',
+            backgroundColor: '#ffffff',
+            textColor: '#1f2937',
+            borderRadius: 'medium',
+            fontFamily: 'system',
+            position: 'bottom-right',
+            offsetX: 20,
+            offsetY: 20,
+            showOnMobile: true,
+            delaySeconds: 0,
+          },
+        });
+        log.info('[Clerk Webhook] User created', { userId: id });
         // TODO: Implement server-side conversion API for GA4 Measurement Protocol
         // trackConversion('sign_up', { method: 'clerk' })
 

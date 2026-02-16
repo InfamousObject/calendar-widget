@@ -44,26 +44,28 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No email found' }, { status: 400 });
     }
 
+    // Sequential writes to avoid implicit transactions (PgBouncer compatible)
     const user = await prisma.user.create({
       data: {
         id: clerkUser.id,
         email,
         name,
         emailVerified: new Date(),
-        widgetConfig: {
-          create: {
-            primaryColor: '#3b82f6',
-            backgroundColor: '#ffffff',
-            textColor: '#1f2937',
-            borderRadius: 'medium',
-            fontFamily: 'system',
-            position: 'bottom-right',
-            offsetX: 20,
-            offsetY: 20,
-            showOnMobile: true,
-            delaySeconds: 0,
-          },
-        },
+      },
+    });
+    await prisma.widgetConfig.create({
+      data: {
+        userId: clerkUser.id,
+        primaryColor: '#3b82f6',
+        backgroundColor: '#ffffff',
+        textColor: '#1f2937',
+        borderRadius: 'medium',
+        fontFamily: 'system',
+        position: 'bottom-right',
+        offsetX: 20,
+        offsetY: 20,
+        showOnMobile: true,
+        delaySeconds: 0,
       },
     });
 

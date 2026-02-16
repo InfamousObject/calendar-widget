@@ -51,35 +51,36 @@ export async function POST(req: NextRequest) {
     // Hash password
     const passwordHash = await hashPassword(validatedData.password);
 
-    // Create user with default widget config
+    // Sequential writes to avoid implicit transactions (PgBouncer compatible)
+    const userId = randomUUID();
     const user = await prisma.user.create({
       data: {
-        id: randomUUID(),
+        id: userId,
         email: validatedData.email,
         name: validatedData.name,
         passwordHash,
         businessName: validatedData.businessName,
-        widgetConfig: {
-          create: {
-            // Default widget configuration
-            primaryColor: '#3b82f6',
-            backgroundColor: '#ffffff',
-            textColor: '#1f2937',
-            borderRadius: 'medium',
-            fontFamily: 'system',
-            position: 'bottom-right',
-            offsetX: 20,
-            offsetY: 20,
-            showOnMobile: true,
-            delaySeconds: 0,
-          },
-        },
       },
       select: {
         id: true,
         email: true,
         name: true,
         widgetId: true,
+      },
+    });
+    await prisma.widgetConfig.create({
+      data: {
+        userId,
+        primaryColor: '#3b82f6',
+        backgroundColor: '#ffffff',
+        textColor: '#1f2937',
+        borderRadius: 'medium',
+        fontFamily: 'system',
+        position: 'bottom-right',
+        offsetX: 20,
+        offsetY: 20,
+        showOnMobile: true,
+        delaySeconds: 0,
       },
     });
 
