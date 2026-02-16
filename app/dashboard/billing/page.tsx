@@ -60,6 +60,8 @@ export default function BillingPage() {
       if (response.ok) {
         const data = await response.json();
         setBilling(data);
+      } else {
+        toast.error('Failed to load billing information');
       }
     } catch (error) {
       console.error('Error fetching billing info:', error);

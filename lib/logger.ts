@@ -56,6 +56,14 @@ function redactPII(data: any): any {
     return data.map(item => redactPII(item));
   }
 
+  if (data instanceof Error) {
+    return {
+      message: data.message,
+      name: data.name,
+      ...(isDev ? { stack: data.stack } : {}),
+    };
+  }
+
   if (data && typeof data === 'object') {
     const redacted: any = {};
 
